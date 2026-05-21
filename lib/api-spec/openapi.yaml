@@ -3,20 +3,28 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Finance Tracker API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: transactions
+    description: Income and expense transactions
+  - name: categories
+    description: Transaction categories
+  - name: dashboard
+    description: Dashboard analytics
+  - name: export
+    description: Data export/import
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +32,285 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /transactions:
+    get:
+      operationId: listTransactions
+      tags: [transactions]
+      summary: List all transactions
+      parameters:
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [income, expense]
+        - name: categoryId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: startDate
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: endDate
+          in: query
+          schema:
+            type: ["string", "null"]
+      responses:
+        "200":
+          description: List of transactions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Transaction"
+    post:
+      operationId: createTransaction
+      tags: [transactions]
+      summary: Create a transaction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TransactionInput"
+      responses:
+        "201":
+          description: Created transaction
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Transaction"
+
+  /transactions/{id}:
+    get:
+      operationId: getTransaction
+      tags: [transactions]
+      summary: Get a transaction by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Transaction
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Transaction"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateTransaction
+      tags: [transactions]
+      summary: Update a transaction
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TransactionUpdate"
+      responses:
+        "200":
+          description: Updated transaction
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Transaction"
+    delete:
+      operationId: deleteTransaction
+      tags: [transactions]
+      summary: Delete a transaction
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /categories:
+    get:
+      operationId: listCategories
+      tags: [categories]
+      summary: List all categories
+      responses:
+        "200":
+          description: List of categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Category"
+    post:
+      operationId: createCategory
+      tags: [categories]
+      summary: Create a category
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CategoryInput"
+      responses:
+        "201":
+          description: Created category
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Category"
+
+  /categories/{id}:
+    patch:
+      operationId: updateCategory
+      tags: [categories]
+      summary: Update a category
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CategoryUpdate"
+      responses:
+        "200":
+          description: Updated category
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Category"
+    delete:
+      operationId: deleteCategory
+      tags: [categories]
+      summary: Delete a category
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /dashboard/summary:
+    get:
+      operationId: getDashboardSummary
+      tags: [dashboard]
+      summary: Get overall financial summary
+      parameters:
+        - name: month
+          in: query
+          schema:
+            type: ["string", "null"]
+          description: "YYYY-MM format, defaults to current month"
+      responses:
+        "200":
+          description: Dashboard summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummary"
+
+  /dashboard/spending-by-category:
+    get:
+      operationId: getSpendingByCategory
+      tags: [dashboard]
+      summary: Get spending breakdown by category
+      parameters:
+        - name: month
+          in: query
+          schema:
+            type: ["string", "null"]
+      responses:
+        "200":
+          description: Spending by category
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CategorySpending"
+
+  /dashboard/monthly-trend:
+    get:
+      operationId: getMonthlyTrend
+      tags: [dashboard]
+      summary: Get income vs expense trend over last 6 months
+      responses:
+        "200":
+          description: Monthly trend data
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MonthlyTrend"
+
+  /dashboard/top-expenses:
+    get:
+      operationId: getTopExpenses
+      tags: [dashboard]
+      summary: Get top spending transactions this month
+      parameters:
+        - name: month
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: limit
+          in: query
+          schema:
+            type: ["integer", "null"]
+      responses:
+        "200":
+          description: Top expense transactions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Transaction"
+
+  /export/excel:
+    get:
+      operationId: exportToExcel
+      tags: [export]
+      summary: Export all transactions as Excel file
+      parameters:
+        - name: startDate
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: endDate
+          in: query
+          schema:
+            type: ["string", "null"]
+      responses:
+        "200":
+          description: Excel file
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +321,155 @@ components:
       required:
         - status
 
+    Transaction:
+      type: object
+      required: [id, type, amount, description, date, categoryId, categoryName, categoryColor, createdAt]
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+          enum: [income, expense]
+        amount:
+          type: number
+        description:
+          type: string
+        date:
+          type: string
+        categoryId:
+          type: integer
+        categoryName:
+          type: string
+        categoryColor:
+          type: string
+        notes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+
+    TransactionInput:
+      type: object
+      required: [type, amount, description, date, categoryId]
+      properties:
+        type:
+          type: string
+          enum: [income, expense]
+        amount:
+          type: number
+        description:
+          type: string
+        date:
+          type: string
+        categoryId:
+          type: integer
+        notes:
+          type: ["string", "null"]
+
+    TransactionUpdate:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [income, expense]
+        amount:
+          type: number
+        description:
+          type: string
+        date:
+          type: string
+        categoryId:
+          type: integer
+        notes:
+          type: ["string", "null"]
+
+    Category:
+      type: object
+      required: [id, name, type, color, icon]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        type:
+          type: string
+          enum: [income, expense, both]
+        color:
+          type: string
+        icon:
+          type: string
+
+    CategoryInput:
+      type: object
+      required: [name, type, color, icon]
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+          enum: [income, expense, both]
+        color:
+          type: string
+        icon:
+          type: string
+
+    CategoryUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+          enum: [income, expense, both]
+        color:
+          type: string
+        icon:
+          type: string
+
+    DashboardSummary:
+      type: object
+      required: [totalIncome, totalExpenses, balance, transactionCount, incomeCount, expenseCount]
+      properties:
+        totalIncome:
+          type: number
+        totalExpenses:
+          type: number
+        balance:
+          type: number
+        transactionCount:
+          type: integer
+        incomeCount:
+          type: integer
+        expenseCount:
+          type: integer
+
+    CategorySpending:
+      type: object
+      required: [categoryId, categoryName, categoryColor, categoryIcon, total, percentage, count]
+      properties:
+        categoryId:
+          type: integer
+        categoryName:
+          type: string
+        categoryColor:
+          type: string
+        categoryIcon:
+          type: string
+        total:
+          type: number
+        percentage:
+          type: number
+        count:
+          type: integer
+
+    MonthlyTrend:
+      type: object
+      required: [month, income, expenses, balance]
+      properties:
+        month:
+          type: string
+        income:
+          type: number
+        expenses:
+          type: number
+        balance:
+          type: number
