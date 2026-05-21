@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -21,10 +20,12 @@ import { useToast } from "@/hooks/use-toast";
 import { TrendingUp, TrendingDown, Plus, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCurrency } from "@/lib/currency-context";
+import { useState } from "react";
+import CurrencyInput from "@/components/currency-input";
 
 const schema = z.object({
   type: z.enum(["income", "expense"]),
-  amount: z.coerce.number().positive("Enter a valid amount"),
+  amount: z.number().positive("Enter a valid amount"),
   description: z.string().min(1, "Description required"),
   categoryId: z.coerce.number().min(1, "Pick a category"),
   date: z.string().min(1),
@@ -35,7 +36,7 @@ type FormValues = z.infer<typeof schema>;
 export default function QuickEntry() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { symbol } = useCurrency();
+  const { symbol, rate, formatAmount } = useCurrency();
   const [saved, setSaved] = useState(false);
 
   const { data: categories } = useListCategories({
@@ -59,8 +60,9 @@ export default function QuickEntry() {
   const filteredCategories = categories?.filter((c) => c.type === type || c.type === "both") ?? [];
 
   const onSubmit = (data: FormValues) => {
+    const usdAmount = data.amount / rate;
     createTx.mutate(
-      { data },
+      { data: { ...data, amount: usdAmount } },
       {
         onSuccess: () => {
           setSaved(true);
@@ -77,7 +79,7 @@ export default function QuickEntry() {
           queryClient.invalidateQueries({ queryKey: getGetSpendingByCategoryQueryKey({}) });
           queryClient.invalidateQueries({ queryKey: getGetMonthlyTrendQueryKey() });
           queryClient.invalidateQueries({ queryKey: getGetTopExpensesQueryKey({ limit: 5 }) });
-          toast({ title: `${data.type === "income" ? "Income" : "Expense"} recorded`, description: `${symbol}${data.amount} logged successfully.` });
+          toast({ title: `${data.type === "income" ? "Income" : "Expense"} recorded`, description: `${formatAmount(usdAmount)} logged successfully.` });
         },
         onError: () => {
           toast({ title: "Failed to save", variant: "destructive" });
@@ -92,15 +94,12 @@ export default function QuickEntry() {
     <div
       className={cn(
         "rounded-xl border-2 p-5 transition-colors duration-300",
-        isIncome
-          ? "border-income/30 bg-income/5"
-          : "border-expense/30 bg-expense/5"
+        isIncome ? "border-income/30 bg-income/5" : "border-expense/30 bg-expense/5"
       )}
     >
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="font-serif font-semibold text-lg text-foreground">Quick Entry</h3>
-        {/* Income / Expense toggle */}
-        <div className="flex rounded-lg border border-border overflow-hidden">
+      <div className="flex items-center justify-between mb-4 gap-2">
+        <h3 className="font-serif font-semibold text-lg text-foreground shrink-0">New Entry</h3>
+        <div className="flex rounded-lg border border-border overflow-hidden shrink-0">
           <button
             type="button"
             data-testid="toggle-expense"
@@ -109,13 +108,11 @@ export default function QuickEntry() {
               form.setValue("categoryId", undefined as unknown as number);
             }}
             className={cn(
-              "flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium transition-colors",
-              !isIncome
-                ? "bg-expense text-white"
-                : "bg-transparent text-muted-foreground hover:bg-muted"
+              "flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium transition-colors whitespace-nowrap",
+              !isIncome ? "bg-expense text-white" : "bg-transparent text-muted-foreground hover:bg-muted"
             )}
           >
-            <TrendingDown className="h-3.5 w-3.5" />
+            <TrendingDown className="h-3.5 w-3.5 shrink-0" />
             Expense
           </button>
           <button
@@ -126,13 +123,11 @@ export default function QuickEntry() {
               form.setValue("categoryId", undefined as unknown as number);
             }}
             className={cn(
-              "flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium transition-colors",
-              isIncome
-                ? "bg-income text-white"
-                : "bg-transparent text-muted-foreground hover:bg-muted"
+              "flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium transition-colors whitespace-nowrap",
+              isIncome ? "bg-income text-white" : "bg-transparent text-muted-foreground hover:bg-muted"
             )}
           >
-            <TrendingUp className="h-3.5 w-3.5" />
+            <TrendingUp className="h-3.5 w-3.5 shrink-0" />
             Income
           </button>
         </div>
@@ -146,21 +141,16 @@ export default function QuickEntry() {
               control={form.control}
               name="amount"
               render={({ field }) => (
-                <FormItem className="w-full sm:w-36 shrink-0">
+                <FormItem className="w-full sm:w-40 shrink-0">
                   <FormControl>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">{symbol}</span>
-                      <Input
-                        data-testid="input-quick-amount"
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        placeholder="0.00"
-                        className="pl-7 text-base font-semibold bg-background"
-                        {...field}
-                        value={field.value ?? ""}
-                      />
-                    </div>
+                    <CurrencyInput
+                      testId="input-quick-amount"
+                      value={field.value}
+                      onChange={field.onChange}
+                      onBlur={field.onBlur}
+                      placeholder="0.00"
+                      className="text-base font-semibold bg-background"
+                    />
                   </FormControl>
                   <FormMessage className="text-xs" />
                 </FormItem>
@@ -205,10 +195,7 @@ export default function QuickEntry() {
                       {filteredCategories.map((c) => (
                         <SelectItem key={c.id} value={c.id.toString()}>
                           <div className="flex items-center gap-2">
-                            <span
-                              className="w-2.5 h-2.5 rounded-full shrink-0"
-                              style={{ backgroundColor: c.color }}
-                            />
+                            <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: c.color }} />
                             {c.name}
                           </div>
                         </SelectItem>
@@ -254,15 +241,9 @@ export default function QuickEntry() {
               )}
             >
               {saved ? (
-                <>
-                  <Check className="h-4 w-4" />
-                  Saved
-                </>
+                <><Check className="h-4 w-4" />Saved</>
               ) : (
-                <>
-                  <Plus className="h-4 w-4" />
-                  {createTx.isPending ? "Saving..." : "Add"}
-                </>
+                <><Plus className="h-4 w-4" />{createTx.isPending ? "Saving..." : "Add"}</>
               )}
             </Button>
           </div>

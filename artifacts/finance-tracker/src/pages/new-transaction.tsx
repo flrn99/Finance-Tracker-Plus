@@ -2,7 +2,7 @@ import { useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { 
+import {
   useCreateTransaction,
   useListCategories,
   getListCategoriesQueryKey,
@@ -20,10 +20,11 @@ import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft } from "lucide-react";
 import { Link } from "wouter";
 import { useCurrency } from "@/lib/currency-context";
+import CurrencyInput from "@/components/currency-input";
 
 const formSchema = z.object({
   type: z.enum(["income", "expense"]),
-  amount: z.coerce.number().positive("Amount must be greater than 0"),
+  amount: z.number().positive("Amount must be greater than 0"),
   description: z.string().min(2, "Description is required"),
   date: z.string().min(1, "Date is required"),
   categoryId: z.coerce.number().min(1, "Category is required"),
@@ -36,7 +37,7 @@ export default function NewTransaction() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { symbol } = useCurrency();
+  const { rate } = useCurrency();
 
   const { data: categories, isLoading: isLoadingCategories } = useListCategories({
     query: { queryKey: getListCategoriesQueryKey() }
@@ -60,8 +61,9 @@ export default function NewTransaction() {
   const filteredCategories = categories?.filter(c => c.type === type || c.type === 'both') || [];
 
   const onSubmit = (data: FormValues) => {
+    const usdAmount = data.amount / rate;
     createTx.mutate(
-      { data },
+      { data: { ...data, amount: usdAmount } },
       {
         onSuccess: () => {
           toast({ title: "Transaction added successfully" });
@@ -85,7 +87,7 @@ export default function NewTransaction() {
           </Button>
         </Link>
         <div>
-          <h2 className="text-3xl font-serif font-bold tracking-tight">New Transaction</h2>
+          <h2 className="text-2xl sm:text-3xl font-serif font-bold tracking-tight">New Transaction</h2>
           <p className="text-muted-foreground mt-1">Record a new income or expense.</p>
         </div>
       </div>
@@ -94,7 +96,7 @@ export default function NewTransaction() {
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
             <CardContent className="space-y-6 pt-6">
-              
+
               <FormField
                 control={form.control}
                 name="type"
@@ -107,16 +109,12 @@ export default function NewTransaction() {
                         defaultValue={field.value}
                         className="flex gap-4"
                       >
-                        <FormItem className="flex items-center space-x-2 space-y-0 border rounded-md p-4 flex-1 cursor-pointer [&:has([data-state=checked])]:border-expense [&:has([data-state=checked])]:bg-expense/5">
-                          <FormControl>
-                            <RadioGroupItem value="expense" className="text-expense" />
-                          </FormControl>
+                        <FormItem className="flex items-center space-x-2 space-y-0 border rounded-xl p-4 flex-1 cursor-pointer [&:has([data-state=checked])]:border-expense [&:has([data-state=checked])]:bg-expense/5">
+                          <FormControl><RadioGroupItem value="expense" className="text-expense" /></FormControl>
                           <FormLabel className="font-normal cursor-pointer w-full">Expense</FormLabel>
                         </FormItem>
-                        <FormItem className="flex items-center space-x-2 space-y-0 border rounded-md p-4 flex-1 cursor-pointer [&:has([data-state=checked])]:border-income [&:has([data-state=checked])]:bg-income/5">
-                          <FormControl>
-                            <RadioGroupItem value="income" className="text-income" />
-                          </FormControl>
+                        <FormItem className="flex items-center space-x-2 space-y-0 border rounded-xl p-4 flex-1 cursor-pointer [&:has([data-state=checked])]:border-income [&:has([data-state=checked])]:bg-income/5">
+                          <FormControl><RadioGroupItem value="income" className="text-income" /></FormControl>
                           <FormLabel className="font-normal cursor-pointer w-full">Income</FormLabel>
                         </FormItem>
                       </RadioGroup>
@@ -126,7 +124,7 @@ export default function NewTransaction() {
                 )}
               />
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <FormField
                   control={form.control}
                   name="amount"
@@ -134,10 +132,13 @@ export default function NewTransaction() {
                     <FormItem>
                       <FormLabel>Amount</FormLabel>
                       <FormControl>
-                        <div className="relative">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">{symbol}</span>
-                          <Input type="number" step="0.01" className="pl-7 text-lg" placeholder="0.00" {...field} value={field.value ?? ""} />
-                        </div>
+                        <CurrencyInput
+                          value={field.value}
+                          onChange={field.onChange}
+                          onBlur={field.onBlur}
+                          placeholder="0.00"
+                          className="text-lg"
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -151,7 +152,11 @@ export default function NewTransaction() {
                     <FormItem>
                       <FormLabel>Date</FormLabel>
                       <FormControl>
-                        <Input type="date" {...field} />
+                        <Input
+                          type="date"
+                          className="h-10"
+                          {...field}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -181,9 +186,7 @@ export default function NewTransaction() {
                     <FormLabel>Category</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value?.toString() ?? ""}>
                       <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a category" />
-                        </SelectTrigger>
+                        <SelectTrigger><SelectValue placeholder="Select a category" /></SelectTrigger>
                       </FormControl>
                       <SelectContent>
                         {filteredCategories.map(c => (

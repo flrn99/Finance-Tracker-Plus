@@ -36,26 +36,19 @@ export default function Dashboard() {
         <p className="text-muted-foreground mt-1 text-sm">A summary of your financial health.</p>
       </div>
 
-      {/* Quick Entry */}
+      {/* New Entry */}
       <QuickEntry />
 
       {/* Summary Cards */}
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
-        {/* Balance */}
         <Card className="relative overflow-hidden border-0 shadow-md bg-gradient-to-br from-violet-500 to-purple-700 text-white">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-semibold text-white/80">Total Balance</CardTitle>
-            <div className="p-1.5 rounded-full bg-white/20">
-              <Wallet className="h-4 w-4 text-white" />
-            </div>
+            <div className="p-1.5 rounded-full bg-white/20"><Wallet className="h-4 w-4 text-white" /></div>
           </CardHeader>
           <CardContent>
-            {isLoadingSummary ? (
-              <Skeleton className="h-8 w-[120px] bg-white/20" />
-            ) : (
-              <div className="text-2xl sm:text-3xl font-bold font-sans truncate">
-                {formatAmount(summary?.balance || 0)}
-              </div>
+            {isLoadingSummary ? <Skeleton className="h-8 w-[120px] bg-white/20" /> : (
+              <div className="text-2xl sm:text-3xl font-bold font-sans truncate">{formatAmount(summary?.balance || 0)}</div>
             )}
             <p className="text-xs text-white/60 mt-1">Across all accounts</p>
           </CardContent>
@@ -63,21 +56,14 @@ export default function Dashboard() {
           <div className="absolute -top-4 -left-4 w-16 h-16 rounded-full bg-white/5" />
         </Card>
 
-        {/* Income */}
         <Card className="relative overflow-hidden border-0 shadow-md bg-gradient-to-br from-emerald-400 to-teal-600 text-white">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-semibold text-white/80">Total Income</CardTitle>
-            <div className="p-1.5 rounded-full bg-white/20">
-              <ArrowUpIcon className="h-4 w-4 text-white" />
-            </div>
+            <div className="p-1.5 rounded-full bg-white/20"><ArrowUpIcon className="h-4 w-4 text-white" /></div>
           </CardHeader>
           <CardContent>
-            {isLoadingSummary ? (
-              <Skeleton className="h-8 w-[120px] bg-white/20" />
-            ) : (
-              <div className="text-2xl sm:text-3xl font-bold font-sans truncate">
-                {formatAmount(summary?.totalIncome || 0)}
-              </div>
+            {isLoadingSummary ? <Skeleton className="h-8 w-[120px] bg-white/20" /> : (
+              <div className="text-2xl sm:text-3xl font-bold font-sans truncate">{formatAmount(summary?.totalIncome || 0)}</div>
             )}
             <p className="text-xs text-white/60 mt-1">This month</p>
           </CardContent>
@@ -85,21 +71,14 @@ export default function Dashboard() {
           <div className="absolute -top-4 -left-4 w-16 h-16 rounded-full bg-white/5" />
         </Card>
 
-        {/* Expenses */}
         <Card className="relative overflow-hidden border-0 shadow-md bg-gradient-to-br from-rose-400 to-red-600 text-white">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-semibold text-white/80">Total Expenses</CardTitle>
-            <div className="p-1.5 rounded-full bg-white/20">
-              <ArrowDownIcon className="h-4 w-4 text-white" />
-            </div>
+            <div className="p-1.5 rounded-full bg-white/20"><ArrowDownIcon className="h-4 w-4 text-white" /></div>
           </CardHeader>
           <CardContent>
-            {isLoadingSummary ? (
-              <Skeleton className="h-8 w-[120px] bg-white/20" />
-            ) : (
-              <div className="text-2xl sm:text-3xl font-bold font-sans truncate">
-                {formatAmount(summary?.totalExpenses || 0)}
-              </div>
+            {isLoadingSummary ? <Skeleton className="h-8 w-[120px] bg-white/20" /> : (
+              <div className="text-2xl sm:text-3xl font-bold font-sans truncate">{formatAmount(summary?.totalExpenses || 0)}</div>
             )}
             <p className="text-xs text-white/60 mt-1">This month</p>
           </CardContent>
@@ -108,59 +87,8 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {/* Charts + Top Expenses */}
+      {/* Top Expenses first, then Spending by Category */}
       <div className="grid gap-6 grid-cols-1 lg:grid-cols-5">
-        {/* Spending by Category */}
-        <Card className="lg:col-span-2 border border-card-border shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-base">Spending by Category</CardTitle>
-            <CardDescription className="text-xs">Where your money goes</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {isLoadingSpending ? (
-              <div className="flex justify-center items-center h-[260px]">
-                <Skeleton className="h-[200px] w-[200px] rounded-full" />
-              </div>
-            ) : spending && spending.length > 0 ? (
-              <div className="h-[260px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={spending}
-                      cx="50%"
-                      cy="45%"
-                      innerRadius={55}
-                      outerRadius={85}
-                      paddingAngle={2}
-                      dataKey="total"
-                    >
-                      {spending.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.categoryColor} />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      contentStyle={{ backgroundColor: "hsl(var(--card))", borderColor: "hsl(var(--border))", borderRadius: "8px", fontSize: "12px" }}
-                      formatter={(value: number) => formatAmount(value)}
-                    />
-                    <Legend
-                      layout="horizontal"
-                      verticalAlign="bottom"
-                      align="center"
-                      iconType="circle"
-                      iconSize={8}
-                      wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center h-[260px] text-muted-foreground text-sm">
-                <p>No spending data yet.</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
         {/* Top Expenses */}
         <Card className="lg:col-span-3 border border-card-border shadow-sm">
           <CardHeader>
@@ -174,10 +102,7 @@ export default function Dashboard() {
                   <div key={i} className="flex justify-between items-center">
                     <div className="flex items-center gap-3">
                       <Skeleton className="h-10 w-10 rounded-full shrink-0" />
-                      <div>
-                        <Skeleton className="h-4 w-32 mb-1.5" />
-                        <Skeleton className="h-3 w-20" />
-                      </div>
+                      <div><Skeleton className="h-4 w-32 mb-1.5" /><Skeleton className="h-3 w-20" /></div>
                     </div>
                     <Skeleton className="h-5 w-16" />
                   </div>
@@ -212,6 +137,42 @@ export default function Dashboard() {
             ) : (
               <div className="flex flex-col items-center justify-center py-8 text-muted-foreground text-sm">
                 <p>No expenses found for this month.</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Spending by Category */}
+        <Card className="lg:col-span-2 border border-card-border shadow-sm">
+          <CardHeader>
+            <CardTitle className="text-base">Spending by Category</CardTitle>
+            <CardDescription className="text-xs">Where your money goes</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {isLoadingSpending ? (
+              <div className="flex justify-center items-center h-[260px]">
+                <Skeleton className="h-[200px] w-[200px] rounded-full" />
+              </div>
+            ) : spending && spending.length > 0 ? (
+              <div className="h-[260px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={spending} cx="50%" cy="45%" innerRadius={55} outerRadius={85} paddingAngle={2} dataKey="total">
+                      {spending.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.categoryColor} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{ backgroundColor: "hsl(var(--card))", borderColor: "hsl(var(--border))", borderRadius: "8px", fontSize: "12px" }}
+                      formatter={(value: number) => formatAmount(value)}
+                    />
+                    <Legend layout="horizontal" verticalAlign="bottom" align="center" iconType="circle" iconSize={8} wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-[260px] text-muted-foreground text-sm">
+                <p>No spending data yet.</p>
               </div>
             )}
           </CardContent>
