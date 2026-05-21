@@ -1,9 +1,13 @@
-import { useGetDashboardSummary, getGetDashboardSummaryQueryKey, useGetSpendingByCategory, getGetSpendingByCategoryQueryKey, useGetMonthlyTrend, getGetMonthlyTrendQueryKey, useGetTopExpenses, getGetTopExpensesQueryKey } from "@workspace/api-client-react";
+import {
+  useGetDashboardSummary, getGetDashboardSummaryQueryKey,
+  useGetSpendingByCategory, getGetSpendingByCategoryQueryKey,
+  useGetTopExpenses, getGetTopExpensesQueryKey,
+} from "@workspace/api-client-react";
 import { formatDate } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from "recharts";
-import { ArrowDownIcon, ArrowUpIcon, Wallet, Activity } from "lucide-react";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
+import { ArrowDownIcon, ArrowUpIcon, Wallet } from "lucide-react";
 import QuickEntry from "@/components/quick-entry";
 import { useCurrency } from "@/lib/currency-context";
 
@@ -20,145 +24,113 @@ export default function Dashboard() {
     { query: { queryKey: getGetSpendingByCategoryQueryKey({}) } }
   );
 
-  const { data: trend, isLoading: isLoadingTrend } = useGetMonthlyTrend(
-    { query: { queryKey: getGetMonthlyTrendQueryKey() } }
-  );
-
   const { data: topExpenses, isLoading: isLoadingTopExpenses } = useGetTopExpenses(
     { limit: 5 },
     { query: { queryKey: getGetTopExpensesQueryKey({ limit: 5 }) } }
   );
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div>
-        <h2 className="text-3xl font-serif font-bold tracking-tight text-foreground">Dashboard</h2>
-        <p className="text-muted-foreground mt-1">A summary of your financial health.</p>
+        <h2 className="text-2xl sm:text-3xl font-serif font-bold tracking-tight text-foreground">Dashboard</h2>
+        <p className="text-muted-foreground mt-1 text-sm">A summary of your financial health.</p>
       </div>
 
       {/* Quick Entry */}
       <QuickEntry />
 
       {/* Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card className="hover-elevate transition-shadow">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
+        {/* Balance */}
+        <Card className="relative overflow-hidden border-0 shadow-md bg-gradient-to-br from-violet-500 to-purple-700 text-white">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Balance</CardTitle>
-            <Wallet className="h-4 w-4 text-primary" />
+            <CardTitle className="text-sm font-semibold text-white/80">Total Balance</CardTitle>
+            <div className="p-1.5 rounded-full bg-white/20">
+              <Wallet className="h-4 w-4 text-white" />
+            </div>
           </CardHeader>
           <CardContent>
             {isLoadingSummary ? (
-              <Skeleton className="h-8 w-[120px]" />
+              <Skeleton className="h-8 w-[120px] bg-white/20" />
             ) : (
-              <div className="text-3xl font-bold font-sans">
+              <div className="text-2xl sm:text-3xl font-bold font-sans truncate">
                 {formatAmount(summary?.balance || 0)}
               </div>
             )}
-            <p className="text-xs text-muted-foreground mt-1">Across all accounts</p>
+            <p className="text-xs text-white/60 mt-1">Across all accounts</p>
           </CardContent>
+          <div className="absolute -bottom-4 -right-4 w-24 h-24 rounded-full bg-white/5" />
+          <div className="absolute -top-4 -left-4 w-16 h-16 rounded-full bg-white/5" />
         </Card>
 
-        <Card className="hover-elevate transition-shadow">
+        {/* Income */}
+        <Card className="relative overflow-hidden border-0 shadow-md bg-gradient-to-br from-emerald-400 to-teal-600 text-white">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Income</CardTitle>
-            <div className="p-1 rounded-full bg-income/10">
-              <ArrowUpIcon className="h-4 w-4 text-income" />
+            <CardTitle className="text-sm font-semibold text-white/80">Total Income</CardTitle>
+            <div className="p-1.5 rounded-full bg-white/20">
+              <ArrowUpIcon className="h-4 w-4 text-white" />
             </div>
           </CardHeader>
           <CardContent>
             {isLoadingSummary ? (
-              <Skeleton className="h-8 w-[120px]" />
+              <Skeleton className="h-8 w-[120px] bg-white/20" />
             ) : (
-              <div className="text-3xl font-bold font-sans text-income">
+              <div className="text-2xl sm:text-3xl font-bold font-sans truncate">
                 {formatAmount(summary?.totalIncome || 0)}
               </div>
             )}
-            <p className="text-xs text-muted-foreground mt-1">This month</p>
+            <p className="text-xs text-white/60 mt-1">This month</p>
           </CardContent>
+          <div className="absolute -bottom-4 -right-4 w-24 h-24 rounded-full bg-white/5" />
+          <div className="absolute -top-4 -left-4 w-16 h-16 rounded-full bg-white/5" />
         </Card>
 
-        <Card className="hover-elevate transition-shadow">
+        {/* Expenses */}
+        <Card className="relative overflow-hidden border-0 shadow-md bg-gradient-to-br from-rose-400 to-red-600 text-white">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Expenses</CardTitle>
-            <div className="p-1 rounded-full bg-expense/10">
-              <ArrowDownIcon className="h-4 w-4 text-expense" />
+            <CardTitle className="text-sm font-semibold text-white/80">Total Expenses</CardTitle>
+            <div className="p-1.5 rounded-full bg-white/20">
+              <ArrowDownIcon className="h-4 w-4 text-white" />
             </div>
           </CardHeader>
           <CardContent>
             {isLoadingSummary ? (
-              <Skeleton className="h-8 w-[120px]" />
+              <Skeleton className="h-8 w-[120px] bg-white/20" />
             ) : (
-              <div className="text-3xl font-bold font-sans text-expense">
+              <div className="text-2xl sm:text-3xl font-bold font-sans truncate">
                 {formatAmount(summary?.totalExpenses || 0)}
               </div>
             )}
-            <p className="text-xs text-muted-foreground mt-1">This month</p>
+            <p className="text-xs text-white/60 mt-1">This month</p>
           </CardContent>
+          <div className="absolute -bottom-4 -right-4 w-24 h-24 rounded-full bg-white/5" />
+          <div className="absolute -top-4 -left-4 w-16 h-16 rounded-full bg-white/5" />
         </Card>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-7">
-        {/* Monthly Trend Chart */}
-        <Card className="md:col-span-1 lg:col-span-4">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Activity className="h-5 w-5 text-muted-foreground" />
-              Income vs Expenses
-            </CardTitle>
-            <CardDescription>Your cash flow over the last 6 months</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {isLoadingTrend ? (
-              <div className="flex justify-center items-center h-[300px]">
-                <Skeleton className="h-[250px] w-full" />
-              </div>
-            ) : trend && trend.length > 0 ? (
-              <div className="h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={trend} margin={{ top: 20, right: 0, left: -20, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                    <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: "hsl(var(--muted-foreground))" }} />
-                    <YAxis axisLine={false} tickLine={false} tickFormatter={(val) => formatAmount(val)} tick={{ fill: "hsl(var(--muted-foreground))" }} />
-                    <Tooltip
-                      cursor={{ fill: "hsl(var(--muted))" }}
-                      contentStyle={{ backgroundColor: "hsl(var(--card))", borderColor: "hsl(var(--border))", borderRadius: "8px" }}
-                      formatter={(value: number) => formatAmount(value)}
-                    />
-                    <Legend iconType="circle" wrapperStyle={{ paddingTop: "20px" }} />
-                    <Bar dataKey="income" name="Income" fill="hsl(var(--income))" radius={[4, 4, 0, 0]} maxBarSize={40} />
-                    <Bar dataKey="expenses" name="Expenses" fill="hsl(var(--expense))" radius={[4, 4, 0, 0]} maxBarSize={40} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center h-[300px] text-muted-foreground">
-                <p>No trend data available yet.</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
+      {/* Charts + Top Expenses */}
+      <div className="grid gap-6 grid-cols-1 lg:grid-cols-5">
         {/* Spending by Category */}
-        <Card className="md:col-span-1 lg:col-span-3">
+        <Card className="lg:col-span-2 border border-card-border shadow-sm">
           <CardHeader>
-            <CardTitle>Spending by Category</CardTitle>
-            <CardDescription>Where your money goes</CardDescription>
+            <CardTitle className="text-base">Spending by Category</CardTitle>
+            <CardDescription className="text-xs">Where your money goes</CardDescription>
           </CardHeader>
           <CardContent>
             {isLoadingSpending ? (
-              <div className="flex justify-center items-center h-[300px]">
+              <div className="flex justify-center items-center h-[260px]">
                 <Skeleton className="h-[200px] w-[200px] rounded-full" />
               </div>
             ) : spending && spending.length > 0 ? (
-              <div className="h-[300px]">
+              <div className="h-[260px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
                       data={spending}
                       cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={90}
+                      cy="45%"
+                      innerRadius={55}
+                      outerRadius={85}
                       paddingAngle={2}
                       dataKey="total"
                     >
@@ -167,82 +139,84 @@ export default function Dashboard() {
                       ))}
                     </Pie>
                     <Tooltip
-                      contentStyle={{ backgroundColor: "hsl(var(--card))", borderColor: "hsl(var(--border))", borderRadius: "8px" }}
+                      contentStyle={{ backgroundColor: "hsl(var(--card))", borderColor: "hsl(var(--border))", borderRadius: "8px", fontSize: "12px" }}
                       formatter={(value: number) => formatAmount(value)}
                     />
                     <Legend
-                      layout="vertical"
-                      verticalAlign="middle"
-                      align="right"
+                      layout="horizontal"
+                      verticalAlign="bottom"
+                      align="center"
                       iconType="circle"
+                      iconSize={8}
+                      wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }}
                     />
                   </PieChart>
                 </ResponsiveContainer>
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center h-[300px] text-muted-foreground">
-                <p>No spending data available yet.</p>
+              <div className="flex flex-col items-center justify-center h-[260px] text-muted-foreground text-sm">
+                <p>No spending data yet.</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Top Expenses */}
+        <Card className="lg:col-span-3 border border-card-border shadow-sm">
+          <CardHeader>
+            <CardTitle className="text-base">Top Expenses</CardTitle>
+            <CardDescription className="text-xs">Your largest transactions this month</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {isLoadingTopExpenses ? (
+              <div className="space-y-4">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="flex justify-between items-center">
+                    <div className="flex items-center gap-3">
+                      <Skeleton className="h-10 w-10 rounded-full shrink-0" />
+                      <div>
+                        <Skeleton className="h-4 w-32 mb-1.5" />
+                        <Skeleton className="h-3 w-20" />
+                      </div>
+                    </div>
+                    <Skeleton className="h-5 w-16" />
+                  </div>
+                ))}
+              </div>
+            ) : topExpenses && topExpenses.length > 0 ? (
+              <div className="space-y-4">
+                {topExpenses.map((expense, idx) => (
+                  <div key={expense.id} className="flex items-center justify-between gap-3 group">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div
+                        className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-sm shrink-0"
+                        style={{ backgroundColor: expense.categoryColor }}
+                      >
+                        {idx + 1}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold leading-none mb-1 truncate group-hover:text-primary transition-colors">
+                          {expense.description}
+                        </p>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {expense.categoryName} · {formatDate(expense.date)}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-sm font-bold text-expense shrink-0">
+                      -{formatAmount(expense.amount)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-8 text-muted-foreground text-sm">
+                <p>No expenses found for this month.</p>
               </div>
             )}
           </CardContent>
         </Card>
       </div>
-
-      {/* Top Expenses */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Top Expenses</CardTitle>
-          <CardDescription>Your largest transactions this month</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {isLoadingTopExpenses ? (
-            <div className="space-y-4">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="flex justify-between items-center">
-                  <div className="flex items-center gap-4">
-                    <Skeleton className="h-10 w-10 rounded-full" />
-                    <div>
-                      <Skeleton className="h-4 w-32 mb-2" />
-                      <Skeleton className="h-3 w-24" />
-                    </div>
-                  </div>
-                  <Skeleton className="h-5 w-20" />
-                </div>
-              ))}
-            </div>
-          ) : topExpenses && topExpenses.length > 0 ? (
-            <div className="space-y-5">
-              {topExpenses.map((expense) => (
-                <div key={expense.id} className="flex items-center justify-between group">
-                  <div className="flex items-center gap-4">
-                    <div
-                      className="w-10 h-10 rounded-full flex items-center justify-center text-white text-xs shadow-sm"
-                      style={{ backgroundColor: expense.categoryColor }}
-                    >
-                      {expense.categoryName.charAt(0)}
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium leading-none mb-1 group-hover:text-primary transition-colors">
-                        {expense.description}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {expense.categoryName} • {formatDate(expense.date)}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-sm font-medium text-expense">
-                    -{formatAmount(expense.amount)}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-              <p>No expenses found for this month.</p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
     </div>
   );
 }
