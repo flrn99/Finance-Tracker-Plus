@@ -20,6 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { TrendingUp, TrendingDown, Plus, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useCurrency } from "@/lib/currency-context";
 
 const schema = z.object({
   type: z.enum(["income", "expense"]),
@@ -34,6 +35,7 @@ type FormValues = z.infer<typeof schema>;
 export default function QuickEntry() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { symbol } = useCurrency();
   const [saved, setSaved] = useState(false);
 
   const { data: categories } = useListCategories({
@@ -75,7 +77,7 @@ export default function QuickEntry() {
           queryClient.invalidateQueries({ queryKey: getGetSpendingByCategoryQueryKey({}) });
           queryClient.invalidateQueries({ queryKey: getGetMonthlyTrendQueryKey() });
           queryClient.invalidateQueries({ queryKey: getGetTopExpensesQueryKey({ limit: 5 }) });
-          toast({ title: `${data.type === "income" ? "Income" : "Expense"} recorded`, description: `$${data.amount} logged successfully.` });
+          toast({ title: `${data.type === "income" ? "Income" : "Expense"} recorded`, description: `${symbol}${data.amount} logged successfully.` });
         },
         onError: () => {
           toast({ title: "Failed to save", variant: "destructive" });
@@ -147,7 +149,7 @@ export default function QuickEntry() {
                 <FormItem className="w-full sm:w-36 shrink-0">
                   <FormControl>
                     <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">$</span>
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">{symbol}</span>
                       <Input
                         data-testid="input-quick-amount"
                         type="number"

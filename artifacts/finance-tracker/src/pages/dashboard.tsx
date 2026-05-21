@@ -1,12 +1,15 @@
 import { useGetDashboardSummary, getGetDashboardSummaryQueryKey, useGetSpendingByCategory, getGetSpendingByCategoryQueryKey, useGetMonthlyTrend, getGetMonthlyTrendQueryKey, useGetTopExpenses, getGetTopExpensesQueryKey } from "@workspace/api-client-react";
-import { formatCurrency, formatDate } from "@/lib/format";
+import { formatDate } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from "recharts";
 import { ArrowDownIcon, ArrowUpIcon, Wallet, Activity } from "lucide-react";
 import QuickEntry from "@/components/quick-entry";
+import { useCurrency } from "@/lib/currency-context";
 
 export default function Dashboard() {
+  const { formatAmount } = useCurrency();
+
   const { data: summary, isLoading: isLoadingSummary } = useGetDashboardSummary(
     {},
     { query: { queryKey: getGetDashboardSummaryQueryKey({}) } }
@@ -48,7 +51,7 @@ export default function Dashboard() {
               <Skeleton className="h-8 w-[120px]" />
             ) : (
               <div className="text-3xl font-bold font-sans">
-                {formatCurrency(summary?.balance || 0)}
+                {formatAmount(summary?.balance || 0)}
               </div>
             )}
             <p className="text-xs text-muted-foreground mt-1">Across all accounts</p>
@@ -67,7 +70,7 @@ export default function Dashboard() {
               <Skeleton className="h-8 w-[120px]" />
             ) : (
               <div className="text-3xl font-bold font-sans text-income">
-                {formatCurrency(summary?.totalIncome || 0)}
+                {formatAmount(summary?.totalIncome || 0)}
               </div>
             )}
             <p className="text-xs text-muted-foreground mt-1">This month</p>
@@ -86,7 +89,7 @@ export default function Dashboard() {
               <Skeleton className="h-8 w-[120px]" />
             ) : (
               <div className="text-3xl font-bold font-sans text-expense">
-                {formatCurrency(summary?.totalExpenses || 0)}
+                {formatAmount(summary?.totalExpenses || 0)}
               </div>
             )}
             <p className="text-xs text-muted-foreground mt-1">This month</p>
@@ -115,11 +118,11 @@ export default function Dashboard() {
                   <BarChart data={trend} margin={{ top: 20, right: 0, left: -20, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
                     <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: "hsl(var(--muted-foreground))" }} />
-                    <YAxis axisLine={false} tickLine={false} tickFormatter={(val) => `$${val}`} tick={{ fill: "hsl(var(--muted-foreground))" }} />
+                    <YAxis axisLine={false} tickLine={false} tickFormatter={(val) => formatAmount(val)} tick={{ fill: "hsl(var(--muted-foreground))" }} />
                     <Tooltip
                       cursor={{ fill: "hsl(var(--muted))" }}
                       contentStyle={{ backgroundColor: "hsl(var(--card))", borderColor: "hsl(var(--border))", borderRadius: "8px" }}
-                      formatter={(value: number) => formatCurrency(value)}
+                      formatter={(value: number) => formatAmount(value)}
                     />
                     <Legend iconType="circle" wrapperStyle={{ paddingTop: "20px" }} />
                     <Bar dataKey="income" name="Income" fill="hsl(var(--income))" radius={[4, 4, 0, 0]} maxBarSize={40} />
@@ -165,7 +168,7 @@ export default function Dashboard() {
                     </Pie>
                     <Tooltip
                       contentStyle={{ backgroundColor: "hsl(var(--card))", borderColor: "hsl(var(--border))", borderRadius: "8px" }}
-                      formatter={(value: number) => formatCurrency(value)}
+                      formatter={(value: number) => formatAmount(value)}
                     />
                     <Legend
                       layout="vertical"
@@ -228,7 +231,7 @@ export default function Dashboard() {
                     </div>
                   </div>
                   <div className="text-sm font-medium text-expense">
-                    -{formatCurrency(expense.amount)}
+                    -{formatAmount(expense.amount)}
                   </div>
                 </div>
               ))}
