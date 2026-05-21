@@ -56,7 +56,7 @@ export default function Layout({ children }: LayoutProps) {
       {/* Sidebar — desktop only */}
       <aside className="w-64 border-r border-sidebar-border bg-sidebar shrink-0 hidden md:flex flex-col">
         <div className="p-6 border-b border-sidebar-border">
-          <h1 className="text-xl font-serif font-bold text-sidebar-foreground">FinanceFlow</h1>
+          <h1 className="text-xl font-serif text-sidebar-foreground font-bold">FLRN TRACKER</h1>
         </div>
         <nav className="flex-1 py-6 px-3 space-y-1">
           {navItems.map((item) => {
@@ -97,7 +97,6 @@ export default function Layout({ children }: LayoutProps) {
           </Link>
         </div>
       </aside>
-
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Mobile top bar */}
@@ -112,7 +111,6 @@ export default function Layout({ children }: LayoutProps) {
           </div>
         </div>
       </main>
-
       {/* Mobile bottom navigation */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-20 bg-sidebar border-t border-sidebar-border flex">
         {navItems.map((item) => {
