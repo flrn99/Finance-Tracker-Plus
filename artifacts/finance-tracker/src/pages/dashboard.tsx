@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Skeleton } from "@/components/ui/skeleton";
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from "recharts";
 import { ArrowDownIcon, ArrowUpIcon, Wallet, Activity } from "lucide-react";
+import QuickEntry from "@/components/quick-entry";
 
 export default function Dashboard() {
   const { data: summary, isLoading: isLoadingSummary } = useGetDashboardSummary(
@@ -31,6 +32,9 @@ export default function Dashboard() {
         <h2 className="text-3xl font-serif font-bold tracking-tight text-foreground">Dashboard</h2>
         <p className="text-muted-foreground mt-1">A summary of your financial health.</p>
       </div>
+
+      {/* Quick Entry */}
+      <QuickEntry />
 
       {/* Summary Cards */}
       <div className="grid gap-4 md:grid-cols-3">
