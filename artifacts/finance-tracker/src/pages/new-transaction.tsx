@@ -21,6 +21,7 @@ import { ArrowLeft } from "lucide-react";
 import { Link } from "wouter";
 import { useCurrency } from "@/lib/currency-context";
 import CurrencyInput from "@/components/currency-input";
+import MonthSelect from "@/components/month-select";
 
 const formSchema = z.object({
   type: z.enum(["income", "expense"]),
@@ -153,10 +154,10 @@ export default function NewTransaction() {
                     <FormItem>
                       <FormLabel>Date</FormLabel>
                       <FormControl>
-                        <Input
-                          type="month"
-                          className="h-10"
-                          {...field}
+                        <MonthSelect
+                          value={field.value}
+                          onChange={field.onChange}
+                          onBlur={field.onBlur}
                         />
                       </FormControl>
                       <FormMessage />

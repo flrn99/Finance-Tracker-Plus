@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils";
 import { useCurrency } from "@/lib/currency-context";
 import { useState } from "react";
 import CurrencyInput from "@/components/currency-input";
+import MonthSelect from "@/components/month-select";
 
 const schema = z.object({
   type: z.enum(["income", "expense"]),
@@ -213,13 +214,12 @@ export default function QuickEntry() {
               control={form.control}
               name="date"
               render={({ field }) => (
-                <FormItem className="w-full sm:w-40 shrink-0">
+                <FormItem className="w-full sm:w-56 shrink-0">
                   <FormControl>
-                    <Input
-                      data-testid="input-quick-date"
-                      type="month"
-                      className="bg-background"
-                      {...field}
+                    <MonthSelect
+                      value={field.value}
+                      onChange={field.onChange}
+                      onBlur={field.onBlur}
                     />
                   </FormControl>
                   <FormMessage className="text-xs" />

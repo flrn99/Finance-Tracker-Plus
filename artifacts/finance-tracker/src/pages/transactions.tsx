@@ -141,8 +141,8 @@ export default function Transactions() {
 
       {/* Filters */}
       <div className="bg-card rounded-2xl border border-card-border shadow-sm p-4 space-y-4">
-        {/* Row 1: Type + Month + reset */}
         <div className="flex flex-wrap gap-3 items-start">
+          {/* Type */}
           <div className="space-y-1 w-36 shrink-0">
             <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Type</label>
             <Select value={filterType} onValueChange={handleTypeChange}>
@@ -157,27 +157,11 @@ export default function Transactions() {
             </Select>
           </div>
 
-          <div className="w-48 shrink-0">
-            <MonthPicker value={filterMonth} onChange={setFilterMonth} />
-          </div>
-
-          {hasFilters && (
-            <div className="flex items-end self-end pb-0.5">
-              <Button variant="outline" size="icon" onClick={resetFilters} title="Reset filters" data-testid="button-reset-filters" className="h-8 w-8">
-                <FilterX className="h-3.5 w-3.5" />
-              </Button>
-            </div>
-          )}
-        </div>
-
-        {/* Row 2: Category — only appears when a type is selected */}
-        {filterType !== "all" && (
-          <div className="space-y-1 animate-in fade-in slide-in-from-top-1 duration-200">
-            <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-              Category
-            </label>
+          {/* Category — always visible */}
+          <div className="space-y-1 flex-1 min-w-[140px]">
+            <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Category</label>
             <Select value={filterCategory} onValueChange={setFilterCategory}>
-              <SelectTrigger data-testid="select-filter-category" className="text-xs">
+              <SelectTrigger data-testid="select-filter-category" className="h-8 text-xs">
                 <SelectValue placeholder="All Categories" />
               </SelectTrigger>
               <SelectContent>
@@ -193,25 +177,46 @@ export default function Transactions() {
               </SelectContent>
             </Select>
           </div>
-        )}
 
-        {/* Monthly summary strip */}
-        {filterMonth && monthlyTotal && (
-          <div className="grid grid-cols-3 gap-2">
-            <div className="bg-income/10 rounded-xl p-3 text-center">
-              <p className="text-[10px] font-semibold text-income/70 uppercase tracking-wide mb-0.5">Income</p>
-              <p className="text-sm font-bold text-income truncate">{formatAmount(monthlyTotal.income)}</p>
+          {/* Month */}
+          <div className="w-48 shrink-0">
+            <MonthPicker value={filterMonth} onChange={setFilterMonth} />
+          </div>
+
+          {hasFilters && (
+            <div className="flex items-end self-end pb-0.5">
+              <Button variant="outline" size="icon" onClick={resetFilters} title="Reset filters" data-testid="button-reset-filters" className="h-8 w-8">
+                <FilterX className="h-3.5 w-3.5" />
+              </Button>
             </div>
-            <div className="bg-expense/10 rounded-xl p-3 text-center">
-              <p className="text-[10px] font-semibold text-expense/70 uppercase tracking-wide mb-0.5">Expenses</p>
-              <p className="text-sm font-bold text-expense truncate">{formatAmount(monthlyTotal.expense)}</p>
-            </div>
-            <div className={cn("rounded-xl p-3 text-center", monthlyTotal.income - monthlyTotal.expense >= 0 ? "bg-income/10" : "bg-expense/10")}>
-              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-0.5">Balance</p>
-              <p className={cn("text-sm font-bold truncate", monthlyTotal.income - monthlyTotal.expense >= 0 ? "text-income" : "text-expense")}>
-                {formatAmount(monthlyTotal.income - monthlyTotal.expense)}
-              </p>
-            </div>
+          )}
+        </div>
+
+        {/* Summary strip — shows when month OR type is filtered */}
+        {(filterMonth || filterType !== "all") && monthlyTotal && (
+          <div className="grid gap-2"
+            style={{ gridTemplateColumns: filterType === "income" ? "1fr" : filterType === "expense" ? "1fr" : "1fr 1fr 1fr" }}
+          >
+            {(filterType === "all" || filterType === "income") && (
+              <div className="bg-income/10 rounded-xl p-3 text-center">
+                <p className="text-[10px] font-semibold text-income/70 uppercase tracking-wide mb-0.5">Income</p>
+                <p className="text-sm font-bold text-income truncate">{formatAmount(monthlyTotal.income)}</p>
+              </div>
+            )}
+            {(filterType === "all" || filterType === "expense") && (
+              <div className="bg-expense/10 rounded-xl p-3 text-center">
+                <p className="text-[10px] font-semibold text-expense/70 uppercase tracking-wide mb-0.5">Expenses</p>
+                <p className="text-sm font-bold text-expense truncate">{formatAmount(monthlyTotal.expense)}</p>
+              </div>
+            )}
+            {filterType === "all" && (
+              <div className={cn("rounded-xl p-3 text-center", monthlyTotal.income - monthlyTotal.expense >= 0 ? "bg-income/10" : "bg-expense/10")}>
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-0.5">Balance</p>
+                <p className={cn("text-sm font-bold truncate", monthlyTotal.income - monthlyTotal.expense >= 0 ? "text-income" : "text-expense")}>
+                  {formatAmount(monthlyTotal.income - monthlyTotal.expense)}
+                </p>
+              </div>
+            )}
           </div>
         )}
       </div>
