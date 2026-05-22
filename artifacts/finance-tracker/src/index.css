@@ -80,22 +80,22 @@
   --elevate-1: rgba(0,0,0, .03);
   --elevate-2: rgba(0,0,0, .08);
 
-  --background: 250 30% 97%;
+  --background: 40 25% 95%;
   --foreground: 250 25% 18%;
   
-  --border: 250 15% 87%;
-  --input: 250 15% 87%;
-  --ring: 262 80% 58%;
+  --border: 40 15% 86%;
+  --input: 40 15% 86%;
+  --ring: 152 55% 42%;
 
-  --card: 0 0% 100%;
+  --card: 40 30% 99%;
   --card-foreground: 250 25% 18%;
-  --card-border: 250 15% 90%;
+  --card-border: 40 20% 89%;
 
-  --popover: 0 0% 100%;
+  --popover: 40 30% 99%;
   --popover-foreground: 250 25% 18%;
-  --popover-border: 250 15% 90%;
+  --popover-border: 40 20% 89%;
 
-  --primary: 262 80% 58%;
+  --primary: 152 55% 42%;
   --primary-foreground: 0 0% 100%;
 
   --secondary: 250 20% 92%;
