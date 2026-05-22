@@ -99,8 +99,8 @@ export default function Transactions() {
 
   const filteredTransactions = filterMonth
     ? transactions?.filter((tx) => {
-        const d = new Date(tx.date);
-        return d.getFullYear() === filterMonth.year && d.getMonth() + 1 === filterMonth.month;
+        const [txYear, txMonth] = tx.date.split("-").map(Number);
+        return txYear === filterMonth.year && txMonth === filterMonth.month;
       })
     : transactions;
 
