@@ -51,7 +51,7 @@ export default function NewTransaction() {
       type: "expense",
       amount: undefined,
       description: "",
-      date: new Date().toISOString().split('T')[0],
+      date: new Date().toISOString().slice(0, 7),
       categoryId: undefined,
       notes: "",
     },
@@ -62,8 +62,9 @@ export default function NewTransaction() {
 
   const onSubmit = (data: FormValues) => {
     const usdAmount = data.amount / rate;
+    const fullDate = data.date.length === 7 ? `${data.date}-01` : data.date;
     createTx.mutate(
-      { data: { ...data, amount: usdAmount } },
+      { data: { ...data, amount: usdAmount, date: fullDate } },
       {
         onSuccess: () => {
           toast({ title: "Transaction added successfully" });
@@ -153,7 +154,7 @@ export default function NewTransaction() {
                       <FormLabel>Date</FormLabel>
                       <FormControl>
                         <Input
-                          type="date"
+                          type="month"
                           className="h-10"
                           {...field}
                         />

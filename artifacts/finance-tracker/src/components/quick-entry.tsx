@@ -52,7 +52,7 @@ export default function QuickEntry() {
       amount: undefined,
       description: "",
       categoryId: undefined,
-      date: new Date().toISOString().split("T")[0],
+      date: new Date().toISOString().slice(0, 7),
     },
   });
 
@@ -61,8 +61,9 @@ export default function QuickEntry() {
 
   const onSubmit = (data: FormValues) => {
     const usdAmount = data.amount / rate;
+    const fullDate = data.date.length === 7 ? `${data.date}-01` : data.date;
     createTx.mutate(
-      { data: { ...data, amount: usdAmount } },
+      { data: { ...data, amount: usdAmount, date: fullDate } },
       {
         onSuccess: () => {
           setSaved(true);
@@ -72,7 +73,7 @@ export default function QuickEntry() {
             amount: undefined,
             description: "",
             categoryId: undefined,
-            date: new Date().toISOString().split("T")[0],
+            date: new Date().toISOString().slice(0, 7),
           });
           queryClient.invalidateQueries({ queryKey: getListTransactionsQueryKey() });
           queryClient.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey({}) });
@@ -216,7 +217,7 @@ export default function QuickEntry() {
                   <FormControl>
                     <Input
                       data-testid="input-quick-date"
-                      type="date"
+                      type="month"
                       className="bg-background"
                       {...field}
                     />

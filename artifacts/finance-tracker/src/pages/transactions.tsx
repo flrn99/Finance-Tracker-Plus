@@ -141,8 +141,9 @@ export default function Transactions() {
 
       {/* Filters */}
       <div className="bg-card rounded-2xl border border-card-border shadow-sm p-4 space-y-4">
+        {/* Row 1: Type + Month + reset */}
         <div className="flex flex-wrap gap-3 items-start">
-          <div className="space-y-1 w-32 shrink-0">
+          <div className="space-y-1 w-36 shrink-0">
             <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Type</label>
             <Select value={filterType} onValueChange={handleTypeChange}>
               <SelectTrigger data-testid="select-filter-type" className="h-8 text-xs">
@@ -152,21 +153,6 @@ export default function Transactions() {
                 <SelectItem value="all">All Types</SelectItem>
                 <SelectItem value="income">Income</SelectItem>
                 <SelectItem value="expense">Expense</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-1 flex-1 min-w-[140px]">
-            <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Category</label>
-            <Select value={filterCategory} onValueChange={setFilterCategory}>
-              <SelectTrigger data-testid="select-filter-category" className="h-8 text-xs">
-                <SelectValue placeholder="All Categories" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Categories</SelectItem>
-                {filteredCategoryOptions.map((c) => (
-                  <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>
-                ))}
               </SelectContent>
             </Select>
           </div>
@@ -183,6 +169,31 @@ export default function Transactions() {
             </div>
           )}
         </div>
+
+        {/* Row 2: Category — only appears when a type is selected */}
+        {filterType !== "all" && (
+          <div className="space-y-1 animate-in fade-in slide-in-from-top-1 duration-200">
+            <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+              Category
+            </label>
+            <Select value={filterCategory} onValueChange={setFilterCategory}>
+              <SelectTrigger data-testid="select-filter-category" className="text-xs">
+                <SelectValue placeholder="All Categories" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Categories</SelectItem>
+                {filteredCategoryOptions.map((c) => (
+                  <SelectItem key={c.id} value={c.id.toString()}>
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: c.color }} />
+                      {c.name}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
 
         {/* Monthly summary strip */}
         {filterMonth && monthlyTotal && (
