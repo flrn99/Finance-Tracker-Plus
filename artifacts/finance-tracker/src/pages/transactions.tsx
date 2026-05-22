@@ -76,7 +76,17 @@ export default function Transactions() {
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [filterMonth, setFilterMonth] = useState<{ year: number; month: number } | null>(null);
 
+  const handleTypeChange = (val: string) => {
+    setFilterType(val);
+    setFilterCategory("all");
+  };
+
   const { data: categories } = useListCategories({ query: { queryKey: getListCategoriesQueryKey() } });
+
+  const filteredCategoryOptions = categories?.filter((c) => {
+    if (filterType === "all") return true;
+    return c.type === filterType || c.type === "both";
+  }) ?? [];
 
   const queryParams = {
     ...(filterType !== "all" && { type: filterType as "income" | "expense" }),
@@ -134,7 +144,7 @@ export default function Transactions() {
         <div className="flex flex-wrap gap-3 items-start">
           <div className="space-y-1 w-32 shrink-0">
             <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Type</label>
-            <Select value={filterType} onValueChange={setFilterType}>
+            <Select value={filterType} onValueChange={handleTypeChange}>
               <SelectTrigger data-testid="select-filter-type" className="h-8 text-xs">
                 <SelectValue placeholder="All Types" />
               </SelectTrigger>
@@ -154,7 +164,7 @@ export default function Transactions() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Categories</SelectItem>
-                {categories?.map((c) => (
+                {filteredCategoryOptions.map((c) => (
                   <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>
                 ))}
               </SelectContent>
