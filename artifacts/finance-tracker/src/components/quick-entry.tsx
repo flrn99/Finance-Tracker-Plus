@@ -224,6 +224,7 @@ export default function QuickEntry() {
                       value={field.value}
                       onChange={field.onChange}
                       onBlur={field.onBlur}
+                      variant={type}
                     />
                   </FormControl>
                   <FormMessage className="text-xs" />

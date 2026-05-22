@@ -163,6 +163,7 @@ export default function NewTransaction() {
                           value={field.value}
                           onChange={field.onChange}
                           onBlur={field.onBlur}
+                          variant={type}
                         />
                       </FormControl>
                       <FormMessage />
