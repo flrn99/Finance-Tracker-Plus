@@ -8,7 +8,6 @@ import {
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ResponsiveModal } from "@/components/responsive-modal";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -123,27 +122,6 @@ function CategoryForm({
                         )}
                       </button>
                     ))}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div
-                      className="w-8 h-8 rounded-full shrink-0 border border-border shadow-sm"
-                      style={{ backgroundColor: field.value }}
-                    />
-                    <Input
-                      type="text"
-                      value={field.value}
-                      onChange={(e) => field.onChange(e.target.value)}
-                      placeholder="#8b5cf6"
-                      className="flex-1 font-mono text-sm h-8"
-                      maxLength={7}
-                    />
-                    <input
-                      type="color"
-                      value={field.value}
-                      onChange={(e) => field.onChange(e.target.value)}
-                      className="w-8 h-8 rounded cursor-pointer border border-border p-0.5 bg-transparent shrink-0"
-                      title="Pick a custom color"
-                    />
                   </div>
                 </div>
               </FormControl>
