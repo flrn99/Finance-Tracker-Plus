@@ -40,7 +40,7 @@ export default function MonthSelect({ value, onChange, onBlur, className }: Mont
   return (
     <div className={`grid grid-cols-2 gap-2 ${className ?? ""}`}>
       <Select value={String(selectedMonth)} onValueChange={handleMonth}>
-        <SelectTrigger className="h-10 w-full">
+        <SelectTrigger className="h-10 w-full bg-primary/10 text-primary font-semibold border-0 rounded-xl hover:bg-primary/15 transition-colors focus:ring-1 focus:ring-primary/30">
           <SelectValue placeholder="Month" />
         </SelectTrigger>
         <SelectContent>
@@ -56,7 +56,7 @@ export default function MonthSelect({ value, onChange, onBlur, className }: Mont
         </SelectContent>
       </Select>
       <Select value={String(selectedYear)} onValueChange={handleYear}>
-        <SelectTrigger className="h-10 w-full">
+        <SelectTrigger className="h-10 w-full bg-primary/10 text-primary font-semibold border-0 rounded-xl hover:bg-primary/15 transition-colors focus:ring-1 focus:ring-primary/30">
           <SelectValue placeholder="Year" />
         </SelectTrigger>
         <SelectContent>
