@@ -194,25 +194,26 @@ export default function Transactions() {
 
         {/* Summary strip — shows when month OR type is filtered */}
         {(filterMonth || filterType !== "all") && monthlyTotal && (
-          <div className="grid gap-2"
-            style={{ gridTemplateColumns: filterType === "income" ? "1fr" : filterType === "expense" ? "1fr" : "1fr 1fr 1fr" }}
-          >
+          <div className={cn(
+            "grid gap-2",
+            filterType === "all" ? "grid-cols-3" : "grid-cols-1 max-w-xs"
+          )}>
             {(filterType === "all" || filterType === "income") && (
-              <div className="bg-income/10 rounded-xl p-3 text-center">
+              <div className="bg-income/10 rounded-xl p-3 text-center min-w-0">
                 <p className="text-[10px] font-semibold text-income/70 uppercase tracking-wide mb-0.5">Income</p>
-                <p className="text-sm font-bold text-income truncate">{formatAmount(monthlyTotal.income)}</p>
+                <p className="text-xs font-bold text-income w-full overflow-hidden text-ellipsis">{formatAmount(monthlyTotal.income)}</p>
               </div>
             )}
             {(filterType === "all" || filterType === "expense") && (
-              <div className="bg-expense/10 rounded-xl p-3 text-center">
+              <div className="bg-expense/10 rounded-xl p-3 text-center min-w-0">
                 <p className="text-[10px] font-semibold text-expense/70 uppercase tracking-wide mb-0.5">Expenses</p>
-                <p className="text-sm font-bold text-expense truncate">{formatAmount(monthlyTotal.expense)}</p>
+                <p className="text-xs font-bold text-expense w-full overflow-hidden text-ellipsis">{formatAmount(monthlyTotal.expense)}</p>
               </div>
             )}
             {filterType === "all" && (
-              <div className={cn("rounded-xl p-3 text-center", monthlyTotal.income - monthlyTotal.expense >= 0 ? "bg-income/10" : "bg-expense/10")}>
+              <div className={cn("rounded-xl p-3 text-center min-w-0", monthlyTotal.income - monthlyTotal.expense >= 0 ? "bg-income/10" : "bg-expense/10")}>
                 <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-0.5">Balance</p>
-                <p className={cn("text-sm font-bold truncate", monthlyTotal.income - monthlyTotal.expense >= 0 ? "text-income" : "text-expense")}>
+                <p className={cn("text-xs font-bold w-full overflow-hidden text-ellipsis", monthlyTotal.income - monthlyTotal.expense >= 0 ? "text-income" : "text-expense")}>
                   {formatAmount(monthlyTotal.income - monthlyTotal.expense)}
                 </p>
               </div>
