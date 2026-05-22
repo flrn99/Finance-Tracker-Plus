@@ -6,7 +6,7 @@ import { categoriesTable } from "./categories";
 export const transactionsTable = pgTable("transactions", {
   id: serial("id").primaryKey(),
   type: text("type").notNull(), // 'income' | 'expense'
-  amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
+  amount: numeric("amount", { precision: 12, scale: 6 }).notNull(),
   description: text("description").notNull(),
   date: text("date").notNull(), // ISO date string YYYY-MM-DD
   categoryId: integer("category_id").notNull().references(() => categoriesTable.id),

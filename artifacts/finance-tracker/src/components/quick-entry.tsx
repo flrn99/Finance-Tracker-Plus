@@ -61,7 +61,7 @@ export default function QuickEntry() {
   const filteredCategories = categories?.filter((c) => c.type === type || c.type === "both") ?? [];
 
   const onSubmit = (data: FormValues) => {
-    const usdAmount = data.amount / rate;
+    const usdAmount = Math.round((data.amount / rate) * 10000) / 10000;
     const fullDate = data.date.length === 7 ? `${data.date}-01` : data.date;
     createTx.mutate(
       { data: { ...data, amount: usdAmount, date: fullDate } },
@@ -110,8 +110,10 @@ export default function QuickEntry() {
               form.setValue("categoryId", undefined as unknown as number);
             }}
             className={cn(
-              "flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium transition-colors whitespace-nowrap",
-              !isIncome ? "bg-expense text-white" : "bg-transparent text-muted-foreground hover:bg-muted"
+              "flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold transition-all whitespace-nowrap rounded-md",
+              !isIncome
+                ? "bg-expense/15 text-expense"
+                : "bg-transparent text-muted-foreground hover:bg-muted"
             )}
           >
             <TrendingDown className="h-3.5 w-3.5 shrink-0" />
@@ -125,8 +127,10 @@ export default function QuickEntry() {
               form.setValue("categoryId", undefined as unknown as number);
             }}
             className={cn(
-              "flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium transition-colors whitespace-nowrap",
-              isIncome ? "bg-income text-white" : "bg-transparent text-muted-foreground hover:bg-muted"
+              "flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold transition-all whitespace-nowrap rounded-md",
+              isIncome
+                ? "bg-income/15 text-income"
+                : "bg-transparent text-muted-foreground hover:bg-muted"
             )}
           >
             <TrendingUp className="h-3.5 w-3.5 shrink-0" />

@@ -65,7 +65,7 @@ export default function NewTransaction() {
   const filteredCategories = categories?.filter(c => c.type === type || c.type === 'both') || [];
 
   const onSubmit = (data: FormValues) => {
-    const usdAmount = data.amount / rate;
+    const usdAmount = Math.round((data.amount / rate) * 10000) / 10000;
     const fullDate = data.date.length === 7 ? `${data.date}-01` : data.date;
     createTx.mutate(
       { data: { ...data, amount: usdAmount, date: fullDate } },

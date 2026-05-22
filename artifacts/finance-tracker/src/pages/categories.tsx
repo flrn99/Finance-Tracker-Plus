@@ -206,7 +206,7 @@ export default function Categories() {
         </Dialog>
       </div>
 
-      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
         {isLoading ? (
           Array.from({ length: 12 }).map((_, i) => (
             <Skeleton key={i} className="h-24 w-full rounded-xl" />
@@ -215,22 +215,22 @@ export default function Categories() {
           categories?.map(category => (
             <div
               key={category.id}
-              className="group relative bg-card border border-card-border rounded-xl p-3 flex flex-col items-center gap-2 text-center hover:shadow-sm transition-all"
+              className="group relative bg-card border border-card-border rounded-2xl p-4 flex flex-col items-center gap-2.5 text-center hover:shadow-md transition-all"
             >
               {/* Icon bubble */}
               <div
-                className="w-10 h-10 rounded-xl flex items-center justify-center"
+                className="w-12 h-12 rounded-xl flex items-center justify-center"
                 style={{ backgroundColor: `${category.color}20` }}
               >
-                <Tag className="h-4 w-4" style={{ color: category.color }} />
+                <Tag className="h-5 w-5" style={{ color: category.color }} />
               </div>
 
               {/* Name */}
-              <p className="font-medium text-xs leading-tight truncate w-full">{category.name}</p>
+              <p className="font-semibold text-sm leading-tight truncate w-full">{category.name}</p>
 
               {/* Type pill */}
               <span
-                className="text-[9px] font-bold px-1.5 py-0.5 rounded-full capitalize leading-none"
+                className="text-[10px] font-bold px-2 py-0.5 rounded-full capitalize leading-none"
                 style={{ backgroundColor: `${category.color}18`, color: category.color }}
               >
                 {category.type}
