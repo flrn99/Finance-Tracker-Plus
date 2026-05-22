@@ -3,6 +3,7 @@ import {
   useListCategories,
   getListCategoriesQueryKey,
   useCreateCategory,
+  useUpdateCategory,
   useDeleteCategory
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -15,7 +16,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Trash2, Tag, Check } from "lucide-react";
+import { Plus, Trash2, Tag, Check, Pencil } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -36,34 +37,189 @@ const categorySchema = z.object({
 
 type CategoryFormValues = z.infer<typeof categorySchema>;
 
+const TYPE_LABELS: Record<string, string> = {
+  income: "Income",
+  expense: "Expense",
+  both: "Both",
+};
+
+function CategoryForm({
+  form,
+  onSubmit,
+  isPending,
+  onCancel,
+  submitLabel,
+}: {
+  form: ReturnType<typeof useForm<CategoryFormValues>>;
+  onSubmit: (data: CategoryFormValues) => void;
+  isPending: boolean;
+  onCancel: () => void;
+  submitLabel: string;
+}) {
+  const selectedColor = form.watch("color");
+
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5 pt-2">
+        <FormField
+          control={form.control}
+          name="name"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Name</FormLabel>
+              <FormControl>
+                <Input placeholder="e.g. Subscriptions" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="type"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Type</FormLabel>
+              <Select onValueChange={field.onChange} value={field.value}>
+                <FormControl>
+                  <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="expense">Expense</SelectItem>
+                  <SelectItem value="income">Income</SelectItem>
+                  <SelectItem value="both">Both</SelectItem>
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="color"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Color</FormLabel>
+              <FormControl>
+                <div className="space-y-3">
+                  <div className="grid grid-cols-10 gap-1.5">
+                    {PRESET_COLORS.map((color) => (
+                      <button
+                        key={color}
+                        type="button"
+                        onClick={() => field.onChange(color)}
+                        className={cn(
+                          "w-7 h-7 rounded-full border-2 transition-transform hover:scale-110 active:scale-95 focus:outline-none",
+                          selectedColor === color ? "border-white scale-110 shadow-md ring-2 ring-offset-1 ring-primary" : "border-transparent"
+                        )}
+                        style={{ backgroundColor: color }}
+                        title={color}
+                      >
+                        {selectedColor === color && (
+                          <Check className="h-3 w-3 text-white mx-auto drop-shadow" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="w-8 h-8 rounded-full shrink-0 border border-border shadow-sm"
+                      style={{ backgroundColor: field.value }}
+                    />
+                    <Input
+                      type="text"
+                      value={field.value}
+                      onChange={(e) => field.onChange(e.target.value)}
+                      placeholder="#8b5cf6"
+                      className="flex-1 font-mono text-sm h-8"
+                      maxLength={7}
+                    />
+                    <input
+                      type="color"
+                      value={field.value}
+                      onChange={(e) => field.onChange(e.target.value)}
+                      className="w-8 h-8 rounded cursor-pointer border border-border p-0.5 bg-transparent shrink-0"
+                      title="Pick a custom color"
+                    />
+                  </div>
+                </div>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <DialogFooter className="pt-2 gap-2">
+          <Button type="button" variant="outline" onClick={onCancel} className="flex-1 sm:flex-none">Cancel</Button>
+          <Button type="submit" disabled={isPending} className="flex-1 sm:flex-none">
+            {isPending ? "Saving..." : submitLabel}
+          </Button>
+        </DialogFooter>
+      </form>
+    </Form>
+  );
+}
+
 export default function Categories() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
 
   const { data: categories, isLoading } = useListCategories({
     query: { queryKey: getListCategoriesQueryKey() }
   });
 
   const createCategory = useCreateCategory();
+  const updateCategory = useUpdateCategory();
   const deleteCategory = useDeleteCategory();
 
-  const form = useForm<CategoryFormValues>({
+  const createForm = useForm<CategoryFormValues>({
     resolver: zodResolver(categorySchema),
     defaultValues: { name: "", type: "expense", color: "#8b5cf6", icon: "tag" }
   });
 
-  const selectedColor = form.watch("color");
+  const editForm = useForm<CategoryFormValues>({
+    resolver: zodResolver(categorySchema),
+    defaultValues: { name: "", type: "expense", color: "#8b5cf6", icon: "tag" }
+  });
 
-  const onSubmit = (data: CategoryFormValues) => {
+  const invalidate = () =>
+    queryClient.invalidateQueries({ queryKey: getListCategoriesQueryKey() });
+
+  const onCreateSubmit = (data: CategoryFormValues) => {
     createCategory.mutate({ data }, {
       onSuccess: () => {
         toast({ title: "Category created" });
-        queryClient.invalidateQueries({ queryKey: getListCategoriesQueryKey() });
-        setIsDialogOpen(false);
-        form.reset({ name: "", type: "expense", color: "#8b5cf6", icon: "tag" });
+        invalidate();
+        setIsCreateOpen(false);
+        createForm.reset({ name: "", type: "expense", color: "#8b5cf6", icon: "tag" });
       },
       onError: () => toast({ title: "Failed to create category", variant: "destructive" })
+    });
+  };
+
+  const openEdit = (cat: { id: number; name: string; type: string; color: string; icon: string | null }) => {
+    editForm.reset({
+      name: cat.name,
+      type: cat.type as "income" | "expense" | "both",
+      color: cat.color,
+      icon: cat.icon ?? "tag",
+    });
+    setEditingId(cat.id);
+  };
+
+  const onEditSubmit = (data: CategoryFormValues) => {
+    if (editingId == null) return;
+    updateCategory.mutate({ id: editingId, data }, {
+      onSuccess: () => {
+        toast({ title: "Category updated" });
+        invalidate();
+        setEditingId(null);
+      },
+      onError: () => toast({ title: "Failed to update category", variant: "destructive" })
     });
   };
 
@@ -71,21 +227,22 @@ export default function Categories() {
     deleteCategory.mutate({ id }, {
       onSuccess: () => {
         toast({ title: "Category deleted" });
-        queryClient.invalidateQueries({ queryKey: getListCategoriesQueryKey() });
+        invalidate();
       },
-      onError: () => toast({ title: "Failed to delete. It might be in use.", variant: "destructive" })
+      onError: () => toast({ title: "Cannot delete — category is in use.", variant: "destructive" })
     });
   };
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl sm:text-3xl font-serif font-bold tracking-tight">Categories</h2>
           <p className="text-muted-foreground mt-1 text-sm">Manage tags for your transactions.</p>
         </div>
 
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
           <DialogTrigger asChild>
             <Button className="gap-2 w-full sm:w-auto">
               <Plus className="h-4 w-4" />
@@ -97,174 +254,120 @@ export default function Categories() {
               <DialogTitle>Add Category</DialogTitle>
               <DialogDescription>Create a new category to organize your spending.</DialogDescription>
             </DialogHeader>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5 pt-2">
-                <FormField
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Name</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g. Subscriptions" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="type"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Type</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="expense">Expense</SelectItem>
-                          <SelectItem value="income">Income</SelectItem>
-                          <SelectItem value="both">Both</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="color"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Color</FormLabel>
-                      <FormControl>
-                        <div className="space-y-3">
-                          {/* Preset color swatches */}
-                          <div className="grid grid-cols-10 gap-1.5">
-                            {PRESET_COLORS.map((color) => (
-                              <button
-                                key={color}
-                                type="button"
-                                onClick={() => field.onChange(color)}
-                                className={cn(
-                                  "w-7 h-7 rounded-full border-2 transition-transform hover:scale-110 active:scale-95 focus:outline-none",
-                                  selectedColor === color ? "border-white scale-110 shadow-md ring-2 ring-offset-1 ring-primary" : "border-transparent"
-                                )}
-                                style={{ backgroundColor: color }}
-                                title={color}
-                              >
-                                {selectedColor === color && (
-                                  <Check className="h-3 w-3 text-white mx-auto drop-shadow" />
-                                )}
-                              </button>
-                            ))}
-                          </div>
-                          {/* Preview + hex input */}
-                          <div className="flex items-center gap-2">
-                            <div
-                              className="w-8 h-8 rounded-full shrink-0 border border-border shadow-sm"
-                              style={{ backgroundColor: field.value }}
-                            />
-                            <Input
-                              type="text"
-                              value={field.value}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                field.onChange(val);
-                              }}
-                              placeholder="#8b5cf6"
-                              className="flex-1 font-mono text-sm h-8"
-                              maxLength={7}
-                            />
-                            <input
-                              type="color"
-                              value={field.value}
-                              onChange={(e) => field.onChange(e.target.value)}
-                              className="w-8 h-8 rounded cursor-pointer border border-border p-0.5 bg-transparent shrink-0"
-                              title="Pick a custom color"
-                            />
-                          </div>
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <DialogFooter className="pt-2 gap-2">
-                  <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)} className="flex-1 sm:flex-none">Cancel</Button>
-                  <Button type="submit" disabled={createCategory.isPending} className="flex-1 sm:flex-none">
-                    {createCategory.isPending ? "Saving..." : "Create"}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </Form>
+            <CategoryForm
+              form={createForm}
+              onSubmit={onCreateSubmit}
+              isPending={createCategory.isPending}
+              onCancel={() => setIsCreateOpen(false)}
+              submitLabel="Create"
+            />
           </DialogContent>
         </Dialog>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+      {/* Edit Dialog */}
+      <Dialog open={editingId !== null} onOpenChange={(open) => { if (!open) setEditingId(null); }}>
+        <DialogContent className="max-w-sm w-full">
+          <DialogHeader>
+            <DialogTitle>Edit Category</DialogTitle>
+            <DialogDescription>Update the category name, type, or color.</DialogDescription>
+          </DialogHeader>
+          <CategoryForm
+            form={editForm}
+            onSubmit={onEditSubmit}
+            isPending={updateCategory.isPending}
+            onCancel={() => setEditingId(null)}
+            submitLabel="Save"
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* List */}
+      <div className="bg-card border border-card-border rounded-2xl overflow-hidden">
         {isLoading ? (
-          Array.from({ length: 12 }).map((_, i) => (
-            <Skeleton key={i} className="h-24 w-full rounded-xl" />
-          ))
-        ) : (
-          categories?.map(category => (
-            <div
-              key={category.id}
-              className="group relative bg-card border border-card-border rounded-2xl p-4 flex flex-col items-center gap-2.5 text-center hover:shadow-md transition-all"
-            >
-              {/* Icon bubble */}
-              <div
-                className="w-12 h-12 rounded-xl flex items-center justify-center"
-                style={{ backgroundColor: `${category.color}20` }}
-              >
-                <Tag className="h-5 w-5" style={{ color: category.color }} />
+          <div className="divide-y divide-border">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-4 px-4 py-3.5">
+                <Skeleton className="w-10 h-10 rounded-xl shrink-0" />
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-5 w-16 rounded-full ml-auto" />
               </div>
-
-              {/* Name */}
-              <p className="font-semibold text-sm leading-tight truncate w-full">{category.name}</p>
-
-              {/* Type pill */}
-              <span
-                className="text-[10px] font-bold px-2 py-0.5 rounded-full capitalize leading-none"
-                style={{ backgroundColor: `${category.color}18`, color: category.color }}
+            ))}
+          </div>
+        ) : !categories?.length ? (
+          <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-2">
+            <Tag className="h-8 w-8 opacity-30" />
+            <p className="text-sm">No categories yet. Create one above.</p>
+          </div>
+        ) : (
+          <ul className="divide-y divide-border">
+            {categories.map((cat) => (
+              <li
+                key={cat.id}
+                className="flex items-center gap-3 sm:gap-4 px-4 py-3 hover:bg-muted/30 transition-colors group"
               >
-                {category.type}
-              </span>
+                {/* Color bubble */}
+                <div
+                  className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                  style={{ backgroundColor: `${cat.color}20` }}
+                >
+                  <Tag className="h-4 w-4" style={{ color: cat.color }} />
+                </div>
 
-              {/* Delete on hover */}
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
+                {/* Name */}
+                <span className="font-semibold text-sm flex-1 truncate">{cat.name}</span>
+
+                {/* Type pill */}
+                <span
+                  className="text-[11px] font-bold px-2.5 py-1 rounded-full capitalize shrink-0 hidden sm:inline-block"
+                  style={{ backgroundColor: `${cat.color}18`, color: cat.color }}
+                >
+                  {TYPE_LABELS[cat.type] ?? cat.type}
+                </span>
+
+                {/* Actions */}
+                <div className="flex items-center gap-1 shrink-0">
+                  {/* Edit */}
                   <button
-                    className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 h-5 w-5 flex items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all"
+                    onClick={() => openEdit(cat)}
+                    className="h-8 w-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
+                    title="Edit"
                   >
-                    <Trash2 className="h-2.5 w-2.5" />
+                    <Pencil className="h-3.5 w-3.5" />
                   </button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Delete Category</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Delete "{category.name}"? This will fail if transactions use it.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={() => handleDelete(category.id)}
-                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                    >
-                      Delete
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </div>
-          ))
+
+                  {/* Delete */}
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <button
+                        className="h-8 w-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all"
+                        title="Delete"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Category</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Delete "{cat.name}"? This cannot be undone, and will fail if any transactions use this category.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => handleDelete(cat.id)}
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                          Delete
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
+              </li>
+            ))}
+          </ul>
         )}
       </div>
     </div>
