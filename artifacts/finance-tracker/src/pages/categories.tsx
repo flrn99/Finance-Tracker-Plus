@@ -10,8 +10,9 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { ResponsiveModal } from "@/components/responsive-modal";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { DialogFooter } from "@/components/ui/dialog";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -242,45 +243,43 @@ export default function Categories() {
           <p className="text-muted-foreground mt-1 text-sm">Manage tags for your transactions.</p>
         </div>
 
-        <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-          <DialogTrigger asChild>
-            <Button className="gap-2 w-full sm:w-auto">
-              <Plus className="h-4 w-4" />
-              New Category
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-sm w-full">
-            <DialogHeader>
-              <DialogTitle>Add Category</DialogTitle>
-              <DialogDescription>Create a new category to organize your spending.</DialogDescription>
-            </DialogHeader>
-            <CategoryForm
-              form={createForm}
-              onSubmit={onCreateSubmit}
-              isPending={createCategory.isPending}
-              onCancel={() => setIsCreateOpen(false)}
-              submitLabel="Create"
-            />
-          </DialogContent>
-        </Dialog>
+        <Button className="gap-2 w-full sm:w-auto" onClick={() => setIsCreateOpen(true)}>
+          <Plus className="h-4 w-4" />
+          New Category
+        </Button>
       </div>
 
-      {/* Edit Dialog */}
-      <Dialog open={editingId !== null} onOpenChange={(open) => { if (!open) setEditingId(null); }}>
-        <DialogContent className="max-w-sm w-full">
-          <DialogHeader>
-            <DialogTitle>Edit Category</DialogTitle>
-            <DialogDescription>Update the category name, type, or color.</DialogDescription>
-          </DialogHeader>
-          <CategoryForm
-            form={editForm}
-            onSubmit={onEditSubmit}
-            isPending={updateCategory.isPending}
-            onCancel={() => setEditingId(null)}
-            submitLabel="Save"
-          />
-        </DialogContent>
-      </Dialog>
+      {/* Create modal */}
+      <ResponsiveModal
+        open={isCreateOpen}
+        onOpenChange={setIsCreateOpen}
+        title="Add Category"
+        description="Create a new category to organize your spending."
+      >
+        <CategoryForm
+          form={createForm}
+          onSubmit={onCreateSubmit}
+          isPending={createCategory.isPending}
+          onCancel={() => setIsCreateOpen(false)}
+          submitLabel="Create"
+        />
+      </ResponsiveModal>
+
+      {/* Edit modal */}
+      <ResponsiveModal
+        open={editingId !== null}
+        onOpenChange={(open) => { if (!open) setEditingId(null); }}
+        title="Edit Category"
+        description="Update the category name, type, or color."
+      >
+        <CategoryForm
+          form={editForm}
+          onSubmit={onEditSubmit}
+          isPending={updateCategory.isPending}
+          onCancel={() => setEditingId(null)}
+          submitLabel="Save"
+        />
+      </ResponsiveModal>
 
       {/* List */}
       <div className="bg-card border border-card-border rounded-2xl overflow-hidden">
