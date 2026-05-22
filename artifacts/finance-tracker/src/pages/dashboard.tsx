@@ -41,49 +41,49 @@ export default function Dashboard() {
 
       {/* Summary Cards */}
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
-        <Card className="relative overflow-hidden border-0 shadow-md bg-gradient-to-br from-violet-500 to-purple-700 text-white">
+        {/* Balance */}
+        <Card className="relative overflow-hidden border border-violet-200/60 shadow-sm bg-violet-50/70">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-semibold text-white/80">Total Balance</CardTitle>
-            <div className="p-1.5 rounded-full bg-white/20"><Wallet className="h-4 w-4 text-white" /></div>
+            <CardTitle className="text-sm font-semibold text-violet-500">Total Balance</CardTitle>
+            <div className="p-1.5 rounded-full bg-violet-100"><Wallet className="h-4 w-4 text-violet-500" /></div>
           </CardHeader>
           <CardContent>
-            {isLoadingSummary ? <Skeleton className="h-8 w-[120px] bg-white/20" /> : (
-              <div className="text-2xl sm:text-3xl font-bold font-sans truncate">{formatAmount(summary?.balance || 0)}</div>
+            {isLoadingSummary ? <Skeleton className="h-8 w-[120px]" /> : (
+              <div className="text-2xl sm:text-3xl font-bold font-sans truncate text-violet-700">{formatAmount(summary?.balance || 0)}</div>
             )}
-            <p className="text-xs text-white/60 mt-1">Across all accounts</p>
+            <p className="text-xs text-violet-400 mt-1">Across all time</p>
           </CardContent>
-          <div className="absolute -bottom-4 -right-4 w-24 h-24 rounded-full bg-white/5" />
-          <div className="absolute -top-4 -left-4 w-16 h-16 rounded-full bg-white/5" />
+          <div className="absolute -bottom-5 -right-5 w-24 h-24 rounded-full bg-violet-100/50 pointer-events-none" />
         </Card>
 
-        <Card className="relative overflow-hidden border-0 shadow-md bg-gradient-to-br from-emerald-400 to-teal-600 text-white">
+        {/* Income */}
+        <Card className="relative overflow-hidden border border-emerald-200/60 shadow-sm bg-emerald-50/70">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-semibold text-white/80">Total Income</CardTitle>
-            <div className="p-1.5 rounded-full bg-white/20"><ArrowUpIcon className="h-4 w-4 text-white" /></div>
+            <CardTitle className="text-sm font-semibold text-emerald-600">Total Income</CardTitle>
+            <div className="p-1.5 rounded-full bg-emerald-100"><ArrowUpIcon className="h-4 w-4 text-emerald-600" /></div>
           </CardHeader>
           <CardContent>
-            {isLoadingSummary ? <Skeleton className="h-8 w-[120px] bg-white/20" /> : (
-              <div className="text-2xl sm:text-3xl font-bold font-sans truncate">{formatAmount(summary?.totalIncome || 0)}</div>
+            {isLoadingSummary ? <Skeleton className="h-8 w-[120px]" /> : (
+              <div className="text-2xl sm:text-3xl font-bold font-sans truncate text-emerald-700">{formatAmount(summary?.totalIncome || 0)}</div>
             )}
-            <p className="text-xs text-white/60 mt-1">This month</p>
+            <p className="text-xs text-emerald-400 mt-1">This month</p>
           </CardContent>
-          <div className="absolute -bottom-4 -right-4 w-24 h-24 rounded-full bg-white/5" />
-          <div className="absolute -top-4 -left-4 w-16 h-16 rounded-full bg-white/5" />
+          <div className="absolute -bottom-5 -right-5 w-24 h-24 rounded-full bg-emerald-100/50 pointer-events-none" />
         </Card>
 
-        <Card className="relative overflow-hidden border-0 shadow-md bg-gradient-to-br from-rose-400 to-red-600 text-white">
+        {/* Expenses */}
+        <Card className="relative overflow-hidden border border-rose-200/60 shadow-sm bg-rose-50/70">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-semibold text-white/80">Total Expenses</CardTitle>
-            <div className="p-1.5 rounded-full bg-white/20"><ArrowDownIcon className="h-4 w-4 text-white" /></div>
+            <CardTitle className="text-sm font-semibold text-rose-500">Total Expenses</CardTitle>
+            <div className="p-1.5 rounded-full bg-rose-100"><ArrowDownIcon className="h-4 w-4 text-rose-500" /></div>
           </CardHeader>
           <CardContent>
-            {isLoadingSummary ? <Skeleton className="h-8 w-[120px] bg-white/20" /> : (
-              <div className="text-2xl sm:text-3xl font-bold font-sans truncate">{formatAmount(summary?.totalExpenses || 0)}</div>
+            {isLoadingSummary ? <Skeleton className="h-8 w-[120px]" /> : (
+              <div className="text-2xl sm:text-3xl font-bold font-sans truncate text-rose-600">{formatAmount(summary?.totalExpenses || 0)}</div>
             )}
-            <p className="text-xs text-white/60 mt-1">This month</p>
+            <p className="text-xs text-rose-400 mt-1">This month</p>
           </CardContent>
-          <div className="absolute -bottom-4 -right-4 w-24 h-24 rounded-full bg-white/5" />
-          <div className="absolute -top-4 -left-4 w-16 h-16 rounded-full bg-white/5" />
+          <div className="absolute -bottom-5 -right-5 w-24 h-24 rounded-full bg-rose-100/50 pointer-events-none" />
         </Card>
       </div>
 

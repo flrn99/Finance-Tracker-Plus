@@ -6,7 +6,10 @@ import {
   useCreateTransaction,
   useListCategories,
   getListCategoriesQueryKey,
-  getListTransactionsQueryKey
+  getListTransactionsQueryKey,
+  getGetDashboardSummaryQueryKey,
+  getGetSpendingByCategoryQueryKey,
+  getGetTopExpensesQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -70,7 +73,9 @@ export default function NewTransaction() {
         onSuccess: () => {
           toast({ title: "Transaction added successfully" });
           queryClient.invalidateQueries({ queryKey: getListTransactionsQueryKey() });
-          queryClient.invalidateQueries({ queryKey: ['/api/dashboard'] });
+          queryClient.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey({}) });
+          queryClient.invalidateQueries({ queryKey: getGetSpendingByCategoryQueryKey({}) });
+          queryClient.invalidateQueries({ queryKey: getGetTopExpensesQueryKey({ limit: 5 }) });
           setLocation("/transactions");
         },
         onError: () => {
