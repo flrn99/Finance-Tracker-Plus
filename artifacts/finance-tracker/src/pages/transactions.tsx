@@ -196,24 +196,27 @@ export default function Transactions() {
         {(filterMonth || filterType !== "all") && monthlyTotal && (
           <div className={cn(
             "grid gap-2",
-            filterType === "all" ? "grid-cols-3" : "grid-cols-1 max-w-xs"
+            filterType === "all" ? "grid-cols-1 sm:grid-cols-3" : "grid-cols-1 max-w-xs"
           )}>
             {(filterType === "all" || filterType === "income") && (
-              <div className="bg-income/10 rounded-xl p-3 text-center min-w-0">
-                <p className="text-[10px] font-semibold text-income/70 uppercase tracking-wide mb-0.5">Income</p>
-                <p className="text-xs font-bold text-income w-full overflow-hidden text-ellipsis">{formatAmount(monthlyTotal.income)}</p>
+              <div className="bg-income/10 rounded-xl px-4 py-3 flex sm:flex-col items-center sm:items-center justify-between sm:justify-center gap-1">
+                <p className="text-[10px] font-semibold text-income/70 uppercase tracking-wide">Income</p>
+                <p className="text-sm font-bold text-income">{formatAmount(monthlyTotal.income)}</p>
               </div>
             )}
             {(filterType === "all" || filterType === "expense") && (
-              <div className="bg-expense/10 rounded-xl p-3 text-center min-w-0">
-                <p className="text-[10px] font-semibold text-expense/70 uppercase tracking-wide mb-0.5">Expenses</p>
-                <p className="text-xs font-bold text-expense w-full overflow-hidden text-ellipsis">{formatAmount(monthlyTotal.expense)}</p>
+              <div className="bg-expense/10 rounded-xl px-4 py-3 flex sm:flex-col items-center sm:items-center justify-between sm:justify-center gap-1">
+                <p className="text-[10px] font-semibold text-expense/70 uppercase tracking-wide">Expenses</p>
+                <p className="text-sm font-bold text-expense">{formatAmount(monthlyTotal.expense)}</p>
               </div>
             )}
             {filterType === "all" && (
-              <div className={cn("rounded-xl p-3 text-center min-w-0", monthlyTotal.income - monthlyTotal.expense >= 0 ? "bg-income/10" : "bg-expense/10")}>
-                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-0.5">Balance</p>
-                <p className={cn("text-xs font-bold w-full overflow-hidden text-ellipsis", monthlyTotal.income - monthlyTotal.expense >= 0 ? "text-income" : "text-expense")}>
+              <div className={cn(
+                "rounded-xl px-4 py-3 flex sm:flex-col items-center sm:items-center justify-between sm:justify-center gap-1",
+                monthlyTotal.income - monthlyTotal.expense >= 0 ? "bg-income/10" : "bg-expense/10"
+              )}>
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Balance</p>
+                <p className={cn("text-sm font-bold", monthlyTotal.income - monthlyTotal.expense >= 0 ? "text-income" : "text-expense")}>
                   {formatAmount(monthlyTotal.income - monthlyTotal.expense)}
                 </p>
               </div>
