@@ -1,3 +1,5 @@
+const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
 export function formatCurrency(amount: number) {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -6,8 +8,7 @@ export function formatCurrency(amount: number) {
 }
 
 export function formatDate(dateString: string) {
-  return new Intl.DateTimeFormat("en-US", {
-    year: "numeric",
-    month: "short",
-  }).format(new Date(dateString));
+  const [year, month] = dateString.split("-").map(Number);
+  const label = MONTH_NAMES[(month - 1) % 12] ?? "?";
+  return `${label} ${year}`;
 }

@@ -206,46 +206,44 @@ export default function Categories() {
         </Dialog>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-3">
         {isLoading ? (
-          Array.from({ length: 10 }).map((_, i) => (
-            <Skeleton key={i} className="h-36 w-full rounded-2xl" />
+          Array.from({ length: 12 }).map((_, i) => (
+            <Skeleton key={i} className="h-24 w-full rounded-xl" />
           ))
         ) : (
           categories?.map(category => (
             <div
               key={category.id}
-              className="group relative bg-card border border-card-border rounded-2xl p-4 flex flex-col items-center gap-3 text-center hover:shadow-md transition-all"
+              className="group relative bg-card border border-card-border rounded-xl p-3 flex flex-col items-center gap-2 text-center hover:shadow-sm transition-all"
             >
-              {/* Color circle */}
+              {/* Icon bubble */}
               <div
-                className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm mt-1"
-                style={{ backgroundColor: `${category.color}22` }}
+                className="w-10 h-10 rounded-xl flex items-center justify-center"
+                style={{ backgroundColor: `${category.color}20` }}
               >
-                <Tag className="h-6 w-6" style={{ color: category.color }} />
+                <Tag className="h-4 w-4" style={{ color: category.color }} />
               </div>
 
-              {/* Labels */}
-              <div className="space-y-0.5 w-full">
-                <h3 className="font-semibold text-sm leading-tight truncate">{category.name}</h3>
-                <span
-                  className="inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full capitalize"
-                  style={{ backgroundColor: `${category.color}22`, color: category.color }}
-                >
-                  {category.type}
-                </span>
-              </div>
+              {/* Name */}
+              <p className="font-medium text-xs leading-tight truncate w-full">{category.name}</p>
 
-              {/* Delete — appears on hover */}
+              {/* Type pill */}
+              <span
+                className="text-[9px] font-bold px-1.5 py-0.5 rounded-full capitalize leading-none"
+                style={{ backgroundColor: `${category.color}18`, color: category.color }}
+              >
+                {category.type}
+              </span>
+
+              {/* Delete on hover */}
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 h-6 w-6 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-all"
+                  <button
+                    className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 h-5 w-5 flex items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all"
                   >
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
+                    <Trash2 className="h-2.5 w-2.5" />
+                  </button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
