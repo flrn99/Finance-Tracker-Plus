@@ -1,31 +1,34 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Download, FileSpreadsheet } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import MonthSelect from "@/components/month-select";
+
+function lastDayOfMonth(ym: string): string {
+  const [y, m] = ym.split("-").map(Number);
+  const day = new Date(y, m, 0).getDate();
+  return `${ym}-${String(day).padStart(2, "0")}`;
+}
 
 export default function Export() {
   const { toast } = useToast();
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+  const [startMonth, setStartMonth] = useState("");
+  const [endMonth, setEndMonth] = useState("");
   const [isExporting, setIsExporting] = useState(false);
 
   const handleExport = async () => {
     setIsExporting(true);
     try {
       const params = new URLSearchParams();
-      if (startDate) params.append("startDate", startDate);
-      if (endDate) params.append("endDate", endDate);
+      if (startMonth) params.append("startDate", `${startMonth}-01`);
+      if (endMonth) params.append("endDate", lastDayOfMonth(endMonth));
 
       const queryStr = params.toString() ? `?${params.toString()}` : "";
+      const response = await fetch(`${import.meta.env.BASE_URL}api/export/excel${queryStr}`);
 
-      const response = await fetch(`/api/export/excel${queryStr}`);
-
-      if (!response.ok) {
-        throw new Error("Export failed");
-      }
+      if (!response.ok) throw new Error("Export failed");
 
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
@@ -59,26 +62,18 @@ export default function Export() {
             Excel Export
           </CardTitle>
           <CardDescription>
-            Download your transactions as an Excel spreadsheet. You can optionally filter by date range.
+            Download your transactions as an Excel spreadsheet. Optionally filter by month range.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Start Date (Optional)</Label>
-              <Input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-              />
+              <Label>From (Optional)</Label>
+              <MonthSelect value={startMonth} onChange={setStartMonth} variant="neutral" />
             </div>
             <div className="space-y-2">
-              <Label>End Date (Optional)</Label>
-              <Input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-              />
+              <Label>To (Optional)</Label>
+              <MonthSelect value={endMonth} onChange={setEndMonth} variant="neutral" />
             </div>
           </div>
         </CardContent>
