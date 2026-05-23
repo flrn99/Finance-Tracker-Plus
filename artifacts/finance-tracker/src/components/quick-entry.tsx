@@ -166,13 +166,13 @@ export default function QuickEntry() {
               control={form.control}
               name="categoryId"
               render={({ field }) => (
-                <FormItem className="flex-1">
+                <FormItem className="flex-1 min-w-0">
                   <Select
                     onValueChange={(val) => field.onChange(Number(val))}
                     value={field.value?.toString() ?? ""}
                   >
                     <FormControl>
-                      <SelectTrigger data-testid="select-quick-category" className="bg-background w-full">
+                      <SelectTrigger data-testid="select-quick-category" className="bg-background w-full min-w-0 [&>span]:truncate [&>span]:block [&>span]:text-left">
                         <SelectValue placeholder="Category" />
                       </SelectTrigger>
                     </FormControl>
@@ -238,10 +238,10 @@ export default function QuickEntry() {
               className={cn(
                 "shrink-0 gap-1.5 transition-all h-10 px-5",
                 saved
-                  ? "bg-income text-income-foreground"
+                  ? "bg-income text-income-foreground border-income/60"
                   : isIncome
-                  ? "bg-income hover:bg-income/90 text-income-foreground"
-                  : "bg-expense hover:bg-expense/90 text-expense-foreground"
+                  ? "bg-income hover:bg-income/90 text-income-foreground border-income/60"
+                  : "bg-expense hover:bg-expense/90 text-expense-foreground border-expense/60"
               )}
             >
               {saved ? (
