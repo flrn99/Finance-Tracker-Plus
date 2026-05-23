@@ -17,12 +17,13 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { TrendingUp, TrendingDown, Plus, Check } from "lucide-react";
+import { TrendingUp, TrendingDown, Plus, Check, FolderPlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCurrency } from "@/lib/currency-context";
 import { useState } from "react";
 import CurrencyInput from "@/components/currency-input";
 import MonthSelect from "@/components/month-select";
+import { Link } from "wouter";
 
 const schema = z.object({
   type: z.enum(["income", "expense"]),
@@ -177,14 +178,28 @@ export default function QuickEntry() {
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {filteredCategories.map((c) => (
-                        <SelectItem key={c.id} value={c.id.toString()}>
-                          <div className="flex items-center gap-2">
-                            <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: c.color }} />
-                            {c.name}
-                          </div>
-                        </SelectItem>
-                      ))}
+                      {filteredCategories.length === 0 ? (
+                        <div className="py-2 px-1">
+                          <Link href="/categories" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              type="button"
+                              className="w-full flex items-center gap-2 px-2 py-2 rounded-md text-sm text-primary hover:bg-primary/10 transition-colors"
+                            >
+                              <FolderPlus className="h-4 w-4 shrink-0" />
+                              Add a category
+                            </button>
+                          </Link>
+                        </div>
+                      ) : (
+                        filteredCategories.map((c) => (
+                          <SelectItem key={c.id} value={c.id.toString()}>
+                            <div className="flex items-center gap-2">
+                              <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: c.color }} />
+                              {c.name}
+                            </div>
+                          </SelectItem>
+                        ))
+                      )}
                     </SelectContent>
                   </Select>
                   <FormMessage className="text-xs" />

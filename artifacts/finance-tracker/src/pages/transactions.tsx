@@ -115,14 +115,28 @@ export default function Transactions() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Categories</SelectItem>
-                {filteredCategoryOptions.map((c) => (
-                  <SelectItem key={c.id} value={c.id.toString()}>
-                    <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: c.color }} />
-                      {c.name}
-                    </div>
-                  </SelectItem>
-                ))}
+                {filteredCategoryOptions.length === 0 ? (
+                  <div className="py-2 px-1">
+                    <Link href="/categories" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        type="button"
+                        className="w-full flex items-center gap-2 px-2 py-2 rounded-md text-sm text-primary hover:bg-primary/10 transition-colors"
+                      >
+                        <FolderPlus className="h-4 w-4 shrink-0" />
+                        Add a category
+                      </button>
+                    </Link>
+                  </div>
+                ) : (
+                  filteredCategoryOptions.map((c) => (
+                    <SelectItem key={c.id} value={c.id.toString()}>
+                      <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: c.color }} />
+                        {c.name}
+                      </div>
+                    </SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
           </div>

@@ -20,7 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, FolderPlus } from "lucide-react";
 import { Link } from "wouter";
 import { useCurrency } from "@/lib/currency-context";
 import CurrencyInput from "@/components/currency-input";
@@ -197,14 +197,28 @@ export default function NewTransaction() {
                         <SelectTrigger><SelectValue placeholder="Select a category" /></SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {filteredCategories.map(c => (
-                          <SelectItem key={c.id} value={c.id.toString()}>
-                            <div className="flex items-center gap-2">
-                              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: c.color }} />
-                              {c.name}
-                            </div>
-                          </SelectItem>
-                        ))}
+                        {filteredCategories.length === 0 ? (
+                          <div className="py-2 px-1">
+                            <Link href="/categories" onClick={(e) => e.stopPropagation()}>
+                              <button
+                                type="button"
+                                className="w-full flex items-center gap-2 px-2 py-2 rounded-md text-sm text-primary hover:bg-primary/10 transition-colors"
+                              >
+                                <FolderPlus className="h-4 w-4 shrink-0" />
+                                Add a category
+                              </button>
+                            </Link>
+                          </div>
+                        ) : (
+                          filteredCategories.map(c => (
+                            <SelectItem key={c.id} value={c.id.toString()}>
+                              <div className="flex items-center gap-2">
+                                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: c.color }} />
+                                {c.name}
+                              </div>
+                            </SelectItem>
+                          ))
+                        )}
                       </SelectContent>
                     </Select>
                     <FormMessage />
