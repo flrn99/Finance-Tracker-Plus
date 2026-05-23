@@ -9,7 +9,6 @@ import {
   Settings,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useCurrency, type Currency } from "@/lib/currency-context";
 import { cn } from "@/lib/utils";
 
 interface LayoutProps {
@@ -23,32 +22,6 @@ const navItems = [
   { href: "/export", label: "Export", icon: Download },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
-
-function CurrencyToggle({ className }: { className?: string }) {
-  const { currency, setCurrency } = useCurrency();
-  const options: { value: Currency; label: string }[] = [
-    { value: "USD", label: "$ USD" },
-    { value: "GTQ", label: "Q GTQ" },
-  ];
-  return (
-    <div className={cn("flex rounded-lg border border-sidebar-border overflow-hidden text-xs font-semibold shrink-0", className)}>
-      {options.map((opt) => (
-        <button
-          key={opt.value}
-          onClick={() => setCurrency(opt.value)}
-          className={cn(
-            "flex-1 px-2.5 py-1.5 transition-colors whitespace-nowrap",
-            currency === opt.value
-              ? "bg-sidebar-primary text-sidebar-primary-foreground"
-              : "bg-transparent text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent"
-          )}
-        >
-          {opt.label}
-        </button>
-      ))}
-    </div>
-  );
-}
 
 export default function Layout({ children }: LayoutProps) {
   const [location] = useLocation();
@@ -89,13 +62,7 @@ export default function Layout({ children }: LayoutProps) {
           })}
         </nav>
 
-        <div className="p-4 space-y-3 border-t border-sidebar-border">
-          <div className="space-y-1.5">
-            <p className="text-[11px] font-semibold text-sidebar-foreground/40 uppercase tracking-widest px-1">
-              Currency
-            </p>
-            <CurrencyToggle />
-          </div>
+        <div className="p-4 border-t border-sidebar-border">
           <Link href="/transactions/new">
             <Button className="w-full gap-2 bg-sidebar-primary hover:bg-sidebar-primary/90 text-white shadow-sm">
               <Plus className="h-4 w-4" />
@@ -108,14 +75,11 @@ export default function Layout({ children }: LayoutProps) {
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Mobile top bar */}
-        <header className="md:hidden flex items-center justify-between gap-2 px-4 py-3 border-b border-border bg-sidebar sticky top-0 z-10">
-          <div className="flex items-center gap-2 min-w-0">
-            <div className="w-7 h-7 rounded-lg bg-sidebar-primary flex items-center justify-center shrink-0">
-              <DollarSign className="h-3.5 w-3.5 text-white" />
-            </div>
-            <span className="text-sm font-serif font-bold text-sidebar-foreground truncate">FinanceFlow</span>
+        <header className="md:hidden flex items-center gap-2 px-4 py-3 border-b border-border bg-sidebar sticky top-0 z-10">
+          <div className="w-7 h-7 rounded-lg bg-sidebar-primary flex items-center justify-center shrink-0">
+            <DollarSign className="h-3.5 w-3.5 text-white" />
           </div>
-          <CurrencyToggle />
+          <span className="text-sm font-serif font-bold text-sidebar-foreground">FinanceFlow</span>
         </header>
 
         <div className="flex-1 overflow-y-auto p-4 pb-24 md:pb-8 md:p-8">
@@ -146,15 +110,6 @@ export default function Layout({ children }: LayoutProps) {
             </Link>
           );
         })}
-        {/* Quick add */}
-        <Link href="/transactions/new" className="flex-1 min-w-0">
-          <span className="flex flex-col items-center justify-center gap-0.5 py-2 w-full cursor-pointer">
-            <span className="bg-sidebar-primary text-white rounded-full p-1.5 shrink-0">
-              <Plus className="h-4 w-4" />
-            </span>
-            <span className="text-[9px] font-semibold text-sidebar-foreground/40">Add</span>
-          </span>
-        </Link>
       </nav>
     </div>
   );

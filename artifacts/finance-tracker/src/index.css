@@ -143,62 +143,69 @@
 }
 
 .dark {
-  --button-outline: rgba(255,255,255, .10);
-  --badge-outline: rgba(255,255,255, .05);
-  --opaque-button-border-intensity: 9;
-  --elevate-1: rgba(255,255,255, .04);
-  --elevate-2: rgba(255,255,255, .09);
+  --button-outline: rgba(255,255,255, .12);
+  --badge-outline: rgba(255,255,255, .07);
+  --opaque-button-border-intensity: 10;
+  --elevate-1: rgba(255,255,255, .035);
+  --elevate-2: rgba(255,255,255, .07);
 
-  --background: 252 30% 8%;
-  --foreground: 250 20% 93%;
-  
-  --border: 252 20% 20%;
-  --input: 252 20% 20%;
-  --ring: 262 80% 65%;
+  /* Deep indigo-charcoal base — rich but not pure black */
+  --background: 240 18% 10%;
+  --foreground: 240 12% 93%;
 
-  --card: 252 28% 11%;
-  --card-foreground: 250 20% 93%;
-  --card-border: 252 20% 18%;
+  --border: 240 14% 20%;
+  --input: 240 14% 20%;
+  --ring: 263 90% 70%;
 
-  --popover: 252 28% 11%;
-  --popover-foreground: 250 20% 93%;
-  --popover-border: 252 20% 18%;
+  /* Cards sit visibly above the background */
+  --card: 240 16% 14%;
+  --card-foreground: 240 12% 93%;
+  --card-border: 240 14% 22%;
 
-  --primary: 262 80% 65%;
+  --popover: 240 16% 14%;
+  --popover-foreground: 240 12% 93%;
+  --popover-border: 240 14% 22%;
+
+  /* Vivid violet as the accent — pops on dark */
+  --primary: 263 90% 70%;
   --primary-foreground: 0 0% 100%;
 
-  --secondary: 252 20% 18%;
-  --secondary-foreground: 250 15% 85%;
+  --secondary: 240 14% 19%;
+  --secondary-foreground: 240 10% 82%;
 
-  --muted: 252 20% 15%;
-  --muted-foreground: 250 15% 58%;
+  --muted: 240 14% 16%;
+  --muted-foreground: 240 10% 55%;
 
-  --accent: 252 20% 18%;
-  --accent-foreground: 250 20% 92%;
+  --accent: 240 14% 19%;
+  --accent-foreground: 240 12% 92%;
 
-  --destructive: 5 70% 58%;
+  --destructive: 4 75% 62%;
   --destructive-foreground: 0 0% 100%;
-  
-  --income: 152 60% 45%;
-  --income-foreground: 152 10% 10%;
-  
-  --expense: 5 70% 58%;
+
+  /* Income: lime-emerald that glows on dark */
+  --income: 152 72% 50%;
+  --income-foreground: 152 40% 8%;
+
+  /* Expense: warm coral */
+  --expense: 4 75% 62%;
   --expense-foreground: 0 0% 100%;
 
-  --sidebar: 252 30% 10%;
-  --sidebar-foreground: 250 20% 88%;
-  --sidebar-border: 252 25% 18%;
-  --sidebar-primary: 262 80% 65%;
+  /* Sidebar is distinctly darker — creates depth + premium feel */
+  --sidebar: 240 22% 7%;
+  --sidebar-foreground: 240 10% 82%;
+  --sidebar-border: 240 16% 15%;
+  --sidebar-primary: 263 90% 70%;
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 252 25% 18%;
-  --sidebar-accent-foreground: 250 20% 92%;
-  --sidebar-ring: 262 80% 65%;
+  --sidebar-accent: 240 16% 14%;
+  --sidebar-accent-foreground: 240 12% 90%;
+  --sidebar-ring: 263 90% 70%;
 
-  --chart-1: 262 75% 65%;
-  --chart-2: 152 60% 50%;
-  --chart-3: 200 75% 58%;
-  --chart-4: 36 85% 58%;
-  --chart-5: 320 65% 58%;
+  /* Chart palette — vivid, well-spaced hues */
+  --chart-1: 263 85% 68%;
+  --chart-2: 152 72% 50%;
+  --chart-3: 198 85% 58%;
+  --chart-4: 36 95% 58%;
+  --chart-5: 322 75% 62%;
 }
 
 @layer base {
