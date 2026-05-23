@@ -140,14 +140,14 @@ export default function QuickEntry() {
       </div>
 
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)}>
-          <div className="flex flex-col sm:flex-row gap-3">
-            {/* Amount */}
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
+          {/* Row 1: Amount + Category */}
+          <div className="flex gap-3">
             <FormField
               control={form.control}
               name="amount"
               render={({ field }) => (
-                <FormItem className="w-full sm:w-40 shrink-0">
+                <FormItem className="w-36 shrink-0">
                   <FormControl>
                     <CurrencyInput
                       testId="input-quick-amount"
@@ -162,38 +162,17 @@ export default function QuickEntry() {
                 </FormItem>
               )}
             />
-
-            {/* Description */}
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem className="flex-1">
-                  <FormControl>
-                    <Input
-                      data-testid="input-quick-description"
-                      placeholder="What was this for?"
-                      className="bg-background"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage className="text-xs" />
-                </FormItem>
-              )}
-            />
-
-            {/* Category */}
             <FormField
               control={form.control}
               name="categoryId"
               render={({ field }) => (
-                <FormItem className="w-full sm:w-44 shrink-0">
+                <FormItem className="flex-1">
                   <Select
                     onValueChange={(val) => field.onChange(Number(val))}
                     value={field.value?.toString() ?? ""}
                   >
                     <FormControl>
-                      <SelectTrigger data-testid="select-quick-category" className="bg-background">
+                      <SelectTrigger data-testid="select-quick-category" className="bg-background w-full">
                         <SelectValue placeholder="Category" />
                       </SelectTrigger>
                     </FormControl>
@@ -212,13 +191,34 @@ export default function QuickEntry() {
                 </FormItem>
               )}
             />
+          </div>
 
-            {/* Date */}
+          {/* Row 2: Description */}
+          <FormField
+            control={form.control}
+            name="description"
+            render={({ field }) => (
+              <FormItem>
+                <FormControl>
+                  <Input
+                    data-testid="input-quick-description"
+                    placeholder="What was this for?"
+                    className="bg-background"
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage className="text-xs" />
+              </FormItem>
+            )}
+          />
+
+          {/* Row 3: Date + Submit */}
+          <div className="flex gap-3 items-start">
             <FormField
               control={form.control}
               name="date"
               render={({ field }) => (
-                <FormItem className="w-full sm:w-56 shrink-0">
+                <FormItem className="flex-1">
                   <FormControl>
                     <MonthSelect
                       value={field.value}
@@ -231,25 +231,23 @@ export default function QuickEntry() {
                 </FormItem>
               )}
             />
-
-            {/* Submit */}
             <Button
               type="submit"
               data-testid="button-quick-save"
               disabled={createTx.isPending || saved}
               className={cn(
-                "shrink-0 gap-1.5 transition-all",
+                "shrink-0 gap-1.5 transition-all h-10 px-5",
                 saved
-                  ? "bg-income text-white"
+                  ? "bg-income text-income-foreground"
                   : isIncome
-                  ? "bg-income hover:bg-income/90 text-white"
-                  : "bg-expense hover:bg-expense/90 text-white"
+                  ? "bg-income hover:bg-income/90 text-income-foreground"
+                  : "bg-expense hover:bg-expense/90 text-expense-foreground"
               )}
             >
               {saved ? (
                 <><Check className="h-4 w-4" />Saved</>
               ) : (
-                <><Plus className="h-4 w-4" />{createTx.isPending ? "Saving..." : "Add"}</>
+                <><Plus className="h-4 w-4" />{createTx.isPending ? "Saving…" : "Add"}</>
               )}
             </Button>
           </div>
