@@ -13,59 +13,11 @@ import { useCurrency } from "@/lib/currency-context";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, Search, FilterX, Trash2, ChevronLeft, ChevronRight, TrendingUp, TrendingDown } from "lucide-react";
+import { Plus, Search, FilterX, Trash2, TrendingUp, TrendingDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
-
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
-function MonthPicker({ value, onChange }: { value: { year: number; month: number } | null; onChange: (v: { year: number; month: number } | null) => void }) {
-  const now = new Date();
-  const [viewYear, setViewYear] = useState(value?.year ?? now.getFullYear());
-  return (
-    <div className="space-y-1.5">
-      <label className="text-xs font-medium text-muted-foreground">Month</label>
-      <div className="rounded-xl border border-border bg-card overflow-hidden shadow-sm">
-        <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-muted/30">
-          <button onClick={() => setViewYear((y) => y - 1)} className="p-1 rounded-md hover:bg-muted transition-colors">
-            <ChevronLeft className="h-3.5 w-3.5" />
-          </button>
-          <span className="text-xs font-bold">{viewYear}</span>
-          <button onClick={() => setViewYear((y) => y + 1)} className="p-1 rounded-md hover:bg-muted transition-colors" disabled={viewYear >= now.getFullYear()}>
-            <ChevronRight className="h-3.5 w-3.5" />
-          </button>
-        </div>
-        <div className="grid grid-cols-4 gap-1 p-2">
-          {MONTHS.map((label, idx) => {
-            const isSelected = value?.year === viewYear && value?.month === idx + 1;
-            const isFuture = viewYear > now.getFullYear() || (viewYear === now.getFullYear() && idx > now.getMonth());
-            return (
-              <button
-                key={label}
-                disabled={isFuture}
-                onClick={() => onChange(isSelected ? null : { year: viewYear, month: idx + 1 })}
-                className={cn(
-                  "text-[11px] rounded-lg py-1.5 font-semibold transition-all",
-                  isSelected ? "bg-primary text-primary-foreground shadow-sm" : isFuture ? "text-muted-foreground/30 cursor-not-allowed" : "hover:bg-muted text-foreground"
-                )}
-              >
-                {label}
-              </button>
-            );
-          })}
-        </div>
-        {value && (
-          <div className="px-2 pb-2">
-            <button onClick={() => onChange(null)} className="w-full text-[11px] text-muted-foreground hover:text-foreground py-1 rounded-md border border-dashed border-border hover:border-foreground/30 transition-colors">
-              Clear
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
+import MonthSelect from "@/components/month-select";
 
 export default function Transactions() {
   const { toast } = useToast();
@@ -74,7 +26,7 @@ export default function Transactions() {
 
   const [filterType, setFilterType] = useState<string>("all");
   const [filterCategory, setFilterCategory] = useState<string>("all");
-  const [filterMonth, setFilterMonth] = useState<{ year: number; month: number } | null>(null);
+  const [filterMonth, setFilterMonth] = useState<string>("");
 
   const handleTypeChange = (val: string) => {
     setFilterType(val);
@@ -98,10 +50,7 @@ export default function Transactions() {
   });
 
   const filteredTransactions = filterMonth
-    ? transactions?.filter((tx) => {
-        const [txYear, txMonth] = tx.date.split("-").map(Number);
-        return txYear === filterMonth.year && txMonth === filterMonth.month;
-      })
+    ? transactions?.filter((tx) => tx.date.startsWith(filterMonth))
     : transactions;
 
   const deleteTx = useDeleteTransaction();
@@ -115,8 +64,8 @@ export default function Transactions() {
     });
   };
 
-  const hasFilters = filterType !== "all" || filterCategory !== "all" || filterMonth !== null;
-  const resetFilters = () => { setFilterType("all"); setFilterCategory("all"); setFilterMonth(null); };
+  const hasFilters = filterType !== "all" || filterCategory !== "all" || filterMonth !== "";
+  const resetFilters = () => { setFilterType("all"); setFilterCategory("all"); setFilterMonth(""); };
 
   const monthlyTotal = filteredTransactions?.reduce(
     (acc, tx) => { if (tx.type === "income") acc.income += tx.amount; else acc.expense += tx.amount; return acc; },
@@ -179,8 +128,9 @@ export default function Transactions() {
           </div>
 
           {/* Month */}
-          <div className="w-48 shrink-0">
-            <MonthPicker value={filterMonth} onChange={setFilterMonth} />
+          <div className="space-y-1 shrink-0">
+            <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Month</label>
+            <MonthSelect value={filterMonth} onChange={setFilterMonth} variant="neutral" className="w-56" />
           </div>
 
           {hasFilters && (
@@ -193,7 +143,7 @@ export default function Transactions() {
         </div>
 
         {/* Summary strip — shows when month OR type is filtered */}
-        {(filterMonth || filterType !== "all") && monthlyTotal && (
+        {(filterMonth !== "" || filterType !== "all") && monthlyTotal && (
           <div className={cn(
             "grid gap-2",
             filterType === "all" ? "grid-cols-1 sm:grid-cols-3" : "grid-cols-1 max-w-xs"
