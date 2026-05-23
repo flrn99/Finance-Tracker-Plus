@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import Layout from "@/components/layout";
 import { CurrencyProvider } from "@/lib/currency-context";
+import { ThemeProvider } from "@/lib/theme-context";
 
 // Pages
 import Dashboard from "@/pages/dashboard";
@@ -13,6 +14,7 @@ import Transactions from "@/pages/transactions";
 import NewTransaction from "@/pages/new-transaction";
 import Categories from "@/pages/categories";
 import Export from "@/pages/export";
+import Settings from "@/pages/settings";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -41,6 +43,7 @@ function Router() {
         <Route path="/transactions/new" component={NewTransaction} />
         <Route path="/categories" component={Categories} />
         <Route path="/export" component={Export} />
+        <Route path="/settings" component={Settings} />
         <Route component={NotFound} />
       </Switch>
     </Layout>
@@ -50,6 +53,7 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
+      <ThemeProvider>
       <CurrencyProvider>
         <TooltipProvider>
           <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
@@ -58,6 +62,7 @@ function App() {
           <Toaster />
         </TooltipProvider>
       </CurrencyProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   );
 }

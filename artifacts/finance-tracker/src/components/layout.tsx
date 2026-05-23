@@ -6,6 +6,7 @@ import {
   Download,
   Plus,
   DollarSign,
+  Settings,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCurrency, type Currency } from "@/lib/currency-context";
@@ -20,6 +21,7 @@ const navItems = [
   { href: "/transactions", label: "Transactions", icon: ListOrdered },
   { href: "/categories", label: "Categories", icon: Tags },
   { href: "/export", label: "Export", icon: Download },
+  { href: "/settings", label: "Settings", icon: Settings },
 ];
 
 function CurrencyToggle({ className }: { className?: string }) {

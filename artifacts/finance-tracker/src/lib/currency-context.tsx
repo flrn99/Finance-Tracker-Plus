@@ -23,7 +23,18 @@ interface CurrencyContextValue {
 const CurrencyContext = createContext<CurrencyContextValue | null>(null);
 
 export function CurrencyProvider({ children }: { children: ReactNode }) {
-  const [currency, setCurrency] = useState<Currency>("GTQ");
+  const [currency, setCurrencyState] = useState<Currency>(() => {
+    try {
+      return (localStorage.getItem("ff-currency") as Currency) ?? "GTQ";
+    } catch {
+      return "GTQ";
+    }
+  });
+
+  const setCurrency = (c: Currency) => {
+    setCurrencyState(c);
+    try { localStorage.setItem("ff-currency", c); } catch {}
+  };
 
   const rate = RATES[currency];
   const symbol = SYMBOLS[currency];
