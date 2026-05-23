@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Download, FileSpreadsheet } from "lucide-react";
+import { Download, FileSpreadsheet, DatabaseZap } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import MonthSelect from "@/components/month-select";
 
@@ -17,17 +17,20 @@ export default function Export() {
   const [startMonth, setStartMonth] = useState("");
   const [endMonth, setEndMonth] = useState("");
   const [isExporting, setIsExporting] = useState(false);
+  const [isExportingAll, setIsExportingAll] = useState(false);
 
-  const handleExport = async () => {
-    setIsExporting(true);
+  const doExport = async (all: boolean) => {
+    all ? setIsExportingAll(true) : setIsExporting(true);
     try {
-      const params = new URLSearchParams();
-      if (startMonth) params.append("startDate", `${startMonth}-01`);
-      if (endMonth) params.append("endDate", lastDayOfMonth(endMonth));
+      let queryStr = "";
+      if (!all) {
+        const params = new URLSearchParams();
+        if (startMonth) params.append("startDate", `${startMonth}-01`);
+        if (endMonth) params.append("endDate", lastDayOfMonth(endMonth));
+        if (params.toString()) queryStr = `?${params.toString()}`;
+      }
 
-      const queryStr = params.toString() ? `?${params.toString()}` : "";
       const response = await fetch(`${import.meta.env.BASE_URL}api/export/excel${queryStr}`);
-
       if (!response.ok) throw new Error("Export failed");
 
       const blob = await response.blob();
@@ -44,7 +47,7 @@ export default function Export() {
     } catch {
       toast({ title: "Export failed", description: "There was a problem generating your export.", variant: "destructive" });
     } finally {
-      setIsExporting(false);
+      all ? setIsExportingAll(false) : setIsExporting(false);
     }
   };
 
@@ -62,7 +65,7 @@ export default function Export() {
             Excel Export
           </CardTitle>
           <CardDescription>
-            Download your transactions as an Excel spreadsheet. Optionally filter by month range.
+            Download all your transactions, or filter by a specific month range.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -77,10 +80,25 @@ export default function Export() {
             </div>
           </div>
         </CardContent>
-        <CardFooter className="bg-muted/20 border-t px-6 py-4 justify-end">
-          <Button onClick={handleExport} disabled={isExporting} className="gap-2" data-testid="button-download-excel">
+        <CardFooter className="bg-muted/20 border-t px-6 py-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+          <Button
+            variant="outline"
+            onClick={() => doExport(true)}
+            disabled={isExportingAll || isExporting}
+            className="gap-2 sm:w-auto w-full"
+            data-testid="button-download-all"
+          >
+            <DatabaseZap className="h-4 w-4" />
+            {isExportingAll ? "Generating…" : "Download All Data"}
+          </Button>
+          <Button
+            onClick={() => doExport(false)}
+            disabled={isExporting || isExportingAll}
+            className="gap-2 sm:w-auto w-full"
+            data-testid="button-download-excel"
+          >
             <Download className="h-4 w-4" />
-            {isExporting ? "Generating..." : "Download Excel"}
+            {isExporting ? "Generating…" : "Download Selected Range"}
           </Button>
         </CardFooter>
       </Card>
