@@ -42,48 +42,48 @@ export default function Dashboard() {
       {/* Summary Cards */}
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
         {/* Balance */}
-        <Card className="relative overflow-hidden border border-violet-200/60 shadow-sm bg-violet-50/70">
+        <Card className="relative overflow-hidden border border-violet-200/60 dark:border-violet-500/15 shadow-sm bg-violet-50/70 dark:bg-violet-950/40">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-semibold text-violet-500">Total Balance</CardTitle>
-            <div className="p-1.5 rounded-full bg-violet-100"><Wallet className="h-4 w-4 text-violet-500" /></div>
+            <CardTitle className="text-sm font-semibold text-violet-500 dark:text-violet-400">Total Balance</CardTitle>
+            <div className="p-1.5 rounded-full bg-violet-100 dark:bg-violet-500/15"><Wallet className="h-4 w-4 text-violet-500 dark:text-violet-400" /></div>
           </CardHeader>
           <CardContent>
             {isLoadingSummary ? <Skeleton className="h-8 w-[120px]" /> : (
-              <div className="text-2xl sm:text-3xl font-bold font-sans truncate text-violet-700">{formatAmount(summary?.balance || 0)}</div>
+              <div className="text-2xl sm:text-3xl font-bold font-sans truncate text-violet-700 dark:text-violet-300">{formatAmount(summary?.balance || 0)}</div>
             )}
-            <p className="text-xs text-violet-400 mt-1">Across all time</p>
+            <p className="text-xs text-violet-400 dark:text-violet-500/80 mt-1">Across all time</p>
           </CardContent>
-          <div className="absolute -bottom-5 -right-5 w-24 h-24 rounded-full bg-violet-100/50 pointer-events-none" />
+          <div className="absolute -bottom-5 -right-5 w-24 h-24 rounded-full bg-violet-100/50 dark:bg-violet-500/8 pointer-events-none" />
         </Card>
 
         {/* Income */}
-        <Card className="relative overflow-hidden border border-emerald-200/60 shadow-sm bg-emerald-50/70">
+        <Card className="relative overflow-hidden border border-emerald-200/60 dark:border-emerald-500/15 shadow-sm bg-emerald-50/70 dark:bg-emerald-950/40">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-semibold text-emerald-600">Total Income</CardTitle>
-            <div className="p-1.5 rounded-full bg-emerald-100"><ArrowUpIcon className="h-4 w-4 text-emerald-600" /></div>
+            <CardTitle className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">Total Income</CardTitle>
+            <div className="p-1.5 rounded-full bg-emerald-100 dark:bg-emerald-500/15"><ArrowUpIcon className="h-4 w-4 text-emerald-600 dark:text-emerald-400" /></div>
           </CardHeader>
           <CardContent>
             {isLoadingSummary ? <Skeleton className="h-8 w-[120px]" /> : (
-              <div className="text-2xl sm:text-3xl font-bold font-sans truncate text-emerald-700">{formatAmount(summary?.totalIncome || 0)}</div>
+              <div className="text-2xl sm:text-3xl font-bold font-sans truncate text-emerald-700 dark:text-emerald-300">{formatAmount(summary?.totalIncome || 0)}</div>
             )}
-            <p className="text-xs text-emerald-400 mt-1">This month</p>
+            <p className="text-xs text-emerald-400 dark:text-emerald-500/80 mt-1">This month</p>
           </CardContent>
-          <div className="absolute -bottom-5 -right-5 w-24 h-24 rounded-full bg-emerald-100/50 pointer-events-none" />
+          <div className="absolute -bottom-5 -right-5 w-24 h-24 rounded-full bg-emerald-100/50 dark:bg-emerald-500/8 pointer-events-none" />
         </Card>
 
         {/* Expenses */}
-        <Card className="relative overflow-hidden border border-rose-200/60 shadow-sm bg-rose-50/70">
+        <Card className="relative overflow-hidden border border-rose-200/60 dark:border-rose-500/15 shadow-sm bg-rose-50/70 dark:bg-rose-950/40">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-semibold text-rose-500">Total Expenses</CardTitle>
-            <div className="p-1.5 rounded-full bg-rose-100"><ArrowDownIcon className="h-4 w-4 text-rose-500" /></div>
+            <CardTitle className="text-sm font-semibold text-rose-500 dark:text-rose-400">Total Expenses</CardTitle>
+            <div className="p-1.5 rounded-full bg-rose-100 dark:bg-rose-500/15"><ArrowDownIcon className="h-4 w-4 text-rose-500 dark:text-rose-400" /></div>
           </CardHeader>
           <CardContent>
             {isLoadingSummary ? <Skeleton className="h-8 w-[120px]" /> : (
-              <div className="text-2xl sm:text-3xl font-bold font-sans truncate text-rose-600">{formatAmount(summary?.totalExpenses || 0)}</div>
+              <div className="text-2xl sm:text-3xl font-bold font-sans truncate text-rose-600 dark:text-rose-300">{formatAmount(summary?.totalExpenses || 0)}</div>
             )}
-            <p className="text-xs text-rose-400 mt-1">This month</p>
+            <p className="text-xs text-rose-400 dark:text-rose-500/80 mt-1">This month</p>
           </CardContent>
-          <div className="absolute -bottom-5 -right-5 w-24 h-24 rounded-full bg-rose-100/50 pointer-events-none" />
+          <div className="absolute -bottom-5 -right-5 w-24 h-24 rounded-full bg-rose-100/50 dark:bg-rose-500/8 pointer-events-none" />
         </Card>
       </div>
 

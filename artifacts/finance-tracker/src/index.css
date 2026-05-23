@@ -143,66 +143,66 @@
 }
 
 .dark {
-  --button-outline: rgba(255,255,255, .12);
-  --badge-outline: rgba(255,255,255, .07);
+  --button-outline: rgba(255,255,255, .10);
+  --badge-outline: rgba(255,255,255, .06);
   --opaque-button-border-intensity: 10;
-  --elevate-1: rgba(255,255,255, .035);
-  --elevate-2: rgba(255,255,255, .07);
+  --elevate-1: rgba(255,255,255, .03);
+  --elevate-2: rgba(255,255,255, .06);
 
-  /* Deep indigo-charcoal base — rich but not pure black */
-  --background: 240 18% 10%;
-  --foreground: 240 12% 93%;
+  /* Pure near-black — no color tint */
+  --background: 0 0% 8%;
+  --foreground: 0 0% 93%;
 
-  --border: 240 14% 20%;
-  --input: 240 14% 20%;
-  --ring: 263 90% 70%;
+  --border: 0 0% 18%;
+  --input: 0 0% 18%;
+  --ring: 152 65% 48%;
 
-  /* Cards sit visibly above the background */
-  --card: 240 16% 14%;
-  --card-foreground: 240 12% 93%;
-  --card-border: 240 14% 22%;
+  /* Cards float just above the black base */
+  --card: 0 0% 11%;
+  --card-foreground: 0 0% 93%;
+  --card-border: 0 0% 18%;
 
-  --popover: 240 16% 14%;
-  --popover-foreground: 240 12% 93%;
-  --popover-border: 240 14% 22%;
+  --popover: 0 0% 11%;
+  --popover-foreground: 0 0% 93%;
+  --popover-border: 0 0% 18%;
 
-  /* Vivid violet as the accent — pops on dark */
-  --primary: 263 90% 70%;
-  --primary-foreground: 0 0% 100%;
+  /* Emerald green — clean, finance-appropriate accent */
+  --primary: 152 65% 48%;
+  --primary-foreground: 152 40% 6%;
 
-  --secondary: 240 14% 19%;
-  --secondary-foreground: 240 10% 82%;
+  --secondary: 0 0% 15%;
+  --secondary-foreground: 0 0% 80%;
 
-  --muted: 240 14% 16%;
-  --muted-foreground: 240 10% 55%;
+  --muted: 0 0% 13%;
+  --muted-foreground: 0 0% 50%;
 
-  --accent: 240 14% 19%;
-  --accent-foreground: 240 12% 92%;
+  --accent: 0 0% 15%;
+  --accent-foreground: 0 0% 92%;
 
   --destructive: 4 75% 62%;
   --destructive-foreground: 0 0% 100%;
 
-  /* Income: lime-emerald that glows on dark */
-  --income: 152 72% 50%;
-  --income-foreground: 152 40% 8%;
+  /* Vivid emerald income */
+  --income: 152 65% 48%;
+  --income-foreground: 152 40% 6%;
 
-  /* Expense: warm coral */
+  /* Warm coral expense */
   --expense: 4 75% 62%;
   --expense-foreground: 0 0% 100%;
 
-  /* Sidebar is distinctly darker — creates depth + premium feel */
-  --sidebar: 240 22% 7%;
-  --sidebar-foreground: 240 10% 82%;
-  --sidebar-border: 240 16% 15%;
-  --sidebar-primary: 263 90% 70%;
-  --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 240 16% 14%;
-  --sidebar-accent-foreground: 240 12% 90%;
-  --sidebar-ring: 263 90% 70%;
+  /* Sidebar: deep black — maximum depth vs content area */
+  --sidebar: 0 0% 5%;
+  --sidebar-foreground: 0 0% 78%;
+  --sidebar-border: 0 0% 12%;
+  --sidebar-primary: 152 65% 48%;
+  --sidebar-primary-foreground: 152 40% 6%;
+  --sidebar-accent: 0 0% 11%;
+  --sidebar-accent-foreground: 0 0% 90%;
+  --sidebar-ring: 152 65% 48%;
 
-  /* Chart palette — vivid, well-spaced hues */
-  --chart-1: 263 85% 68%;
-  --chart-2: 152 72% 50%;
+  /* Chart palette — vivid hues that pop on black */
+  --chart-1: 263 85% 70%;
+  --chart-2: 152 65% 48%;
   --chart-3: 198 85% 58%;
   --chart-4: 36 95% 58%;
   --chart-5: 322 75% 62%;
