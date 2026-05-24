@@ -172,7 +172,10 @@ export const DeleteCategoryParams = zod.object({
  * @summary Get overall financial summary
  */
 export const GetDashboardSummaryQueryParams = zod.object({
-  "month": zod.coerce.string().nullish().describe('YYYY-MM format, defaults to current month')
+  "month": zod.coerce.string().nullish().describe('YYYY-MM format, defaults to current month'),
+  "startDate": zod.coerce.string().nullish(),
+  "endDate": zod.coerce.string().nullish(),
+  "allTime": zod.coerce.boolean().nullish(),
 })
 
 export const GetDashboardSummaryResponse = zod.object({
@@ -189,7 +192,10 @@ export const GetDashboardSummaryResponse = zod.object({
  * @summary Get spending breakdown by category
  */
 export const GetSpendingByCategoryQueryParams = zod.object({
-  "month": zod.coerce.string().nullish()
+  "month": zod.coerce.string().nullish(),
+  "startDate": zod.coerce.string().nullish(),
+  "endDate": zod.coerce.string().nullish(),
+  "allTime": zod.coerce.boolean().nullish(),
 })
 
 export const GetSpendingByCategoryResponseItem = zod.object({
@@ -221,7 +227,10 @@ export const GetMonthlyTrendResponse = zod.array(GetMonthlyTrendResponseItem)
  */
 export const GetTopExpensesQueryParams = zod.object({
   "month": zod.coerce.string().nullish(),
-  "limit": zod.coerce.number().nullish()
+  "startDate": zod.coerce.string().nullish(),
+  "endDate": zod.coerce.string().nullish(),
+  "allTime": zod.coerce.boolean().nullish(),
+  "limit": zod.coerce.number().nullish(),
 })
 
 export const GetTopExpensesResponseItem = zod.object({

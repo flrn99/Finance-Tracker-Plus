@@ -167,28 +167,37 @@ export const ListTransactionsType = {
 } as const;
 
 export type GetDashboardSummaryParams = {
-/**
- * YYYY-MM format, defaults to current month
- * @nullable
- */
+/** YYYY-MM format, defaults to current month @nullable */
 month?: string | null;
+/** YYYY-MM-DD @nullable */
+startDate?: string | null;
+/** YYYY-MM-DD @nullable */
+endDate?: string | null;
+/** When true, return data across all time (ignores month/startDate/endDate) @nullable */
+allTime?: boolean | null;
 };
 
 export type GetSpendingByCategoryParams = {
-/**
- * @nullable
- */
+/** @nullable */
 month?: string | null;
+/** @nullable */
+startDate?: string | null;
+/** @nullable */
+endDate?: string | null;
+/** @nullable */
+allTime?: boolean | null;
 };
 
 export type GetTopExpensesParams = {
-/**
- * @nullable
- */
+/** @nullable */
 month?: string | null;
-/**
- * @nullable
- */
+/** @nullable */
+startDate?: string | null;
+/** @nullable */
+endDate?: string | null;
+/** @nullable */
+allTime?: boolean | null;
+/** @nullable */
 limit?: number | null;
 };
 

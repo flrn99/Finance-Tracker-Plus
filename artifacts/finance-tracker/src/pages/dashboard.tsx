@@ -1,3 +1,4 @@
+import { useState, useMemo } from "react";
 import {
   useGetDashboardSummary, getGetDashboardSummaryQueryKey,
   useGetSpendingByCategory, getGetSpendingByCategoryQueryKey,
@@ -10,24 +11,76 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recha
 import { ArrowDownIcon, ArrowUpIcon, Wallet } from "lucide-react";
 import QuickEntry from "@/components/quick-entry";
 import { useCurrency } from "@/lib/currency-context";
+import MonthSelect from "@/components/month-select";
+import { cn } from "@/lib/utils";
+
+function todayYM() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function lastDayOfMonth(ym: string): string {
+  const [y, m] = ym.split("-").map(Number);
+  return `${ym}-${String(new Date(y, m, 0).getDate()).padStart(2, "0")}`;
+}
+
+function fmtYM(ym: string) {
+  const [y, m] = ym.split("-").map(Number);
+  return new Date(y, m - 1).toLocaleDateString("en-US", { month: "long", year: "numeric" });
+}
+
+type FilterMode = "month" | "range" | "all";
 
 export default function Dashboard() {
   const { formatAmount } = useCurrency();
 
+  const [filterMode, setFilterMode] = useState<FilterMode>("month");
+  const [selectedMonth, setSelectedMonth] = useState(todayYM());
+  const [rangeStart, setRangeStart] = useState("");
+  const [rangeEnd, setRangeEnd] = useState("");
+
+  const apiParams = useMemo(() => {
+    if (filterMode === "all") return { allTime: true };
+    if (filterMode === "range") {
+      return {
+        startDate: rangeStart ? `${rangeStart}-01` : undefined,
+        endDate: rangeEnd ? lastDayOfMonth(rangeEnd) : undefined,
+      };
+    }
+    return { month: selectedMonth };
+  }, [filterMode, selectedMonth, rangeStart, rangeEnd]);
+
+  const periodLabel = useMemo(() => {
+    if (filterMode === "all") return "Across all time";
+    if (filterMode === "range") {
+      if (!rangeStart && !rangeEnd) return "Custom range";
+      if (rangeStart && rangeEnd) return `${fmtYM(rangeStart)} – ${fmtYM(rangeEnd)}`;
+      if (rangeStart) return `From ${fmtYM(rangeStart)}`;
+      return `Until ${fmtYM(rangeEnd)}`;
+    }
+    return fmtYM(selectedMonth);
+  }, [filterMode, selectedMonth, rangeStart, rangeEnd]);
+
   const { data: summary, isLoading: isLoadingSummary } = useGetDashboardSummary(
-    {},
-    { query: { queryKey: getGetDashboardSummaryQueryKey({}) } }
+    apiParams,
+    { query: { queryKey: getGetDashboardSummaryQueryKey(apiParams) } }
   );
 
   const { data: spending, isLoading: isLoadingSpending } = useGetSpendingByCategory(
-    {},
-    { query: { queryKey: getGetSpendingByCategoryQueryKey({}) } }
+    apiParams,
+    { query: { queryKey: getGetSpendingByCategoryQueryKey(apiParams) } }
   );
 
   const { data: topExpenses, isLoading: isLoadingTopExpenses } = useGetTopExpenses(
-    { limit: 5 },
-    { query: { queryKey: getGetTopExpensesQueryKey({ limit: 5 }) } }
+    { ...apiParams, limit: 5 },
+    { query: { queryKey: getGetTopExpensesQueryKey({ ...apiParams, limit: 5 }) } }
   );
+
+  const modes: { key: FilterMode; label: string }[] = [
+    { key: "month", label: "This Month" },
+    { key: "range", label: "Range" },
+    { key: "all", label: "All Time" },
+  ];
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -36,12 +89,49 @@ export default function Dashboard() {
         <p className="text-muted-foreground mt-1 text-sm">A summary of your financial health.</p>
       </div>
 
-      {/* New Entry */}
       <QuickEntry />
+
+      {/* Period toggle */}
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center gap-1 p-1 bg-muted/60 rounded-xl w-fit border border-border/50 self-start">
+          {modes.map(({ key, label }) => (
+            <button
+              key={key}
+              onClick={() => setFilterMode(key)}
+              className={cn(
+                "px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 whitespace-nowrap",
+                filterMode === key
+                  ? "bg-background shadow-sm text-foreground border border-border/60"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {filterMode === "month" && (
+          <div className="w-56">
+            <MonthSelect value={selectedMonth} onChange={setSelectedMonth} variant="neutral" />
+          </div>
+        )}
+
+        {filterMode === "range" && (
+          <div className="flex flex-wrap gap-3 items-center">
+            <div className="flex flex-col gap-1">
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">From</span>
+              <MonthSelect value={rangeStart} onChange={setRangeStart} variant="neutral" className="w-52" />
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">To</span>
+              <MonthSelect value={rangeEnd} onChange={setRangeEnd} variant="neutral" className="w-52" />
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Summary Cards */}
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
-        {/* Balance */}
         <Card className="relative overflow-hidden border border-violet-200/60 dark:border-violet-500/15 shadow-sm bg-violet-50/70 dark:bg-violet-950/40">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-semibold text-violet-500 dark:text-violet-400">Total Balance</CardTitle>
@@ -51,12 +141,11 @@ export default function Dashboard() {
             {isLoadingSummary ? <Skeleton className="h-8 w-[120px]" /> : (
               <div className="text-2xl sm:text-3xl font-bold font-sans truncate text-violet-700 dark:text-violet-300">{formatAmount(summary?.balance || 0)}</div>
             )}
-            <p className="text-xs text-violet-400 dark:text-violet-500/80 mt-1">Across all time</p>
+            <p className="text-xs text-violet-400 dark:text-violet-500/80 mt-1">{periodLabel}</p>
           </CardContent>
           <div className="absolute -bottom-5 -right-5 w-24 h-24 rounded-full bg-violet-100/50 dark:bg-violet-500/8 pointer-events-none" />
         </Card>
 
-        {/* Income */}
         <Card className="relative overflow-hidden border border-emerald-200/60 dark:border-emerald-500/15 shadow-sm bg-emerald-50/70 dark:bg-emerald-950/40">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">Total Income</CardTitle>
@@ -66,12 +155,11 @@ export default function Dashboard() {
             {isLoadingSummary ? <Skeleton className="h-8 w-[120px]" /> : (
               <div className="text-2xl sm:text-3xl font-bold font-sans truncate text-emerald-700 dark:text-emerald-300">{formatAmount(summary?.totalIncome || 0)}</div>
             )}
-            <p className="text-xs text-emerald-400 dark:text-emerald-500/80 mt-1">This month</p>
+            <p className="text-xs text-emerald-400 dark:text-emerald-500/80 mt-1">{periodLabel}</p>
           </CardContent>
           <div className="absolute -bottom-5 -right-5 w-24 h-24 rounded-full bg-emerald-100/50 dark:bg-emerald-500/8 pointer-events-none" />
         </Card>
 
-        {/* Expenses */}
         <Card className="relative overflow-hidden border border-rose-200/60 dark:border-rose-500/15 shadow-sm bg-rose-50/70 dark:bg-rose-950/40">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-semibold text-rose-500 dark:text-rose-400">Total Expenses</CardTitle>
@@ -81,19 +169,18 @@ export default function Dashboard() {
             {isLoadingSummary ? <Skeleton className="h-8 w-[120px]" /> : (
               <div className="text-2xl sm:text-3xl font-bold font-sans truncate text-rose-600 dark:text-rose-300">{formatAmount(summary?.totalExpenses || 0)}</div>
             )}
-            <p className="text-xs text-rose-400 dark:text-rose-500/80 mt-1">This month</p>
+            <p className="text-xs text-rose-400 dark:text-rose-500/80 mt-1">{periodLabel}</p>
           </CardContent>
           <div className="absolute -bottom-5 -right-5 w-24 h-24 rounded-full bg-rose-100/50 dark:bg-rose-500/8 pointer-events-none" />
         </Card>
       </div>
 
-      {/* Top Expenses first, then Spending by Category */}
+      {/* Top Expenses + Spending by Category */}
       <div className="grid gap-6 grid-cols-1 lg:grid-cols-5">
-        {/* Top Expenses */}
         <Card className="lg:col-span-3 border border-card-border shadow-sm">
           <CardHeader>
             <CardTitle className="text-base">Top Expenses</CardTitle>
-            <CardDescription className="text-xs">Your largest transactions this month</CardDescription>
+            <CardDescription className="text-xs">{periodLabel}</CardDescription>
           </CardHeader>
           <CardContent>
             {isLoadingTopExpenses ? (
@@ -136,17 +223,16 @@ export default function Dashboard() {
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center py-8 text-muted-foreground text-sm">
-                <p>No expenses found for this month.</p>
+                <p>No expenses found for this period.</p>
               </div>
             )}
           </CardContent>
         </Card>
 
-        {/* Spending by Category */}
         <Card className="lg:col-span-2 border border-card-border shadow-sm">
           <CardHeader>
             <CardTitle className="text-base">Spending by Category</CardTitle>
-            <CardDescription className="text-xs">Where your money goes</CardDescription>
+            <CardDescription className="text-xs">{periodLabel}</CardDescription>
           </CardHeader>
           <CardContent>
             {isLoadingSpending ? (

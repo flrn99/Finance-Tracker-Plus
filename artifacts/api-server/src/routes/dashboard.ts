@@ -23,12 +23,27 @@ function monthRange(month: string) {
   return { startDate, endDate };
 }
 
+function resolveDateRange(data: {
+  month?: string | null;
+  startDate?: string | null;
+  endDate?: string | null;
+  allTime?: boolean | null;
+}): { startDate: string; endDate: string } | null {
+  if (data.allTime) return null;
+  if (data.startDate || data.endDate) {
+    return {
+      startDate: data.startDate ?? "1900-01-01",
+      endDate: data.endDate ?? "2099-12-31",
+    };
+  }
+  return monthRange(data.month ?? currentMonth());
+}
+
 router.get("/dashboard/summary", async (req, res) => {
   const parsed = GetDashboardSummaryQueryParams.safeParse(req.query);
   if (!parsed.success) return res.status(400).json({ error: "Invalid params" });
 
-  const month = parsed.data.month ?? currentMonth();
-  const { startDate, endDate } = monthRange(month);
+  const range = resolveDateRange(parsed.data);
 
   const rows = await db
     .select({
@@ -37,10 +52,12 @@ router.get("/dashboard/summary", async (req, res) => {
     })
     .from(transactionsTable)
     .where(
-      and(
-        gte(transactionsTable.date, startDate),
-        lte(transactionsTable.date, endDate)
-      )
+      range
+        ? and(
+            gte(transactionsTable.date, range.startDate),
+            lte(transactionsTable.date, range.endDate)
+          )
+        : undefined
     );
 
   let totalIncome = 0;
@@ -73,8 +90,7 @@ router.get("/dashboard/spending-by-category", async (req, res) => {
   const parsed = GetSpendingByCategoryQueryParams.safeParse(req.query);
   if (!parsed.success) return res.status(400).json({ error: "Invalid params" });
 
-  const month = parsed.data.month ?? currentMonth();
-  const { startDate, endDate } = monthRange(month);
+  const range = resolveDateRange(parsed.data);
 
   const rows = await db
     .select({
@@ -87,11 +103,13 @@ router.get("/dashboard/spending-by-category", async (req, res) => {
     .from(transactionsTable)
     .innerJoin(categoriesTable, eq(transactionsTable.categoryId, categoriesTable.id))
     .where(
-      and(
-        eq(transactionsTable.type, "expense"),
-        gte(transactionsTable.date, startDate),
-        lte(transactionsTable.date, endDate)
-      )
+      range
+        ? and(
+            eq(transactionsTable.type, "expense"),
+            gte(transactionsTable.date, range.startDate),
+            lte(transactionsTable.date, range.endDate)
+          )
+        : eq(transactionsTable.type, "expense")
     );
 
   const grouped: Record<
@@ -184,9 +202,8 @@ router.get("/dashboard/top-expenses", async (req, res) => {
   const parsed = GetTopExpensesQueryParams.safeParse(req.query);
   if (!parsed.success) return res.status(400).json({ error: "Invalid params" });
 
-  const month = parsed.data.month ?? currentMonth();
+  const range = resolveDateRange(parsed.data);
   const limit = parsed.data.limit ?? 5;
-  const { startDate, endDate } = monthRange(month);
 
   const rows = await db
     .select({
@@ -204,11 +221,13 @@ router.get("/dashboard/top-expenses", async (req, res) => {
     .from(transactionsTable)
     .innerJoin(categoriesTable, eq(transactionsTable.categoryId, categoriesTable.id))
     .where(
-      and(
-        eq(transactionsTable.type, "expense"),
-        gte(transactionsTable.date, startDate),
-        lte(transactionsTable.date, endDate)
-      )
+      range
+        ? and(
+            eq(transactionsTable.type, "expense"),
+            gte(transactionsTable.date, range.startDate),
+            lte(transactionsTable.date, range.endDate)
+          )
+        : eq(transactionsTable.type, "expense")
     )
     .orderBy(desc(sql`CAST(${transactionsTable.amount} AS numeric)`))
     .limit(limit);
