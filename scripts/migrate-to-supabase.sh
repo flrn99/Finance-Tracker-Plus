@@ -107,14 +107,13 @@ else
   echo "  WARNING: Could not verify Supabase connection, but the import may have still succeeded."
 fi
 
-echo ""
-echo "=== Migration complete! ==="
-echo ""
-echo "Next steps:"
-echo "  1. Verify your data looks correct in the Supabase dashboard."
-echo "  2. Update your DATABASE_URL secret in Replit to point to Supabase:"
-echo "     postgresql://${SUPABASE_USER}:<password>@${SUPABASE_HOST}:${SUPABASE_PORT}/${SUPABASE_DB}"
-echo "  3. Restart your API server to pick up the new DATABASE_URL."
+export SUPABASE_MIG_HOST="$SUPABASE_HOST"
+export SUPABASE_MIG_PORT="$SUPABASE_PORT"
+export SUPABASE_MIG_DB="$SUPABASE_DB"
+export SUPABASE_MIG_USER="$SUPABASE_USER"
+export SUPABASE_MIG_PASSWORD="$SUPABASE_PASSWORD"
+pnpm --filter @workspace/scripts run finalize-migration
+
 echo ""
 echo "The local backup file ($BACKUP_PATH) has been kept as a convenience copy."
 echo "A durable cloud copy was uploaded to: $CLOUD_STORAGE_PATH"
