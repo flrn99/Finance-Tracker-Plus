@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { useCurrency } from "@/lib/currency-context";
 import { cn } from "@/lib/utils";
@@ -26,6 +26,12 @@ export default function CurrencyInput({ value, onChange, onBlur, placeholder = "
       : ""
   );
   const focused = useRef(false);
+
+  useEffect(() => {
+    if (!focused.current && (value === undefined || value === null)) {
+      setDisplay("");
+    }
+  }, [value]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value.replace(/,/g, "");
