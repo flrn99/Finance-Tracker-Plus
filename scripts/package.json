@@ -6,10 +6,15 @@
   "scripts": {
     "hello": "tsx ./src/hello.ts",
     "migrate": "bash ./migrate-to-supabase.sh",
+    "upload-backup": "tsx ./src/upload-backup.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
     "@types/node": "catalog:",
     "tsx": "catalog:"
+  },
+  "dependencies": {
+    "@google-cloud/storage": "^7.19.0",
+    "google-auth-library": "^10.6.2"
   }
 }

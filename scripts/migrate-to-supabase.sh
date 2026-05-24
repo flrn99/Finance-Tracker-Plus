@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BACKUP_FILE="backup.sql"
+BACKUP_PATH="$SCRIPT_DIR/$BACKUP_FILE"
 SUPABASE_HOST="aws-1-us-west-1.pooler.supabase.com"
 SUPABASE_PORT="6543"
 SUPABASE_DB="postgres"
@@ -36,10 +38,43 @@ if pg_dump "$DATABASE_URL" \
   --clean \
   --if-exists \
   --format=plain \
-  --file="$BACKUP_FILE"; then
-  echo "  SUCCESS: Data exported to $BACKUP_FILE"
+  --file="$BACKUP_PATH"; then
+  echo "  SUCCESS: Data exported to $BACKUP_PATH"
 else
   echo "  ERROR: pg_dump failed. Check that DATABASE_URL is correct and the database is reachable."
+  exit 1
+fi
+
+echo ""
+echo "  Uploading backup to cloud storage..."
+set +e
+UPLOAD_OUTPUT=$(pnpm --filter @workspace/scripts run upload-backup "$BACKUP_PATH" 2>&1)
+UPLOAD_EXIT=$?
+set -e
+CLOUD_STORAGE_PATH=""
+if [ $UPLOAD_EXIT -eq 0 ]; then
+  CLOUD_STORAGE_PATH=$(echo "$UPLOAD_OUTPUT" | grep '^STORAGE_PATH=' | cut -d= -f2- || true)
+  CLOUD_STORAGE_LINK=$(echo "$UPLOAD_OUTPUT" | grep '^STORAGE_LINK=' | cut -d= -f2- || true)
+  if [ -n "$CLOUD_STORAGE_PATH" ]; then
+    echo "  SUCCESS: Backup uploaded to cloud storage."
+    echo "           Storage path: $CLOUD_STORAGE_PATH"
+    if [ -n "$CLOUD_STORAGE_LINK" ]; then
+      echo "           Storage link: $CLOUD_STORAGE_LINK"
+    fi
+  else
+    echo "  ERROR: Upload reported success but returned no storage path."
+    echo "         Upload output:"
+    echo "$UPLOAD_OUTPUT" | sed 's/^/         /'
+    echo "         The local backup ($BACKUP_PATH) has been kept."
+    echo "         Resolve the storage issue and re-run this script before proceeding."
+    exit 1
+  fi
+else
+  echo "  ERROR: Cloud upload failed."
+  echo "         Upload error output:"
+  echo "$UPLOAD_OUTPUT" | sed 's/^/         /'
+  echo "         The local backup ($BACKUP_PATH) has been kept."
+  echo "         Resolve the storage issue and re-run this script before proceeding."
   exit 1
 fi
 
@@ -48,14 +83,15 @@ echo "Step 2/3: Importing data into Supabase..."
 echo "          (Existing objects will be dropped and recreated — safe to re-run)"
 
 if PGPASSWORD="$SUPABASE_PASSWORD" psql "$SUPABASE_URL" \
-  --file="$BACKUP_FILE" \
+  --file="$BACKUP_PATH" \
   --set ON_ERROR_STOP=on \
   --quiet; then
   echo "  SUCCESS: Data imported into Supabase."
 else
   echo "  ERROR: psql import failed."
   echo "         Check your password and make sure the Supabase project is active."
-  echo "         The backup file ($BACKUP_FILE) is preserved — fix the issue and re-run this script."
+  echo "         The backup file ($BACKUP_PATH) is preserved — fix the issue and re-run this script."
+  echo "         The cloud backup is also available at: $CLOUD_STORAGE_PATH"
   exit 1
 fi
 
@@ -80,4 +116,6 @@ echo "  2. Update your DATABASE_URL secret in Replit to point to Supabase:"
 echo "     postgresql://${SUPABASE_USER}:<password>@${SUPABASE_HOST}:${SUPABASE_PORT}/${SUPABASE_DB}"
 echo "  3. Restart your API server to pick up the new DATABASE_URL."
 echo ""
-echo "The local backup file ($BACKUP_FILE) has been kept. Delete it once you are satisfied with the migration."
+echo "The local backup file ($BACKUP_PATH) has been kept as a convenience copy."
+echo "A durable cloud copy was uploaded to: $CLOUD_STORAGE_PATH"
+echo "Delete the local file once you are satisfied with the migration."
