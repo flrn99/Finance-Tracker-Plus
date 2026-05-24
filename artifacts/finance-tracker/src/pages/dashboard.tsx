@@ -214,15 +214,25 @@ export default function Dashboard() {
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
-                <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+                <div className="flex flex-col gap-2.5">
                   {spending.map((entry) => (
-                    <div key={entry.categoryId} className="flex items-center gap-2 min-w-0">
-                      <span
-                        className="w-2.5 h-2.5 rounded-full shrink-0"
-                        style={{ backgroundColor: entry.categoryColor }}
-                      />
-                      <span className="text-xs text-foreground truncate font-medium">{entry.categoryName}</span>
-                      <span className="text-xs text-muted-foreground ml-auto shrink-0">{entry.percentage.toFixed(0)}%</span>
+                    <div key={entry.categoryId} className="flex flex-col gap-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span
+                            className="w-2 h-2 rounded-full shrink-0"
+                            style={{ backgroundColor: entry.categoryColor }}
+                          />
+                          <span className="text-xs text-foreground font-medium truncate">{entry.categoryName}</span>
+                        </div>
+                        <span className="text-xs text-muted-foreground shrink-0 tabular-nums">{entry.percentage.toFixed(1)}%</span>
+                      </div>
+                      <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all duration-500"
+                          style={{ width: `${entry.percentage}%`, backgroundColor: entry.categoryColor }}
+                        />
+                      </div>
                     </div>
                   ))}
                 </div>
