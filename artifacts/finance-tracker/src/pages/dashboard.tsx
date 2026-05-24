@@ -7,8 +7,8 @@ import {
 import { formatDate } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
-import { ArrowDownIcon, ArrowUpIcon, Wallet } from "lucide-react";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
+import { ArrowDownIcon, ArrowUpIcon, Wallet, TrendingDown, TrendingUp } from "lucide-react";
 import QuickEntry from "@/components/quick-entry";
 import { useCurrency } from "@/lib/currency-context";
 import { cn } from "@/lib/utils";
@@ -28,6 +28,7 @@ type FilterMode = "month" | "all";
 export default function Dashboard() {
   const { formatAmount } = useCurrency();
   const [filterMode, setFilterMode] = useState<FilterMode>("month");
+  const [categoryType, setCategoryType] = useState<"expense" | "income">("expense");
 
   const currentMonth = todayYM();
 
@@ -43,9 +44,11 @@ export default function Dashboard() {
     { query: { queryKey: getGetDashboardSummaryQueryKey(apiParams) } }
   );
 
+  const spendingParams = useMemo(() => ({ ...apiParams, type: categoryType }), [apiParams, categoryType]);
+
   const { data: spending, isLoading: isLoadingSpending } = useGetSpendingByCategory(
-    apiParams,
-    { query: { queryKey: getGetSpendingByCategoryQueryKey(apiParams) } }
+    spendingParams,
+    { query: { queryKey: getGetSpendingByCategoryQueryKey(spendingParams) } }
   );
 
   const { data: topExpenses, isLoading: isLoadingTopExpenses } = useGetTopExpenses(
@@ -188,9 +191,43 @@ export default function Dashboard() {
         </Card>
 
         <Card className="lg:col-span-2 border border-card-border shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-base">Spending by Category</CardTitle>
-            <CardDescription className="text-xs">{periodLabel}</CardDescription>
+          <CardHeader className="pb-3">
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <CardTitle className="text-base">
+                  {categoryType === "expense" ? "Spending" : "Income"} by Category
+                </CardTitle>
+                <CardDescription className="text-xs mt-0.5">{periodLabel}</CardDescription>
+              </div>
+              <div className="flex rounded-lg border border-border overflow-hidden shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setCategoryType("expense")}
+                  className={cn(
+                    "flex items-center gap-1 px-2.5 py-1 text-xs font-semibold transition-all",
+                    categoryType === "expense"
+                      ? "bg-expense/15 text-expense"
+                      : "bg-transparent text-muted-foreground hover:bg-muted"
+                  )}
+                >
+                  <TrendingDown className="h-3 w-3 shrink-0" />
+                  Expense
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCategoryType("income")}
+                  className={cn(
+                    "flex items-center gap-1 px-2.5 py-1 text-xs font-semibold transition-all",
+                    categoryType === "income"
+                      ? "bg-income/15 text-income"
+                      : "bg-transparent text-muted-foreground hover:bg-muted"
+                  )}
+                >
+                  <TrendingUp className="h-3 w-3 shrink-0" />
+                  Income
+                </button>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             {isLoadingSpending ? (
@@ -239,7 +276,7 @@ export default function Dashboard() {
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center h-[260px] text-muted-foreground text-sm">
-                <p>No spending data yet.</p>
+                <p>No {categoryType === "expense" ? "spending" : "income"} data yet.</p>
               </div>
             )}
           </CardContent>

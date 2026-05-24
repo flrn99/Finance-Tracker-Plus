@@ -196,6 +196,7 @@ export const GetSpendingByCategoryQueryParams = zod.object({
   "startDate": zod.coerce.string().nullish(),
   "endDate": zod.coerce.string().nullish(),
   "allTime": zod.coerce.boolean().nullish(),
+  "type": zod.enum(["expense", "income"]).nullish(),
 })
 
 export const GetSpendingByCategoryResponseItem = zod.object({

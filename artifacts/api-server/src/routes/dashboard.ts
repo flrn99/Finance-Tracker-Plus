@@ -103,13 +103,16 @@ router.get("/dashboard/spending-by-category", async (req, res) => {
     .from(transactionsTable)
     .innerJoin(categoriesTable, eq(transactionsTable.categoryId, categoriesTable.id))
     .where(
-      range
-        ? and(
-            eq(transactionsTable.type, "expense"),
-            gte(transactionsTable.date, range.startDate),
-            lte(transactionsTable.date, range.endDate)
-          )
-        : eq(transactionsTable.type, "expense")
+      (() => {
+        const txType = parsed.data.type ?? "expense";
+        return range
+          ? and(
+              eq(transactionsTable.type, txType),
+              gte(transactionsTable.date, range.startDate),
+              lte(transactionsTable.date, range.endDate)
+            )
+          : eq(transactionsTable.type, txType);
+      })()
     );
 
   const grouped: Record<

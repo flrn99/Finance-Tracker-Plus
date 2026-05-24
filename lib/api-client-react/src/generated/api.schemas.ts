@@ -186,6 +186,8 @@ startDate?: string | null;
 endDate?: string | null;
 /** @nullable */
 allTime?: boolean | null;
+/** @nullable */
+type?: 'expense' | 'income' | null;
 };
 
 export type GetTopExpensesParams = {
