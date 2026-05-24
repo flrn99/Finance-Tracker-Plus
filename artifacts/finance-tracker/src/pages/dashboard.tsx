@@ -198,21 +198,34 @@ export default function Dashboard() {
                 <Skeleton className="h-[200px] w-[200px] rounded-full" />
               </div>
             ) : spending && spending.length > 0 ? (
-              <div className="h-[260px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={spending} cx="50%" cy="45%" innerRadius={55} outerRadius={85} paddingAngle={2} dataKey="total">
-                      {spending.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.categoryColor} />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      contentStyle={{ backgroundColor: "hsl(var(--card))", borderColor: "hsl(var(--border))", borderRadius: "8px", fontSize: "12px" }}
-                      formatter={(value: number) => formatAmount(value)}
-                    />
-                    <Legend layout="horizontal" verticalAlign="bottom" align="center" iconType="circle" iconSize={8} wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }} />
-                  </PieChart>
-                </ResponsiveContainer>
+              <div className="flex flex-col gap-4">
+                <div className="h-[200px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={spending} cx="50%" cy="50%" innerRadius={52} outerRadius={80} paddingAngle={2} dataKey="total">
+                        {spending.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.categoryColor} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        contentStyle={{ backgroundColor: "hsl(var(--card))", borderColor: "hsl(var(--border))", borderRadius: "8px", fontSize: "12px" }}
+                        formatter={(value: number) => formatAmount(value)}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+                  {spending.map((entry) => (
+                    <div key={entry.categoryId} className="flex items-center gap-2 min-w-0">
+                      <span
+                        className="w-2.5 h-2.5 rounded-full shrink-0"
+                        style={{ backgroundColor: entry.categoryColor }}
+                      />
+                      <span className="text-xs text-foreground truncate font-medium">{entry.categoryName}</span>
+                      <span className="text-xs text-muted-foreground ml-auto shrink-0">{entry.percentage.toFixed(0)}%</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center h-[260px] text-muted-foreground text-sm">
