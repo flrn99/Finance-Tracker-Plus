@@ -50,3 +50,6 @@ Thumbs.db
 
 # Migration artifacts
 backup.sql
+
+# Post-migration local environment override (contains database credentials)
+.env.local
