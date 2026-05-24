@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Download, FileSpreadsheet, DatabaseZap } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import MonthSelect from "@/components/month-select";
+import { getApiUrl } from "@/lib/api-config";
 
 function lastDayOfMonth(ym: string): string {
   const [y, m] = ym.split("-").map(Number);
@@ -30,7 +31,7 @@ export default function Export() {
         if (params.toString()) queryStr = `?${params.toString()}`;
       }
 
-      const response = await fetch(`${import.meta.env.BASE_URL}api/export/excel${queryStr}`);
+      const response = await fetch(getApiUrl(`api/export/excel${queryStr}`));
       if (!response.ok) throw new Error("Export failed");
 
       const blob = await response.blob();
