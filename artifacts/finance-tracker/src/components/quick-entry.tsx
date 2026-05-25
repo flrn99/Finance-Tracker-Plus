@@ -59,9 +59,9 @@ export default function QuickEntry() {
   });
 
   const type = form.watch("type");
-  const safeCategories = Array.isArray(categories) ? categories : [];
-  const filteredCategories = safeCategories.filter((c) => c.type === type || c.type === "both");
-
+  const filteredCategories = Array.isArray(categories)
+  ? categories.filter((c) => c.type === type || c.type === "both")
+  : [];
   const onSubmit = (data: FormValues) => {
     const usdAmount = Math.round((data.amount / rate) * 10000) / 10000;
     const fullDate = data.date.length === 7 ? `${data.date}-01` : data.date;

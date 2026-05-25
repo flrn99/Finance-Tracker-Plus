@@ -35,11 +35,12 @@ export default function Transactions() {
 
   const { data: categories } = useListCategories({ query: { queryKey: getListCategoriesQueryKey() } });
 
-  const safeCategories = Array.isArray(categories) ? categories : [];
-  const filteredCategoryOptions = safeCategories.filter((c) => {
-    if (filterType === "all") return true;
-    return c.type === filterType || c.type === "both";
-  });
+  const filteredCategoryOptions = Array.isArray(categories)
+  ? categories.filter((c) => {
+      if (filterType === "all") return true;
+      return c.type === filterType || c.type === "both";
+    })
+  : [];
 
   const queryParams = {
     ...(filterType !== "all" && { type: filterType as "income" | "expense" }),
@@ -51,9 +52,10 @@ export default function Transactions() {
   });
 
   const safeTransactions = Array.isArray(transactions) ? transactions : [];
-  const filteredTransactions = filterMonth
-    ? safeTransactions.filter((tx) => tx.date.startsWith(filterMonth))
-    : safeTransactions;
+
+const filteredTransactions = filterMonth
+  ? safeTransactions.filter((tx) => tx.date.startsWith(filterMonth))
+  : safeTransactions;
 
   const deleteTx = useDeleteTransaction();
   const handleDelete = (id: number) => {
@@ -69,7 +71,7 @@ export default function Transactions() {
   const hasFilters = filterType !== "all" || filterCategory !== "all" || filterMonth !== "";
   const resetFilters = () => { setFilterType("all"); setFilterCategory("all"); setFilterMonth(""); };
 
-  const monthlyTotal = filteredTransactions.reduce(
+  const monthlyTotal = filteredTransactions?.reduce(
     (acc, tx) => { if (tx.type === "income") acc.income += tx.amount; else acc.expense += tx.amount; return acc; },
     { income: 0, expense: 0 }
   );
@@ -204,14 +206,14 @@ export default function Transactions() {
               <Skeleton className="h-5 w-20 shrink-0" />
             </div>
           ))
-        ) : filteredTransactions.length === 0 ? (
+        ) : filteredTransactions?.length === 0 ? (
           <div className="bg-card rounded-2xl border border-card-border p-12 flex flex-col items-center justify-center text-muted-foreground">
             <Search className="h-10 w-10 mb-3 opacity-30" />
             <p className="font-semibold">No transactions found</p>
             <p className="text-sm mt-1">Try adjusting your filters or adding a new one.</p>
           </div>
         ) : (
-          filteredTransactions.map((tx, idx) => (
+          filteredTransactions?.map((tx, idx) => (
             <div
               key={tx.id}
               data-testid={`row-transaction-${tx.id}`}
