@@ -62,7 +62,8 @@ export default function NewTransaction() {
   });
 
   const type = form.watch("type");
-  const filteredCategories = categories?.filter(c => c.type === type || c.type === 'both') || [];
+  const safeCategories = Array.isArray(categories) ? categories : [];
+  const filteredCategories = safeCategories.filter(c => c.type === type || c.type === 'both');
 
   const onSubmit = (data: FormValues) => {
     const usdAmount = Math.round((data.amount / rate) * 10000) / 10000;
