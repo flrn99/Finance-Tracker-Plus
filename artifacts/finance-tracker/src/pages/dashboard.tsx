@@ -46,7 +46,7 @@ export default function Dashboard() {
 
   const spendingParams = useMemo(() => ({ ...apiParams, type: categoryType }), [apiParams, categoryType]);
 
-  const { data: spending, isLoading: isLoadingSpending } = useGetSpendingByCategory(
+  const { data: spending, isLoading: isLoadingSpending } = useGetSpendingByCategory( 
     spendingParams,
     { query: { queryKey: getGetSpendingByCategoryQueryKey(spendingParams) } }
   );
@@ -62,7 +62,7 @@ export default function Dashboard() {
   ];
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="space-y-6">
       <div>
         <h2 className="text-2xl sm:text-3xl font-serif font-bold tracking-tight text-foreground">Dashboard</h2>
         <p className="text-muted-foreground mt-1 text-sm">A summary of your financial health.</p>
@@ -144,19 +144,22 @@ export default function Dashboard() {
             <CardDescription className="text-xs">{periodLabel}</CardDescription>
           </CardHeader>
           <CardContent>
-            {isLoadingTopExpenses ? (
+          {isLoadingTopExpenses ? (
               <div className="space-y-4">
                 {[1, 2, 3, 4].map((i) => (
                   <div key={i} className="flex justify-between items-center">
                     <div className="flex items-center gap-3">
                       <Skeleton className="h-10 w-10 rounded-full shrink-0" />
-                      <div><Skeleton className="h-4 w-32 mb-1.5" /><Skeleton className="h-3 w-20" /></div>
+                      <div>
+                        <Skeleton className="h-4 w-32 mb-1.5" />
+                        <Skeleton className="h-3 w-20" />
+                      </div>
                     </div>
                     <Skeleton className="h-5 w-16" />
                   </div>
                 ))}
               </div>
-            ) : topExpenses && topExpenses.length > 0 ? (
+            ) : Array.isArray(topExpenses) && topExpenses.length > 0 ? (
               <div className="space-y-4">
                 {topExpenses.map((expense, idx) => (
                   <div key={expense.id} className="flex items-center justify-between gap-3 group">
@@ -234,7 +237,7 @@ export default function Dashboard() {
               <div className="flex justify-center items-center h-[260px]">
                 <Skeleton className="h-[200px] w-[200px] rounded-full" />
               </div>
-            ) : spending && spending.length > 0 ? (
+              ) : Array.isArray(spending) && spending.length > 0 ? (
               <div className="flex flex-col gap-4">
                 <div className="h-[200px]">
                   <ResponsiveContainer width="100%" height="100%">

@@ -279,7 +279,7 @@ export default function Categories() {
           </div>
         ) : (
           <ul className="divide-y divide-border">
-            {categories.map((cat) => (
+            {(Array.isArray(categories) ? categories : []).map((cat) => (
               <li
                 key={cat.id}
                 className="flex items-center gap-3 sm:gap-4 px-4 py-3 hover:bg-muted/30 transition-colors group"

@@ -73,7 +73,7 @@ export default function Layout({ children }: LayoutProps) {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      <main className="flex-1 flex flex-col min-w-0">
         {/* Mobile top bar */}
         <header className="md:hidden flex items-center gap-2 px-4 py-3 border-b border-border bg-sidebar sticky top-0 z-10">
           <div className="w-7 h-7 rounded-lg bg-sidebar-primary flex items-center justify-center shrink-0">
@@ -83,7 +83,7 @@ export default function Layout({ children }: LayoutProps) {
         </header>
 
         <div className="flex-1 overflow-y-auto p-4 pb-24 md:pb-8 md:p-8">
-          <div className="max-w-6xl mx-auto">
+          <div className="max-w-6xl mx-auto min-h-full">
             {children}
           </div>
         </div>
