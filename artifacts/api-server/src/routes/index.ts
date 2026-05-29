@@ -4,6 +4,7 @@ import transactionsRouter from "./transactions";
 import categoriesRouter from "./categories";
 import dashboardRouter from "./dashboard";
 import exportRouter from "./export";
+import accountRouter from "./account";
 
 const router: IRouter = Router();
 
@@ -12,5 +13,6 @@ router.use(transactionsRouter);
 router.use(categoriesRouter);
 router.use(dashboardRouter);
 router.use(exportRouter);
+router.use(accountRouter);
 
 export default router;

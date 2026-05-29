@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Sun, Moon, DollarSign, Trash2, Settings as SettingsIcon, LogOut } from "lucide-react";
+import { Sun, Moon, DollarSign, Trash2, Settings as SettingsIcon, LogOut, UserX } from "lucide-react";
 import { useTheme } from "@/lib/theme-context";
 import { useCurrency, type Currency } from "@/lib/currency-context";
 import { useToast } from "@/hooks/use-toast";
@@ -12,6 +12,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger
 } from "@/components/ui/alert-dialog";
 import { getApiUrl } from "@/lib/api-config";
+import { supabase } from "@/lib/supabase";
 
 function SettingRow({ label, description, children }: { label: string; description?: string; children: React.ReactNode }) {
   return (
@@ -40,15 +41,19 @@ export default function Settings() {
   const { theme, setTheme } = useTheme();
   const { currency, setCurrency } = useCurrency();
   const { toast } = useToast();
-  const { user, signOut } = useAuth();
+  const { user, signOut, session } = useAuth();
   const queryClient = useQueryClient();
   const [erasing, setErasing] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
 
   const handleEraseAll = async () => {
     setErasing(true);
     try {
-      const res = await fetch(getApiUrl("/api/transactions"), { method: "DELETE" });
+      const res = await fetch(getApiUrl("/api/transactions"), { 
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${session?.access_token}` }
+      });
       if (!res.ok) throw new Error("Failed");
       queryClient.invalidateQueries({ queryKey: getListTransactionsQueryKey() });
       queryClient.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey({}) });
@@ -72,6 +77,22 @@ export default function Settings() {
     }
   };
 
+  const handleDeleteAccount = async () => {
+    setDeletingAccount(true);
+    try {
+      const res = await fetch(getApiUrl("/api/account"), {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${session?.access_token}` },
+      });
+      if (!res.ok) throw new Error("Failed");
+      await supabase.auth.signOut();
+      toast({ title: "Account deleted." });
+    } catch {
+      toast({ title: "Failed to delete account.", variant: "destructive" });
+      setDeletingAccount(false);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500 max-w-lg">
       <div>
@@ -83,29 +104,11 @@ export default function Settings() {
       <SectionCard title="Appearance">
         <SettingRow label="Theme" description="Switch between light and dark mode">
           <div className="flex rounded-xl border border-border overflow-hidden">
-            <button
-              onClick={() => setTheme("light")}
-              className={cn(
-                "flex items-center gap-1.5 px-3 py-2 text-sm font-semibold transition-all",
-                theme === "light"
-                  ? "bg-sidebar-primary text-sidebar-primary-foreground"
-                  : "bg-transparent text-muted-foreground hover:bg-muted"
-              )}
-            >
-              <Sun className="h-3.5 w-3.5" />
-              Light
+            <button onClick={() => setTheme("light")} className={cn("flex items-center gap-1.5 px-3 py-2 text-sm font-semibold transition-all", theme === "light" ? "bg-sidebar-primary text-sidebar-primary-foreground" : "bg-transparent text-muted-foreground hover:bg-muted")}>
+              <Sun className="h-3.5 w-3.5" />Light
             </button>
-            <button
-              onClick={() => setTheme("dark")}
-              className={cn(
-                "flex items-center gap-1.5 px-3 py-2 text-sm font-semibold transition-all",
-                theme === "dark"
-                  ? "bg-sidebar-primary text-sidebar-primary-foreground"
-                  : "bg-transparent text-muted-foreground hover:bg-muted"
-              )}
-            >
-              <Moon className="h-3.5 w-3.5" />
-              Dark
+            <button onClick={() => setTheme("dark")} className={cn("flex items-center gap-1.5 px-3 py-2 text-sm font-semibold transition-all", theme === "dark" ? "bg-sidebar-primary text-sidebar-primary-foreground" : "bg-transparent text-muted-foreground hover:bg-muted")}>
+              <Moon className="h-3.5 w-3.5" />Dark
             </button>
           </div>
         </SettingRow>
@@ -116,16 +119,7 @@ export default function Settings() {
         <SettingRow label="Display currency" description="All amounts will be shown in this currency">
           <div className="flex rounded-xl border border-border overflow-hidden">
             {(["GTQ", "USD"] as Currency[]).map((c) => (
-              <button
-                key={c}
-                onClick={() => setCurrency(c)}
-                className={cn(
-                  "px-3 py-2 text-sm font-semibold transition-all",
-                  currency === c
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-transparent text-muted-foreground hover:bg-muted"
-                )}
-              >
+              <button key={c} onClick={() => setCurrency(c)} className={cn("px-3 py-2 text-sm font-semibold transition-all", currency === c ? "bg-primary text-primary-foreground" : "bg-transparent text-muted-foreground hover:bg-muted")}>
                 {c === "GTQ" ? "Q GTQ" : "$ USD"}
               </button>
             ))}
@@ -146,14 +140,37 @@ export default function Settings() {
             <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitle>Sign out?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  You will need to sign in again to access your data.
-                </AlertDialogDescription>
+                <AlertDialogDescription>You will need to sign in again to access your data.</AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
                 <AlertDialogAction onClick={handleSignOut} disabled={signingOut}>
                   {signingOut ? "Signing out..." : "Sign Out"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </SettingRow>
+
+        <SettingRow label="Delete account" description="Permanently deletes your account and all data.">
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <button className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold text-destructive bg-destructive/10 hover:bg-destructive/20 transition-all">
+                <UserX className="h-3.5 w-3.5" />
+                {deletingAccount ? "Deleting..." : "Delete"}
+              </button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete your account?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will permanently delete your account, all transactions, and all categories. This action cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDeleteAccount} disabled={deletingAccount} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                  {deletingAccount ? "Deleting..." : "Yes, delete everything"}
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
@@ -174,17 +191,11 @@ export default function Settings() {
             <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitle>Erase all transactions?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This will permanently delete every transaction in your account. This action cannot be undone.
-                </AlertDialogDescription>
+                <AlertDialogDescription>This will permanently delete every transaction in your account. This action cannot be undone.</AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={handleEraseAll}
-                  disabled={erasing}
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                >
+                <AlertDialogAction onClick={handleEraseAll} disabled={erasing} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
                   {erasing ? "Erasing..." : "Yes, erase all"}
                 </AlertDialogAction>
               </AlertDialogFooter>
