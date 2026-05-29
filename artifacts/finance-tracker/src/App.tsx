@@ -9,6 +9,7 @@ import { CurrencyProvider } from "@/lib/currency-context";
 import { ThemeProvider } from "@/lib/theme-context";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
 import Login from "@/pages/login";
+import { supabase } from "@/lib/supabase";
 
 // Pages
 import Dashboard from "@/pages/dashboard";
@@ -67,6 +68,39 @@ function ProtectedRouter() {
 }
 
 function App() {
+  useEffect(() => {
+    // Handle deep link callback from Google OAuth
+    const handleDeepLink = async (url: string) => {
+      if (url.includes("login-callback")) {
+        const hashParams = new URLSearchParams(url.split("#")[1] || url.split("?")[1] || "");
+        const accessToken = hashParams.get("access_token");
+        const refreshToken = hashParams.get("refresh_token");
+        if (accessToken && refreshToken) {
+          await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+        }
+      }
+    };
+
+    // Listen for app URL opens (Capacitor deep links)
+    const setupDeepLink = async () => {
+      try {
+        const { App } = await import("@capacitor/app");
+        App.addListener("appUrlOpen", async (data: { url: string }) => {
+          await handleDeepLink(data.url);
+        });
+      } catch {
+        // Not in Capacitor environment
+      }
+    };
+
+    setupDeepLink();
+
+    // Also handle web hash-based redirects
+    if (window.location.hash.includes("access_token")) {
+      handleDeepLink(window.location.href);
+    }
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
