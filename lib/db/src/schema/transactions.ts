@@ -5,12 +5,13 @@ import { categoriesTable } from "./categories";
 
 export const transactionsTable = pgTable("transactions", {
   id: serial("id").primaryKey(),
-  type: text("type").notNull(), // 'income' | 'expense'
+  type: text("type").notNull(),
   amount: numeric("amount", { precision: 12, scale: 6 }).notNull(),
   description: text("description").notNull(),
-  date: text("date").notNull(), // ISO date string YYYY-MM-DD
+  date: text("date").notNull(),
   categoryId: integer("category_id").notNull().references(() => categoriesTable.id),
   notes: text("notes"),
+  userId: text("user_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

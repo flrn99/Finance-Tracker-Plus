@@ -7,6 +7,8 @@ import NotFound from "@/pages/not-found";
 import Layout from "@/components/layout";
 import { CurrencyProvider } from "@/lib/currency-context";
 import { ThemeProvider } from "@/lib/theme-context";
+import { AuthProvider, useAuth } from "@/lib/auth-context";
+import Login from "@/pages/login";
 
 // Pages
 import Dashboard from "@/pages/dashboard";
@@ -36,7 +38,7 @@ function ScrollToTop() {
 function Router() {
   return (
     <Layout>
-      <ScrollToTop />
+      {/* <ScrollToTop /> */}
       <Switch>
         <Route path="/" component={Dashboard} />
         <Route path="/transactions" component={Transactions} />
@@ -50,18 +52,34 @@ function Router() {
   );
 }
 
+function ProtectedRouter() {
+  const { user, isLoading } = useAuth();
+
+  if (isLoading) return (
+    <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="w-8 h-8 rounded-full border-2 border-sidebar-primary border-t-transparent animate-spin" />
+    </div>
+  );
+
+  if (!user) return <Login />;
+
+  return <Router />;
+}
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-      <CurrencyProvider>
-        <TooltipProvider>
-          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-            <Router />
-          </WouterRouter>
-          <Toaster />
-        </TooltipProvider>
-      </CurrencyProvider>
+        <CurrencyProvider>
+          <TooltipProvider>
+            <AuthProvider>
+              <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+                <ProtectedRouter />
+              </WouterRouter>
+              <Toaster />
+            </AuthProvider>
+          </TooltipProvider>
+        </CurrencyProvider>
       </ThemeProvider>
     </QueryClientProvider>
   );

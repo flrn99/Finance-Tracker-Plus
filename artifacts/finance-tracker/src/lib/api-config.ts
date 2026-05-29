@@ -1,12 +1,6 @@
-import { setBaseUrl } from "@workspace/api-client-react";
+import { setBaseUrl, setAuthTokenGetter } from "@workspace/api-client-react";
+import { supabase } from "./supabase";
 
-/**
- * Returns the base URL for raw fetch() calls (e.g. the Excel export endpoint).
- *
- * - Replit dev / web preview : BASE_URL is the proxy path prefix (e.g. "/")
- * - Capacitor Android build  : VITE_API_BASE_URL is the deployed API origin
- *                              (e.g. "https://your-app.replit.app")
- */
 export function getApiUrl(path: string): string {
   const base = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/+$/, "");
   if (base) {
@@ -20,3 +14,8 @@ const apiBaseUrl = import.meta.env.VITE_API_BASE_URL as string | undefined;
 if (apiBaseUrl) {
   setBaseUrl(apiBaseUrl.replace(/\/+$/, ""));
 }
+
+setAuthTokenGetter(async () => {
+  const { data: { session } } = await supabase.auth.getSession();
+  return session?.access_token ?? null;
+});

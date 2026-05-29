@@ -6,6 +6,8 @@ import { Download, FileSpreadsheet, DatabaseZap } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import MonthSelect from "@/components/month-select";
 import { getApiUrl } from "@/lib/api-config";
+import { Filesystem, Directory } from "@capacitor/filesystem";
+import { Capacitor } from "@capacitor/core";
 
 function lastDayOfMonth(ym: string): string {
   const [y, m] = ym.split("-").map(Number);
@@ -30,23 +32,38 @@ export default function Export() {
         if (endMonth) params.append("endDate", lastDayOfMonth(endMonth));
         if (params.toString()) queryStr = `?${params.toString()}`;
       }
-
-      const response = await fetch(getApiUrl(`api/export/excel${queryStr}`));
+  
+  const response = await fetch(getApiUrl(`api/export/excel${queryStr}`));
       if (!response.ok) throw new Error("Export failed");
-
+  
       const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `finance_export_${new Date().toISOString().split("T")[0]}.xlsx`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
-
-      toast({ title: "Export successful", description: "Your file is downloading." });
+      const fileName = `finance_export_${new Date().toISOString().split("T")[0]}.xlsx`;
+  
+      if (Capacitor.isNativePlatform()) {
+        const reader = new FileReader();
+        reader.readAsDataURL(blob);
+        reader.onloadend = async () => {
+          const base64 = (reader.result as string).split(",")[1];
+          await Filesystem.writeFile({
+            path: fileName,
+            data: base64,
+            directory: Directory.Documents,
+          });
+          toast({ title: "Export saved", description: `Saved to Documents/${fileName}` });
+        };
+      } else {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        toast({ title: "Export successful", description: "Your file is downloading." });
+      }
     } catch {
-      toast({ title: "Export failed", description: "There was a problem generating your export.", variant: "destructive" });
+      toast({ title: "Export failed", variant: "destructive" });
     } finally {
       all ? setIsExportingAll(false) : setIsExporting(false);
     }
