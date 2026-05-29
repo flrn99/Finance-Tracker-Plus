@@ -97,9 +97,11 @@ export default function Dashboard() {
             <div className="p-1.5 rounded-full bg-rose-100 dark:bg-rose-500/15"><ArrowDownIcon className="h-4 w-4 text-rose-500 dark:text-rose-400" /></div>
           </CardHeader>
           <CardContent>
-            {isLoadingSummary ? <Skeleton className="h-8 w-[120px]" /> : (
-              <div className="text-2xl sm:text-3xl font-bold font-sans truncate text-rose-600 dark:text-rose-300">{formatAmount(summary?.totalExpenses || 0)}</div>
-            )}
+            <div className="h-10">
+              {isLoadingSummary ? <Skeleton className="h-8 w-[120px]" /> : (
+                <div className="text-2xl sm:text-3xl font-bold font-sans truncate text-rose-600 dark:text-rose-300">{formatAmount(summary?.totalExpenses || 0)}</div>
+              )}
+            </div>
             <p className="text-xs text-rose-400 dark:text-rose-500/80 mt-1">{periodLabel}</p>
           </CardContent>
           <div className="absolute -bottom-5 -right-5 w-24 h-24 rounded-full bg-rose-100/50 dark:bg-rose-500/8 pointer-events-none" />
@@ -112,9 +114,13 @@ export default function Dashboard() {
             <div className="p-1.5 rounded-full bg-emerald-100 dark:bg-emerald-500/15"><ArrowUpIcon className="h-4 w-4 text-emerald-600 dark:text-emerald-400" /></div>
           </CardHeader>
           <CardContent>
-            {isLoadingSummary ? <Skeleton className="h-8 w-[120px]" /> : (
-              <div className="text-2xl sm:text-3xl font-bold font-sans truncate text-emerald-700 dark:text-emerald-300">{formatAmount(summary?.totalIncome || 0)}</div>
-            )}
+            <div className="h-10">
+              {isLoadingSummary ? <Skeleton className="h-8 w-[120px]" /> : (
+                <div className="text-2xl sm:text-3xl font-bold font-sans truncate text-emerald-700 dark:text-emerald-300">
+                  {formatAmount(summary?.totalIncome || 0)}
+                </div>
+              )}
+            </div>
             <p className="text-xs text-emerald-400 dark:text-emerald-500/80 mt-1">{periodLabel}</p>
           </CardContent>
           <div className="absolute -bottom-5 -right-5 w-24 h-24 rounded-full bg-emerald-100/50 dark:bg-emerald-500/8 pointer-events-none" />
@@ -127,9 +133,13 @@ export default function Dashboard() {
             <div className="p-1.5 rounded-full bg-violet-100 dark:bg-violet-500/15"><Wallet className="h-4 w-4 text-violet-500 dark:text-violet-400" /></div>
           </CardHeader>
           <CardContent>
-            {isLoadingSummary ? <Skeleton className="h-8 w-[120px]" /> : (
-              <div className="text-2xl sm:text-3xl font-bold font-sans truncate text-violet-700 dark:text-violet-300">{formatAmount(summary?.balance || 0)}</div>
-            )}
+            <div className="h-10">
+              {isLoadingSummary ? <Skeleton className="h-8 w-[120px]" /> : (
+                <div className="text-2xl sm:text-3xl font-bold font-sans truncate text-violet-700 dark:text-violet-300">
+                  {formatAmount(summary?.balance || 0)}
+                </div>
+              )}
+            </div>
             <p className="text-xs text-violet-400 dark:text-violet-500/80 mt-1">{periodLabel}</p>
           </CardContent>
           <div className="absolute -bottom-5 -right-5 w-24 h-24 rounded-full bg-violet-100/50 dark:bg-violet-500/8 pointer-events-none" />

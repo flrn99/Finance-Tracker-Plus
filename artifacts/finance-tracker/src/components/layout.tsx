@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/lib/auth-context";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -25,9 +26,11 @@ const navItems = [
 
 export default function Layout({ children }: LayoutProps) {
   const [location] = useLocation();
+  const { user } = useAuth();
+  const firstName = user?.user_metadata?.first_name || user?.user_metadata?.name?.split(" ")[0] || user?.email?.split("@")[0] || "there";
 
   return (
-    <div className="flex min-h-screen w-full bg-background text-foreground">
+    <div className="flex min-h-screen w-full bg-background text-foreground overflow-x-hidden">
       {/* Sidebar — desktop only */}
       <aside className="w-60 border-r border-sidebar-border bg-sidebar shrink-0 hidden md:flex flex-col">
         {/* Logo */}
@@ -73,16 +76,16 @@ export default function Layout({ children }: LayoutProps) {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col min-w-0">
+      <main className="flex-1 flex flex-col min-w-0 overflow-hidden h-screen">
         {/* Mobile top bar */}
-        <header className="md:hidden flex items-center gap-2 px-4 py-3 border-b border-border bg-sidebar sticky top-0 z-10">
+        <header className="md:hidden flex items-center gap-2 px-4 py-3 border-b border-border bg-sidebar fixed top-0 left-0 right-0 z-10">
           <div className="w-7 h-7 rounded-lg bg-sidebar-primary flex items-center justify-center shrink-0">
             <DollarSign className="h-3.5 w-3.5 text-white" />
           </div>
-          <span className="text-sm font-serif font-bold text-sidebar-foreground">FinanceFlow</span>
+          <span className="text-sm font-serif font-bold text-sidebar-foreground">Hola, {firstName}</span>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-4 pb-24 md:pb-8 md:p-8">
+        <div className="flex-1 overflow-y-auto overscroll-contain p-4 pt-16 pb-24 md:pt-8 md:pb-8 md:p-8">
           <div className="max-w-6xl mx-auto min-h-full">
             {children}
           </div>

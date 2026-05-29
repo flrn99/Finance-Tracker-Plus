@@ -5,9 +5,10 @@ import { z } from "zod/v4";
 export const categoriesTable = pgTable("categories", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
-  type: text("type").notNull(), // 'income' | 'expense' | 'both'
+  type: text("type").notNull(),
   color: text("color").notNull(),
   icon: text("icon").notNull(),
+  userId: text("user_id"),
 });
 
 export const insertCategorySchema = createInsertSchema(categoriesTable).omit({ id: true });

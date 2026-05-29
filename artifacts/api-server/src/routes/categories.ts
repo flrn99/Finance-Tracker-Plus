@@ -1,18 +1,24 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { categoriesTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import {
   CreateCategoryBody,
   UpdateCategoryBody,
   UpdateCategoryParams,
   DeleteCategoryParams,
 } from "@workspace/api-zod";
+import { authMiddleware } from "../middlewares/auth";
 
 const router = Router();
 
-router.get("/categories", async (_req, res) => {
-  const rows = await db.select().from(categoriesTable).orderBy(categoriesTable.name);
+router.use(authMiddleware);
+
+router.get("/categories", async (req, res) => {
+  const userId = (req as any).userId;
+  const rows = await db.select().from(categoriesTable)
+    .where(eq(categoriesTable.userId, userId))
+    .orderBy(categoriesTable.name);
   return res.json(rows);
 });
 
@@ -21,8 +27,8 @@ router.post("/categories", async (req, res) => {
   if (!parsed.success) {
     return res.status(400).json({ error: "Invalid body", details: parsed.error.issues });
   }
-
-  const [row] = await db.insert(categoriesTable).values(parsed.data).returning();
+  const userId = (req as any).userId;
+  const [row] = await db.insert(categoriesTable).values({ ...parsed.data, userId }).returning();
   return res.status(201).json(row);
 });
 
@@ -35,6 +41,7 @@ router.patch("/categories/:id", async (req, res) => {
     return res.status(400).json({ error: "Invalid body", details: bodyParsed.error.issues });
   }
 
+  const userId = (req as any).userId;
   const updates: Record<string, unknown> = {};
   const { name, type, color, icon } = bodyParsed.data;
   if (name !== undefined) updates.name = name;
@@ -45,7 +52,7 @@ router.patch("/categories/:id", async (req, res) => {
   const [row] = await db
     .update(categoriesTable)
     .set(updates)
-    .where(eq(categoriesTable.id, paramParsed.data.id))
+    .where(and(eq(categoriesTable.id, paramParsed.data.id), eq(categoriesTable.userId, userId)))
     .returning();
 
   if (!row) return res.status(404).json({ error: "Not found" });
@@ -56,7 +63,9 @@ router.delete("/categories/:id", async (req, res) => {
   const parsed = DeleteCategoryParams.safeParse({ id: Number(req.params.id) });
   if (!parsed.success) return res.status(400).json({ error: "Invalid id" });
 
-  await db.delete(categoriesTable).where(eq(categoriesTable.id, parsed.data.id));
+  const userId = (req as any).userId;
+  await db.delete(categoriesTable)
+    .where(and(eq(categoriesTable.id, parsed.data.id), eq(categoriesTable.userId, userId)));
   return res.status(204).send();
 });
 

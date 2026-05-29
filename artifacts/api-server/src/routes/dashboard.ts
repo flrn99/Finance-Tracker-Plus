@@ -7,8 +7,11 @@ import {
   GetSpendingByCategoryQueryParams,
   GetTopExpensesQueryParams,
 } from "@workspace/api-zod";
+import { authMiddleware } from "../middlewares/auth";
 
 const router = Router();
+
+router.use(authMiddleware);
 
 function currentMonth() {
   const now = new Date();
@@ -43,22 +46,19 @@ router.get("/dashboard/summary", async (req, res) => {
   const parsed = GetDashboardSummaryQueryParams.safeParse(req.query);
   if (!parsed.success) return res.status(400).json({ error: "Invalid params" });
 
+  const userId = (req as any).userId;
   const range = resolveDateRange(parsed.data);
 
+  const conditions = [eq(transactionsTable.userId, userId)];
+  if (range) {
+    conditions.push(gte(transactionsTable.date, range.startDate));
+    conditions.push(lte(transactionsTable.date, range.endDate));
+  }
+
   const rows = await db
-    .select({
-      type: transactionsTable.type,
-      amount: transactionsTable.amount,
-    })
+    .select({ type: transactionsTable.type, amount: transactionsTable.amount })
     .from(transactionsTable)
-    .where(
-      range
-        ? and(
-            gte(transactionsTable.date, range.startDate),
-            lte(transactionsTable.date, range.endDate)
-          )
-        : undefined
-    );
+    .where(and(...conditions));
 
   let totalIncome = 0;
   let totalExpenses = 0;
@@ -67,13 +67,8 @@ router.get("/dashboard/summary", async (req, res) => {
 
   for (const row of rows) {
     const amount = parseFloat(row.amount);
-    if (row.type === "income") {
-      totalIncome += amount;
-      incomeCount++;
-    } else {
-      totalExpenses += amount;
-      expenseCount++;
-    }
+    if (row.type === "income") { totalIncome += amount; incomeCount++; }
+    else { totalExpenses += amount; expenseCount++; }
   }
 
   return res.json({
@@ -90,7 +85,18 @@ router.get("/dashboard/spending-by-category", async (req, res) => {
   const parsed = GetSpendingByCategoryQueryParams.safeParse(req.query);
   if (!parsed.success) return res.status(400).json({ error: "Invalid params" });
 
+  const userId = (req as any).userId;
   const range = resolveDateRange(parsed.data);
+  const txType = parsed.data.type ?? "expense";
+
+  const conditions = [
+    eq(transactionsTable.userId, userId),
+    eq(transactionsTable.type, txType),
+  ];
+  if (range) {
+    conditions.push(gte(transactionsTable.date, range.startDate));
+    conditions.push(lte(transactionsTable.date, range.endDate));
+  }
 
   const rows = await db
     .select({
@@ -102,35 +108,14 @@ router.get("/dashboard/spending-by-category", async (req, res) => {
     })
     .from(transactionsTable)
     .innerJoin(categoriesTable, eq(transactionsTable.categoryId, categoriesTable.id))
-    .where(
-      (() => {
-        const txType = parsed.data.type ?? "expense";
-        return range
-          ? and(
-              eq(transactionsTable.type, txType),
-              gte(transactionsTable.date, range.startDate),
-              lte(transactionsTable.date, range.endDate)
-            )
-          : eq(transactionsTable.type, txType);
-      })()
-    );
+    .where(and(...conditions));
 
-  const grouped: Record<
-    number,
-    { categoryId: number; categoryName: string; categoryColor: string; categoryIcon: string; total: number; count: number }
-  > = {};
+  const grouped: Record<number, { categoryId: number; categoryName: string; categoryColor: string; categoryIcon: string; total: number; count: number }> = {};
 
   for (const row of rows) {
     const id = row.categoryId;
     if (!grouped[id]) {
-      grouped[id] = {
-        categoryId: id,
-        categoryName: row.categoryName,
-        categoryColor: row.categoryColor,
-        categoryIcon: row.categoryIcon,
-        total: 0,
-        count: 0,
-      };
+      grouped[id] = { categoryId: id, categoryName: row.categoryName, categoryColor: row.categoryColor, categoryIcon: row.categoryIcon, total: 0, count: 0 };
     }
     grouped[id].total += parseFloat(row.amount);
     grouped[id].count++;
@@ -139,16 +124,15 @@ router.get("/dashboard/spending-by-category", async (req, res) => {
   const items = Object.values(grouped).sort((a, b) => b.total - a.total);
   const grandTotal = items.reduce((s, i) => s + i.total, 0);
 
-  const result = items.map((item) => ({
+  return res.json(items.map((item) => ({
     ...item,
     total: Math.round(item.total * 100) / 100,
     percentage: grandTotal > 0 ? Math.round((item.total / grandTotal) * 10000) / 100 : 0,
-  }));
-
-  return res.json(result);
+  })));
 });
 
-router.get("/dashboard/monthly-trend", async (_req, res) => {
+router.get("/dashboard/monthly-trend", async (req, res) => {
+  const userId = (req as any).userId;
   const now = new Date();
   const months: string[] = [];
   for (let i = 5; i >= 0; i--) {
@@ -159,26 +143,17 @@ router.get("/dashboard/monthly-trend", async (_req, res) => {
   const firstMonth = months[0];
   const lastMonth = months[months.length - 1];
   const startDate = `${firstMonth}-01`;
-  const lastDay = new Date(
-    parseInt(lastMonth.split("-")[0]),
-    parseInt(lastMonth.split("-")[1]),
-    0
-  ).getDate();
+  const lastDay = new Date(parseInt(lastMonth.split("-")[0]), parseInt(lastMonth.split("-")[1]), 0).getDate();
   const endDate = `${lastMonth}-${String(lastDay).padStart(2, "0")}`;
 
   const rows = await db
-    .select({
-      type: transactionsTable.type,
-      amount: transactionsTable.amount,
-      date: transactionsTable.date,
-    })
+    .select({ type: transactionsTable.type, amount: transactionsTable.amount, date: transactionsTable.date })
     .from(transactionsTable)
-    .where(
-      and(
-        gte(transactionsTable.date, startDate),
-        lte(transactionsTable.date, endDate)
-      )
-    );
+    .where(and(
+      eq(transactionsTable.userId, userId),
+      gte(transactionsTable.date, startDate),
+      lte(transactionsTable.date, endDate)
+    ));
 
   const trend: Record<string, { income: number; expenses: number }> = {};
   for (const m of months) trend[m] = { income: 0, expenses: 0 };
@@ -191,22 +166,30 @@ router.get("/dashboard/monthly-trend", async (_req, res) => {
     else trend[m].expenses += amount;
   }
 
-  const result = months.map((m) => ({
+  return res.json(months.map((m) => ({
     month: m,
     income: Math.round(trend[m].income * 100) / 100,
     expenses: Math.round(trend[m].expenses * 100) / 100,
     balance: Math.round((trend[m].income - trend[m].expenses) * 100) / 100,
-  }));
-
-  return res.json(result);
+  })));
 });
 
 router.get("/dashboard/top-expenses", async (req, res) => {
   const parsed = GetTopExpensesQueryParams.safeParse(req.query);
   if (!parsed.success) return res.status(400).json({ error: "Invalid params" });
 
+  const userId = (req as any).userId;
   const range = resolveDateRange(parsed.data);
   const limit = parsed.data.limit ?? 5;
+
+  const conditions = [
+    eq(transactionsTable.userId, userId),
+    eq(transactionsTable.type, "expense"),
+  ];
+  if (range) {
+    conditions.push(gte(transactionsTable.date, range.startDate));
+    conditions.push(lte(transactionsTable.date, range.endDate));
+  }
 
   const rows = await db
     .select({
@@ -223,25 +206,15 @@ router.get("/dashboard/top-expenses", async (req, res) => {
     })
     .from(transactionsTable)
     .innerJoin(categoriesTable, eq(transactionsTable.categoryId, categoriesTable.id))
-    .where(
-      range
-        ? and(
-            eq(transactionsTable.type, "expense"),
-            gte(transactionsTable.date, range.startDate),
-            lte(transactionsTable.date, range.endDate)
-          )
-        : eq(transactionsTable.type, "expense")
-    )
+    .where(and(...conditions))
     .orderBy(desc(sql`CAST(${transactionsTable.amount} AS numeric)`))
     .limit(limit);
 
-  const result = rows.map((r) => ({
+  return res.json(rows.map((r) => ({
     ...r,
     amount: parseFloat(r.amount),
     createdAt: r.createdAt.toISOString(),
-  }));
-
-  return res.json(result);
+  })));
 });
 
 export default router;
