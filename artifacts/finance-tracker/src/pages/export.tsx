@@ -8,6 +8,7 @@ import MonthSelect from "@/components/month-select";
 import { getApiUrl } from "@/lib/api-config";
 import { Filesystem, Directory } from "@capacitor/filesystem";
 import { Capacitor } from "@capacitor/core";
+import { supabase } from "@/lib/supabase";
 
 function lastDayOfMonth(ym: string): string {
   const [y, m] = ym.split("-").map(Number);
@@ -33,7 +34,10 @@ export default function Export() {
         if (params.toString()) queryStr = `?${params.toString()}`;
       }
   
-  const response = await fetch(getApiUrl(`api/export/excel${queryStr}`));
+      const { data: { session } } = await supabase.auth.getSession();
+      const response = await fetch(getApiUrl(`api/export/excel${queryStr}`), {
+        headers: { Authorization: `Bearer ${session?.access_token}` }
+      });
       if (!response.ok) throw new Error("Export failed");
   
       const blob = await response.blob();
