@@ -78,19 +78,11 @@ const filteredTransactions = filterMonth
 
   return (
     <div className="space-y-5 animate-in fade-in duration-500">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h2 className="text-2xl sm:text-3xl font-serif font-bold tracking-tight text-foreground">Transactions</h2>
-          <p className="text-muted-foreground mt-0.5 text-sm">View and manage your financial records.</p>
-        </div>
-        <Link href="/transactions/new" className="inline-flex sm:shrink-0">
-          <Button className="w-full sm:w-auto gap-2" data-testid="button-add-transaction">
-            <Plus className="h-4 w-4" />
-            Add Transaction
-          </Button>
-        </Link>
-      </div>
+  {/* Header */}
+  <div>
+    <h2 className="text-2xl sm:text-3xl font-serif font-bold tracking-tight text-foreground">Transactions</h2>
+    <p className="text-muted-foreground mt-0.5 text-sm">View and manage your financial records.</p>
+  </div>
 
       {/* Filters */}
       <div className="bg-card rounded-2xl border border-card-border shadow-sm p-4 space-y-4">
@@ -99,7 +91,7 @@ const filteredTransactions = filterMonth
           <div className="space-y-1 w-36 shrink-0">
             <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Type</label>
             <Select value={filterType} onValueChange={handleTypeChange}>
-              <SelectTrigger data-testid="select-filter-type" className="h-8 text-xs">
+              <SelectTrigger data-testid="select-filter-type" className={cn("h-8 text-xs", filterType === "expense" ? "[--ring:var(--expense)]" : filterType === "income" ? "[--ring:var(--income)]" : "[--ring:var(--sidebar-primary)]")}>
                 <SelectValue placeholder="All Types" />
               </SelectTrigger>
               <SelectContent>
@@ -114,7 +106,7 @@ const filteredTransactions = filterMonth
           <div className="space-y-1 flex-1 min-w-[140px]">
             <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Category</label>
             <Select value={filterCategory} onValueChange={setFilterCategory}>
-              <SelectTrigger data-testid="select-filter-category" className="h-8 text-xs">
+            <SelectTrigger data-testid="select-filter-category" className={cn("h-8 text-xs", filterType === "expense" ? "[--ring:var(--expense)]" : filterType === "income" ? "[--ring:var(--income)]" : "[--ring:var(--sidebar-primary)]")}>
                 <SelectValue placeholder="All Categories" />
               </SelectTrigger>
               <SelectContent>
@@ -193,6 +185,15 @@ const filteredTransactions = filterMonth
         )}
       </div>
 
+<Link href="/transactions/new" className="inline-flex w-full">
+  <Button className="w-full gap-2 bg-[#A8FF3E] text-black hover:bg-[#9bfe32] border-0" data-testid="button-add-transaction">
+    <Plus className="h-4 w-4" />
+    Add Transaction
+    </Button>
+</Link>
+
+{/* Transaction list */}
+
       {/* Transaction list */}
       <div className="space-y-2">
         {isLoading ? (
@@ -217,7 +218,7 @@ const filteredTransactions = filterMonth
             <div
               key={tx.id}
               data-testid={`row-transaction-${tx.id}`}
-              className="group bg-card rounded-2xl border border-card-border shadow-sm hover:shadow-md hover:border-primary/20 transition-all duration-200 animate-in fade-in slide-in-from-bottom-1 p-4"
+              className="group bg-card rounded-2xl border border-card-border shadow-sm hover:shadow-md hover:border-foreground/20 dark:hover:border-[#9bfe32]/40 transition-all duration-200 animate-in fade-in slide-in-from-bottom-1 p-4"
               style={{ animationDelay: `${idx * 25}ms` }}
             >
               <div className="flex items-center gap-3">
@@ -253,7 +254,7 @@ const filteredTransactions = filterMonth
                 </div>
 
                 {/* Delete */}
-                <div className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                <div className="opacity-100 transition-opacity shrink-0">
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
                       <Button
@@ -276,7 +277,7 @@ const filteredTransactions = filterMonth
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
                         <AlertDialogAction
                           onClick={() => handleDelete(tx.id)}
-                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90 border-0"
                         >
                           Delete
                         </AlertDialogAction>

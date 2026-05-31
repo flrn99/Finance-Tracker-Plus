@@ -20,7 +20,6 @@ const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/transactions", label: "Transactions", icon: ListOrdered },
   { href: "/categories", label: "Categories", icon: Tags },
-  { href: "/export", label: "Export", icon: Download },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
@@ -76,44 +75,38 @@ export default function Layout({ children }: LayoutProps) {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col min-w-0 overflow-hidden h-screen">
-        {/* Mobile top bar */}
-        <header className="md:hidden flex items-center gap-2 px-4 py-3 border-b border-border bg-sidebar fixed top-0 left-0 right-0 z-10">
-          <div className="w-7 h-7 rounded-lg bg-sidebar-primary flex items-center justify-center shrink-0">
-            <DollarSign className="h-3.5 w-3.5 text-white" />
-          </div>
-          <span className="text-sm font-serif font-bold text-sidebar-foreground">Hola, {firstName}</span>
-        </header>
-
-        <div className="flex-1 overflow-y-auto overscroll-contain p-4 pt-16 pb-24 md:pt-8 md:pb-8 md:p-8">
-          <div className="max-w-6xl mx-auto min-h-full">
-            {children}
-          </div>
-        </div>
-      </main>
+      {/* Main Content */}
+<main className="flex-1 flex flex-col min-w-0 overflow-hidden h-screen relative">
+  {/* Fade top */}
+  <div className="absolute top-0 left-0 right-0 z-10 pointer-events-none" style={{ height: 'calc(env(safe-area-inset-top) + 8px)', background: 'linear-gradient(to bottom, hsl(var(--background)) 60%, transparent)' }} />
+  <div className="flex-1 overflow-y-auto overscroll-contain p-4 pb-24 md:pt-8 md:pb-8 md:p-8" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 16px)' }}>
+    <div className="max-w-6xl mx-auto min-h-full">
+      {children}
+    </div>
+  </div>
+</main>
 
       {/* Mobile bottom navigation */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-20 bg-sidebar border-t border-sidebar-border flex items-stretch">
-        {navItems.map((item) => {
-          const Icon = item.icon;
-          const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
-          return (
-            <Link key={item.href} href={item.href} className="flex-1 min-w-0">
-              <span
-                className={cn(
-                  "flex flex-col items-center justify-center gap-0.5 py-2.5 w-full cursor-pointer transition-colors",
-                  isActive
-                    ? "text-sidebar-primary"
-                    : "text-sidebar-foreground/40 hover:text-sidebar-foreground"
-                )}
-              >
-                <Icon className={cn("h-5 w-5 shrink-0", isActive && "stroke-[2.5]")} />
-                <span className="text-[9px] font-semibold truncate w-full text-center px-0.5">{item.label}</span>
-              </span>
-            </Link>
-          );
-        })}
-      </nav>
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-20 bg-sidebar rounded-t-3xl flex items-center px-2 py-6 shadow-[0_-4px_24px_rgba(0,0,0,0.18),0_-1px_0px_rgba(0,0,0,0.08)]" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 20px)' }}>
+  {navItems.map((item) => {
+    const Icon = item.icon;
+    const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
+    return (
+      <Link key={item.href} href={item.href} className="flex-1 min-w-0">
+        <span className="flex flex-col items-center justify-center gap-1 w-full cursor-pointer transition-all">
+          <Icon className={cn(
+            "shrink-0 transition-all",
+            isActive ? "h-6 w-6 text-[#7DD900] stroke-[2.5]" : "h-6 w-6 text-sidebar-foreground/40"
+          )} />
+          <span className={cn(
+            "truncate w-full text-center transition-all",
+            isActive ? "text-[11px] font-bold text-[#7DD900]" : "text-[10px] font-medium text-sidebar-foreground/40"
+          )}>{item.label}</span>
+        </span>
+      </Link>
+    );
+  })}
+  </nav>  
     </div>
   );
 }

@@ -64,7 +64,7 @@
   --color-sidebar-ring: hsl(var(--sidebar-ring));
 
   --font-sans: 'Plus Jakarta Sans', sans-serif;
-  --font-serif: 'Space Grotesk', sans-serif;
+  --font-serif: 'Oswald', sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 
   --radius-sm: calc(var(--radius) - 4px);
@@ -81,11 +81,11 @@
   --elevate-2: rgba(0,0,0, .08);
 
   --background: 40 25% 95%;
-  --foreground: 250 25% 18%;
+  --foreground: 0 0% 12%;
   
   --border: 40 15% 86%;
   --input: 40 15% 86%;
-  --ring: 152 55% 42%;
+  --ring: 0 0% 10%;
 
   --card: 40 30% 99%;
   --card-foreground: 250 25% 18%;
@@ -102,7 +102,7 @@
   --secondary-foreground: 250 25% 28%;
 
   --muted: 250 20% 94%;
-  --muted-foreground: 250 15% 48%;
+  --muted-foreground: 0 0% 42%;
 
   --accent: 250 20% 92%;
   --accent-foreground: 250 25% 22%;
@@ -155,7 +155,7 @@
 
   --border: 0 0% 18%;
   --input: 0 0% 18%;
-  --ring: 152 65% 48%;
+  --ring: 94 99% 60%;
 
   /* Cards float just above the black base */
   --card: 0 0% 11%;
@@ -216,7 +216,7 @@
     @apply font-sans antialiased bg-background text-foreground;
   }
   h1, h2, h3, h4, h5, h6 {
-    @apply font-serif;
+    @apply font-serif font-semibold uppercase;
   }
 }
 
@@ -243,4 +243,12 @@
   .border.hover-elevate:not(.no-hover-interaction-elevate)::after, .border.active-elevate:not(.no-active-interaction-elevate)::after,
   .border.hover-elevate-2:not(.no-hover-interaction-elevate)::after, .border.active-elevate-2:not(.no-active-interaction-elevate)::after,
   .border.hover-elevate:not(.no-hover-interaction-elevate)::after { inset: -1px; }
+
+  .border-expense\/30 {
+    --ring: var(--expense);
+  }
+
+  .border-expense {
+    --ring: var(--expense);
+  }
 }

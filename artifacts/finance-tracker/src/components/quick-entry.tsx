@@ -38,7 +38,7 @@ type FormValues = z.infer<typeof schema>;
 export default function QuickEntry() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { symbol, rate, formatAmount } = useCurrency();
+  const { symbol, formatAmount } = useCurrency();
   const [saved, setSaved] = useState(false);
 
   const { data: categories } = useListCategories({
@@ -63,7 +63,7 @@ export default function QuickEntry() {
   ? categories.filter((c) => c.type === type || c.type === "both")
   : [];
   const onSubmit = (data: FormValues) => {
-    const usdAmount = Math.round((data.amount / rate) * 10000) / 10000;
+    const usdAmount = data.amount;
     const fullDate = data.date.length === 7 ? `${data.date}-01` : data.date;
     createTx.mutate(
       { data: { ...data, amount: usdAmount, date: fullDate } },

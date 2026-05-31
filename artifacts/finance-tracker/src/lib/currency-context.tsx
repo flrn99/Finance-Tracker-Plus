@@ -1,23 +1,25 @@
 import { createContext, useContext, useState, type ReactNode } from "react";
 
-export type Currency = "USD" | "GTQ";
+export type Currency = "GTQ" | "USD" | "EUR" | "MXN" | "COP" | "ARS" | "CLP" | "PEN" | "BRL" | "GBP";
 
-const RATES: Record<Currency, number> = {
-  USD: 1,
-  GTQ: 7.75,
-};
-
-const SYMBOLS: Record<Currency, string> = {
-  USD: "$",
-  GTQ: "Q",
+export const CURRENCY_INFO: Record<Currency, { symbol: string; label: string }> = {
+  GTQ: { symbol: "Q", label: "Quetzal (GTQ)" },
+  USD: { symbol: "$", label: "US Dollar (USD)" },
+  EUR: { symbol: "€", label: "Euro (EUR)" },
+  MXN: { symbol: "$", label: "Peso Mexicano (MXN)" },
+  COP: { symbol: "$", label: "Peso Colombiano (COP)" },
+  ARS: { symbol: "$", label: "Peso Argentino (ARS)" },
+  CLP: { symbol: "$", label: "Peso Chileno (CLP)" },
+  PEN: { symbol: "S/", label: "Sol Peruano (PEN)" },
+  BRL: { symbol: "R$", label: "Real Brasileño (BRL)" },
+  GBP: { symbol: "£", label: "British Pound (GBP)" },
 };
 
 interface CurrencyContextValue {
   currency: Currency;
   setCurrency: (c: Currency) => void;
-  formatAmount: (usdAmount: number) => string;
+  formatAmount: (amount: number) => string;
   symbol: string;
-  rate: number;
 }
 
 const CurrencyContext = createContext<CurrencyContextValue | null>(null);
@@ -36,16 +38,14 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
     try { localStorage.setItem("ff-currency", c); } catch {}
   };
 
-  const rate = RATES[currency];
-  const symbol = SYMBOLS[currency];
+  const symbol = CURRENCY_INFO[currency].symbol;
 
-  const formatAmount = (usdAmount: number): string => {
-    const converted = usdAmount * rate;
-    return `${symbol}${converted.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const formatAmount = (amount: number): string => {
+    return `${symbol}${amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
   return (
-    <CurrencyContext.Provider value={{ currency, setCurrency, formatAmount, symbol, rate }}>
+    <CurrencyContext.Provider value={{ currency, setCurrency, formatAmount, symbol }}>
       {children}
     </CurrencyContext.Provider>
   );

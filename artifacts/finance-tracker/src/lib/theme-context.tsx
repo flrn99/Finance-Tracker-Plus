@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
-export type Theme = "light" | "dark";
+export type Theme = "light" | "dark" | "system";
 
 interface ThemeContextValue {
   theme: Theme;
@@ -20,8 +20,16 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const root = document.documentElement;
-    root.classList.toggle("dark", theme === "dark");
+    const isDark = theme === "dark" || (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+    root.classList.toggle("dark", isDark);
     try { localStorage.setItem("ff-theme", theme); } catch {}
+    
+    if ((window as any).Capacitor?.isNativePlatform()) {
+      import('@capacitor/status-bar').then(({ StatusBar, Style }) => {
+        StatusBar.setStyle({ style: theme === "dark" ? Style.Dark : Style.Light });
+        StatusBar.setBackgroundColor({ color: theme === "dark" ? '#141414' : '#F5F0E8' });
+      });
+    }
   }, [theme]);
 
   const setTheme = (t: Theme) => setThemeState(t);

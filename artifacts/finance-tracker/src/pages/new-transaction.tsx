@@ -41,8 +41,7 @@ export default function NewTransaction() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { rate } = useCurrency();
-
+  const { } = useCurrency();
   const { data: categories, isLoading: isLoadingCategories } = useListCategories({
     query: { queryKey: getListCategoriesQueryKey() }
   });
@@ -67,7 +66,7 @@ export default function NewTransaction() {
   : [];
 
   const onSubmit = (data: FormValues) => {
-    const usdAmount = Math.round((data.amount / rate) * 10000) / 10000;
+    const usdAmount = data.amount;
     const fullDate = data.date.length === 7 ? `${data.date}-01` : data.date;
     createTx.mutate(
       { data: { ...data, amount: usdAmount, date: fullDate } },
@@ -101,7 +100,7 @@ export default function NewTransaction() {
         </div>
       </div>
 
-      <Card>
+      <Card style={{ ['--ring' as string]: type === 'expense' ? 'var(--expense)' : 'var(--income)' }}>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
             <CardContent className="space-y-6 pt-6">
@@ -181,7 +180,7 @@ export default function NewTransaction() {
                   <FormItem>
                     <FormLabel>Description</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g. Groceries, Rent, Salary..." {...field} />
+                    <Input placeholder="e.g. Groceries, Rent, Salary..." {...field} onFocus={(e) => setTimeout(() => e.target.scrollIntoView({ behavior: 'instant', block: 'center' }), 150)} onClick={(e) => setTimeout(() => (e.target as HTMLInputElement).scrollIntoView({ behavior: 'instant', block: 'center' }), 150)} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -235,7 +234,7 @@ export default function NewTransaction() {
                   <FormItem>
                     <FormLabel>Notes (Optional)</FormLabel>
                     <FormControl>
-                      <Textarea placeholder="Add any extra details here..." className="resize-none" {...field} />
+                    <Textarea placeholder="Add any extra details here..." className="resize-none" {...field} onFocus={(e) => setTimeout(() => e.target.scrollIntoView({ behavior: 'instant', block: 'center' }), 150)} onClick={(e) => setTimeout(() => (e.target as HTMLTextAreaElement).scrollIntoView({ behavior: 'instant', block: 'center' }), 150)} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -247,7 +246,7 @@ export default function NewTransaction() {
               <Link href="/transactions">
                 <Button type="button" variant="outline">Cancel</Button>
               </Link>
-              <Button type="submit" disabled={createTx.isPending}>
+              <Button type="submit" disabled={createTx.isPending} className="bg-[#A8FF3E] text-black hover:bg-[#9bfe32] border-0">
                 {createTx.isPending ? "Saving..." : "Save Transaction"}
               </Button>
             </CardFooter>

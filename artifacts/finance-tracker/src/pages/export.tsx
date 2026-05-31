@@ -99,20 +99,19 @@ export default function Export() {
           </div>
         </CardContent>
         <CardFooter className="bg-muted/20 border-t px-6 py-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-          <Button
-            variant="outline"
+        <Button
             onClick={() => doExport(true)}
             disabled={isExportingAll || isExporting}
-            className="gap-2 sm:w-auto w-full"
-            data-testid="button-download-all"
-          >
+            className="gap-2 sm:w-auto w-full bg-[#A8FF3E] text-black hover:bg-[#9bfe32] border-0"
+            data-testid="button-download-excel"
+            >
             <DatabaseZap className="h-4 w-4" />
             {isExportingAll ? "Generating…" : "Download All Data"}
           </Button>
           <Button
             onClick={() => doExport(false)}
             disabled={isExporting || isExportingAll}
-            className="gap-2 sm:w-auto w-full"
+            className="gap-2 sm:w-auto w-full bg-[#A8FF3E] text-black hover:bg-[#9bfe32] border-0"
             data-testid="button-download-excel"
           >
             <Download className="h-4 w-4" />

@@ -133,7 +133,7 @@ function CategoryForm({
 
         <DialogFooter className="pt-2 gap-2">
           <Button type="button" variant="outline" onClick={onCancel} className="flex-1 sm:flex-none">Cancel</Button>
-          <Button type="submit" disabled={isPending} className="flex-1 sm:flex-none">
+          <Button type="submit" disabled={isPending} className="flex-1 sm:flex-none bg-[#A8FF3E] text-black hover:bg-[#9bfe32] border-0">
             {isPending ? "Saving..." : submitLabel}
           </Button>
         </DialogFooter>
@@ -222,7 +222,7 @@ export default function Categories() {
           <p className="text-muted-foreground mt-1 text-sm">Manage tags for your transactions.</p>
         </div>
 
-        <Button className="gap-2 w-full sm:w-auto" onClick={() => setIsCreateOpen(true)}>
+        <Button className="gap-2 w-full sm:w-auto bg-[#A8FF3E] text-black hover:bg-[#9bfe32] border-0" onClick={() => setIsCreateOpen(true)}>
           <Plus className="h-4 w-4" />
           New Category
         </Button>
@@ -335,7 +335,7 @@ export default function Categories() {
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
                         <AlertDialogAction
                           onClick={() => handleDelete(cat.id)}
-                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90 border-0"
                         >
                           Delete
                         </AlertDialogAction>

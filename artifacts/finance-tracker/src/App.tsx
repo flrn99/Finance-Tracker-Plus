@@ -55,6 +55,11 @@ function Router() {
 
 function ProtectedRouter() {
   const { user, isLoading } = useAuth();
+  const [, navigate] = useLocation();
+
+  useEffect(() => {
+    if (user) navigate("/");
+  }, [user]);
 
   if (isLoading) return (
     <div className="min-h-screen flex items-center justify-center bg-background">
@@ -77,6 +82,8 @@ function App() {
         const refreshToken = hashParams.get("refresh_token");
         if (accessToken && refreshToken) {
           await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+const { Browser } = await import("@capacitor/browser");
+await Browser.close();
         }
       }
     };

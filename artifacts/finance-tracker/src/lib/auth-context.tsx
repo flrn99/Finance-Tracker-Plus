@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, useRef } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "./supabase";
 import { getApiUrl } from "./api-config";
@@ -43,38 +43,42 @@ async function createDefaultCategories(token: string) {
   }
 }
 
-async function checkAndCreateDefaultCategories(token: string) {
-  const res = await fetch(getApiUrl("/api/categories"), {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok) return;
-  const categories = await res.json();
-  if (Array.isArray(categories) && categories.length === 0) {
-    await createDefaultCategories(token);
-  }
-}
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const categoriesChecked = useRef<Set<string>>(new Set());
+
+  const checkAndCreateCategories = async (token: string, userId: string) => {
+    if (categoriesChecked.current.has(userId)) return;
+    categoriesChecked.current.add(userId);
+
+    const res = await fetch(getApiUrl("/api/categories"), {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return;
+    const categories = await res.json();
+    if (Array.isArray(categories) && categories.length === 0) {
+      await createDefaultCategories(token);
+    }
+  };
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setIsLoading(false);
-      if (session?.access_token) {
-        checkAndCreateDefaultCategories(session.access_token);
-      }
-    });
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
       setIsLoading(false);
-      if ((event === "SIGNED_IN") && session?.access_token) {
-        checkAndCreateDefaultCategories(session.access_token);
+      if (session?.access_token && session?.user?.id) {
+        checkAndCreateCategories(session.access_token, session.user.id);
+      }
+    });
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      setIsLoading(false);
+      if (session?.access_token && session?.user?.id) {
+        checkAndCreateCategories(session.access_token, session.user.id);
       }
     });
 

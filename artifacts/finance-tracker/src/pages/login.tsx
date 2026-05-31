@@ -1,14 +1,14 @@
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
-import { Mail, Lock, Eye, EyeOff } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-type Mode = "login" | "register";
+type Mode = "home" | "login" | "register" | "forgot";
 
 export default function Login() {
   const { toast } = useToast();
-  const [mode, setMode] = useState<Mode>("login");
+  const [mode, setMode] = useState<Mode>("home");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [firstName, setFirstName] = useState("");
@@ -35,11 +35,8 @@ export default function Login() {
           email,
           password,
           options: {
-            data: {
-              first_name: firstName,
-              name: firstName,
-            }
-          }
+            data: { first_name: firstName, name: firstName },
+          },
         });
         if (error) throw error;
         toast({ title: "Account created!", description: "Check your email to verify your account." });
@@ -54,122 +51,184 @@ export default function Login() {
   const handleGoogle = async () => {
     setIsGoogleLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
+      const { Browser } = await import("@capacitor/browser");
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: { 
           redirectTo: "com.florian.financetracker://login-callback",
+          skipBrowserRedirect: true,
         },
       });
       if (error) throw error;
+      if (data.url) await Browser.open({ url: data.url });
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
       setIsGoogleLoading(false);
     }
   };
 
-  return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 py-8 overflow-y-auto">
-      <div className="flex flex-col items-center gap-2 mb-4">
-        <img src="logo.png" alt="FinanceFlow" className="w-48 h-40 object-contain" />
-        <div className="text-center">
-          <h1 className="text-2xl font-serif font-bold text-foreground">FinanceFlow</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Your personal finance tracker</p>
-        </div>
-      </div>
-
-      <div className="w-full max-w-sm bg-card border border-card-border rounded-2xl shadow-sm p-6 space-y-5">
-        <div className="flex rounded-xl border border-border overflow-hidden">
-          <button
-            onClick={() => setMode("login")}
-            className={cn(
-              "flex-1 py-2.5 text-sm font-semibold transition-all",
-              mode === "login"
-                ? "bg-sidebar-primary text-white"
-                : "bg-transparent text-muted-foreground hover:bg-muted"
-            )}
-          >
-            Sign In
-          </button>
-          <button
-            onClick={() => setMode("register")}
-            className={cn(
-              "flex-1 py-2.5 text-sm font-semibold transition-all",
-              mode === "register"
-                ? "bg-sidebar-primary text-white"
-                : "bg-transparent text-muted-foreground hover:bg-muted"
-            )}
-          >
-            Register
-          </button>
-        </div>
-
-        {mode === "register" && (
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Name</label>
-            <input
-              type="text"
-              value={firstName}
-              onChange={(e) => setFirstName(e.target.value)}
-              placeholder="John"
-              className="w-full px-4 py-2.5 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-sidebar-primary/30 focus:border-sidebar-primary transition-all"
-            />
-          </div>
-        )}
-
-        <div className="space-y-1.5">
-          <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Email</label>
-          <div className="relative">
-            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              className="w-full pl-9 pr-4 py-2.5 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-sidebar-primary/30 focus:border-sidebar-primary transition-all"
-            />
-          </div>
-        </div>
-
-        <div className="space-y-1.5">
-          <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Password</label>
-          <div className="relative">
-            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <input
-              type={showPassword ? "text" : "password"}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
-              className="w-full pl-9 pr-10 py-2.5 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-sidebar-primary/30 focus:border-sidebar-primary transition-all"
-            />
+  // Email/Login form screen
+  if (mode === "login" || mode === "register" || mode === "forgot") {
+    if (mode === "forgot") {
+      return (
+        <div className="min-h-screen bg-background flex flex-col p-6">
+          <button onClick={() => setMode("login")} className="flex items-center gap-2 px-4 h-10 w-fit rounded-full bg-muted hover:bg-muted/80 transition-all mb-8" style={{ marginTop: 'calc(env(safe-area-inset-top) + 12px)' }}>
+  <ArrowLeft className="h-4 w-4 text-foreground" />
+  <span className="text-sm font-semibold text-foreground">Back</span>
+</button>
+          <div className="flex-1 flex flex-col justify-center max-w-sm w-full mx-auto space-y-5">
+            <div className="mb-2">
+              <h1 className="text-2xl font-serif font-bold text-foreground">Reset password</h1>
+              <p className="text-sm text-muted-foreground mt-1">Enter your email and we'll send you a reset link.</p>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Email</label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  className="w-full pl-9 pr-4 py-3 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-foreground/20 focus:border-foreground/40 transition-all"
+                />
+              </div>
+            </div>
             <button
-              type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+              onClick={async () => {
+                if (!email) { toast({ title: "Enter your email", variant: "destructive" }); return; }
+                setIsLoading(true);
+                const { error } = await supabase.auth.resetPasswordForEmail(email);
+                setIsLoading(false);
+                if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return; }
+                toast({ title: "Email sent!", description: "Check your inbox for the reset link." });
+                setMode("login");
+              }}
+              disabled={isLoading}
+              className="w-full py-3 rounded-xl bg-[#A8FF3E] text-black text-sm font-semibold hover:bg-[#9bfe32] transition-all disabled:opacity-60 shadow-sm border-0"
             >
-              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              {isLoading ? "Sending..." : "Send reset link"}
             </button>
           </div>
         </div>
+      );
+    }
 
+    return (
+      <div className="min-h-screen bg-background flex flex-col p-6">
+        <button onClick={() => setMode("home")} className="flex items-center gap-2 px-4 h-10 w-fit rounded-full bg-muted hover:bg-muted/80 transition-all mb-8" style={{ marginTop: 'calc(env(safe-area-inset-top) + 12px)' }}>
+  <ArrowLeft className="h-4 w-4 text-foreground" />
+  <span className="text-sm font-semibold text-foreground">Back</span>
+</button>
+
+        <div className="flex-1 flex flex-col justify-center max-w-sm w-full mx-auto space-y-5">
+          <div className="mb-2">
+            <h1 className="text-2xl font-serif font-bold text-foreground">
+              {mode === "login" ? "Welcome back" : "Create account"}
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              {mode === "login" ? "Sign in to your Flow Finance account" : "Start tracking your finances"}
+            </p>
+          </div>
+
+          {mode === "register" && (
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Name</label>
+              <input
+                type="text"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                placeholder="John"
+                className="w-full px-4 py-3 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-foreground/20 focus:border-foreground/40 transition-all"
+              />
+            </div>
+          )}
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Email</label>
+            <div className="relative">
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                className="w-full pl-9 pr-4 py-3 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-foreground/20 focus:border-foreground/40 transition-all"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Password</label>
+            <div className="relative">
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <input
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+                className="w-full pl-9 pr-10 py-3 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-foreground/20 focus:border-foreground/40 transition-all"
+              />
+              <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+          </div>
+
+          <button
+            onClick={handleSubmit}
+            disabled={isLoading}
+            className="w-full py-3 rounded-xl bg-[#A8FF3E] text-black text-sm font-semibold hover:bg-[#9bfe32] transition-all disabled:opacity-60 shadow-sm border-0"
+          >
+            {isLoading ? "Please wait..." : mode === "login" ? "Sign In" : "Create Account"}
+          </button>
+
+          {mode === "login" && (
+            <button onClick={() => setMode("forgot")} className="text-sm text-muted-foreground underline w-full text-right -mt-2">
+              Forgot password?
+            </button>
+          )}
+
+          <p className="text-center text-sm text-muted-foreground">
+            {mode === "login" ? "Don't have an account?" : "Already have an account?"}
+            {" "}
+            <button onClick={() => setMode(mode === "login" ? "register" : "login")} className="font-semibold text-foreground">
+              {mode === "login" ? "Register" : "Log in"}
+            </button>
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Home screen
+  return (
+      <div className="min-h-screen flex flex-col bg-background" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+        {/* Top section - imagen card */}
+        <div className="px-4 pt-4 h-[65vh]">
+          <div className="rounded-3xl overflow-hidden border border-border/60 shadow-sm h-full">
+          <img src="/LOGIN-IMAGE.png" alt="Flow Finance" className="w-full h-full object-cover object-top" />
+        </div>
+      </div>
+
+      {/* Bottom section - buttons */}
+      <div className="bg-background px-6 pt-8 pb-10 space-y-3">
+    
+        {/* Continue with Email */}
         <button
-          onClick={handleSubmit}
-          disabled={isLoading}
-          className="w-full py-2.5 rounded-lg bg-sidebar-primary text-white text-sm font-semibold hover:bg-sidebar-primary/90 transition-all disabled:opacity-60 shadow-sm"
+          onClick={() => setMode("register")}
+          className="w-full py-3.5 rounded-2xl bg-[#A8FF3E] text-black text-sm font-bold hover:bg-[#9AEF30] transition-all flex items-center justify-center gap-2 shadow-sm"
         >
-          {isLoading ? "Please wait..." : mode === "login" ? "Sign In" : "Create Account"}
+          <Mail className="h-4 w-4" />
+          Continue with Email
         </button>
 
-        <div className="flex items-center gap-3">
-          <div className="flex-1 h-px bg-border" />
-          <span className="text-xs text-muted-foreground">or</span>
-          <div className="flex-1 h-px bg-border" />
-        </div>
-
+        {/* Continue with Google */}
         <button
           onClick={handleGoogle}
           disabled={isGoogleLoading}
-          className="w-full py-2.5 rounded-lg border border-border bg-background text-sm font-semibold hover:bg-muted transition-all disabled:opacity-60 flex items-center justify-center gap-2"
+          className="w-full py-3.5 rounded-2xl border border-border bg-background text-sm font-semibold hover:bg-muted transition-all disabled:opacity-60 flex items-center justify-center gap-2"
         >
           <svg className="h-4 w-4" viewBox="0 0 24 24">
             <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -179,6 +238,14 @@ export default function Login() {
           </svg>
           {isGoogleLoading ? "Connecting..." : "Continue with Google"}
         </button>
+
+        {/* Already have account */}
+        <p className="text-center text-sm text-muted-foreground pt-1">
+          Already have an account?{" "}
+          <button onClick={() => setMode("login")} className="font-semibold text-foreground">
+            Log in
+          </button>
+        </p>
       </div>
     </div>
   );
