@@ -120,7 +120,21 @@ globalThis.__dirname = __bannerPath.dirname(globalThis.__filename);
   });
 }
 
-buildAll().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+import { copyFile } from "node:fs/promises";
+
+buildAll()
+  .then(async () => {
+    try {
+      await copyFile(
+        path.resolve(artifactDir, "src/logo.png"),
+        path.resolve(artifactDir, "dist/logo.png")
+      );
+      console.log("Logo copied to dist/");
+    } catch (e) {
+      console.warn("Logo not found, skipping:", e.message);
+    }
+  })
+  .catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
