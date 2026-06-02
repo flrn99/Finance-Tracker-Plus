@@ -3,11 +3,11 @@ import { db } from "@workspace/db";
 import { transactionsTable, categoriesTable } from "@workspace/db";
 import { eq, and, gte, lte } from "drizzle-orm";
 import ExcelJS from "exceljs";
+import path from "path";
 import { ExportToExcelQueryParams } from "@workspace/api-zod";
 import { authMiddleware } from "../middlewares/auth";
 
 const router = Router();
-
 router.use(authMiddleware);
 
 router.get("/export/excel", async (req, res) => {
@@ -38,35 +38,44 @@ router.get("/export/excel", async (req, res) => {
     .orderBy(transactionsTable.date);
 
   const wb = new ExcelJS.Workbook();
-  wb.creator = "FinanceFlow";
+  wb.creator = "Flow Finance";
   wb.created = new Date();
 
-  // ── Transactions sheet ──────────────────────────────────────────
   const ws = wb.addWorksheet("Transactions", {
-    views: [{ state: "frozen", ySplit: 1 }],
+    views: [{ state: "frozen", ySplit: 5, showGridLines: false }],
   });
+
+  try {
+    const logoId = wb.addImage({ filename: path.join(__dirname, "logo.png"), extension: "png" });
+    ws.addImage(logoId, { tl: { col: 0, row: 0 }, ext: { width: 100, height: 100 } });
+  } catch {}
+
+  ws.addRow([]);
+  ws.addRow(["", "", "", "FLOW FINANCE"]);
+  ws.addRow(["", "", "", `Financial Report — ${new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" })}`]);
+  ws.addRow([]);
 
   ws.columns = [
-    { header: "ID",          key: "id",          width: 8  },
-    { header: "Date",        key: "date",         width: 14 },
-    { header: "Type",        key: "type",         width: 12 },
-    { header: "Description", key: "description",  width: 32 },
-    { header: "Category",    key: "category",     width: 20 },
-    { header: "Amount",      key: "amount",       width: 14 },
-    { header: "Notes",       key: "notes",        width: 28 },
+    { key: "id",          width: 8  },
+    { key: "date",        width: 14 },
+    { key: "type",        width: 12 },
+    { key: "description", width: 32 },
+    { key: "category",    width: 20 },
+    { key: "amount",      width: 14 },
+    { key: "notes",       width: 28 },
   ];
 
-  // Header row styling
-  const headerRow = ws.getRow(1);
+  ws.getRow(2).getCell(4).font = { bold: true, size: 16, color: { argb: "FF1a1a2e" } };
+  ws.getRow(3).getCell(4).font = { size: 11, color: { argb: "FF666666" } };
+
+  const headerRow = ws.addRow(["ID", "Date", "Type", "Description", "Category", "Amount", "Notes"]);
   headerRow.eachCell((cell) => {
     cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1a1a2e" } };
-    cell.font = { bold: true, color: { argb: "FFA8FF3E" }, size: 11 };
+    cell.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 11 };
     cell.alignment = { vertical: "middle", horizontal: "center" };
-    cell.border = {
-      bottom: { style: "medium", color: { argb: "FFA8FF3E" } },
-    };
+    cell.border = {};
   });
-  headerRow.height = 22;
+  headerRow.height = 24;
 
   let totalIncome = 0;
   let totalExpenses = 0;
@@ -78,131 +87,62 @@ router.get("/export/excel", async (req, res) => {
     else totalExpenses += amount;
 
     const row = ws.addRow({
-      id:          r.id,
-      date:        r.date,
-      type:        isIncome ? "Income" : "Expense",
+      id: r.id, date: r.date,
+      type: isIncome ? "Income" : "Expense",
       description: r.description,
-      category:    r.categoryName,
+      category: r.categoryName,
       amount,
-      notes:       r.notes ?? "",
+      notes: r.notes ?? "",
     });
 
-    // Alternate row background
-    const bgColor = row.number % 2 === 0 ? "FFF5F5F5" : "FFFFFFFF";
+    const bgColor = row.number % 2 === 0 ? "FFF7F7F7" : "FFFFFFFF";
     row.eachCell((cell) => {
       cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: bgColor } };
       cell.alignment = { vertical: "middle" };
-      cell.border = {
-        bottom: { style: "thin", color: { argb: "FFE0E0E0" } },
-      };
+      cell.border = {};
     });
 
-    // Type cell color
     const typeCell = row.getCell("type");
-    typeCell.font = {
-      bold: true,
-      color: { argb: isIncome ? "FF16a34a" : "FFe11d48" },
-    };
+    typeCell.font = { bold: true, color: { argb: isIncome ? "FF16a34a" : "FFe11d48" } };
     typeCell.alignment = { horizontal: "center" };
 
-    // Amount cell color
     const amountCell = row.getCell("amount");
     amountCell.numFmt = '"Q"#,##0.00';
-    amountCell.font = {
-      bold: true,
-      color: { argb: isIncome ? "FF16a34a" : "FFe11d48" },
-    };
+    amountCell.font = { bold: true, color: { argb: isIncome ? "FF16a34a" : "FFe11d48" } };
     amountCell.alignment = { horizontal: "right" };
 
     row.height = 18;
   });
 
-  // Totals row
   ws.addRow([]);
-  const totalsRow = ws.addRow({
-    id: "",
-    date: "",
-    type: "TOTALS",
-    description: "",
-    category: "",
-    amount: "",
-    notes: "",
-  });
-
-  const incomeCell = ws.addRow({
-    id: "", date: "", type: "Total Income", description: "", category: "",
-    amount: totalIncome, notes: "",
-  });
-  incomeCell.getCell("type").font = { bold: true, color: { argb: "FF16a34a" } };
-  incomeCell.getCell("amount").numFmt = '"Q"#,##0.00';
-  incomeCell.getCell("amount").font = { bold: true, color: { argb: "FF16a34a" } };
-  incomeCell.getCell("amount").alignment = { horizontal: "right" };
-
-  const expenseCell = ws.addRow({
-    id: "", date: "", type: "Total Expenses", description: "", category: "",
-    amount: totalExpenses, notes: "",
-  });
-  expenseCell.getCell("type").font = { bold: true, color: { argb: "FFe11d48" } };
-  expenseCell.getCell("amount").numFmt = '"Q"#,##0.00';
-  expenseCell.getCell("amount").font = { bold: true, color: { argb: "FFe11d48" } };
-  expenseCell.getCell("amount").alignment = { horizontal: "right" };
-
-  const balanceCell = ws.addRow({
-    id: "", date: "", type: "Balance", description: "", category: "",
-    amount: totalIncome - totalExpenses, notes: "",
-  });
-  const balance = totalIncome - totalExpenses;
-  balanceCell.getCell("type").font = { bold: true };
-  balanceCell.getCell("amount").numFmt = '"Q"#,##0.00';
-  balanceCell.getCell("amount").font = { bold: true, color: { argb: balance >= 0 ? "FF16a34a" : "FFe11d48" } };
-  balanceCell.getCell("amount").alignment = { horizontal: "right" };
-
+  const totalsRow = ws.addRow({ id: "", date: "", type: "TOTALS", description: "", category: "", amount: "", notes: "" });
   totalsRow.eachCell((cell) => {
     cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1a1a2e" } };
-    cell.font = { bold: true, color: { argb: "FFA8FF3E" } };
+    cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
+    cell.border = {};
   });
 
-  // ── Summary sheet ───────────────────────────────────────────────
-  const summary = wb.addWorksheet("Summary");
-  summary.columns = [
-    { header: "Metric", key: "metric", width: 20 },
-    { header: "Value",  key: "value",  width: 16 },
-  ];
+  const incomeRow = ws.addRow({ id: "", date: "", type: "Total Income", description: "", category: "", amount: totalIncome, notes: "" });
+  incomeRow.getCell("type").font = { bold: true, color: { argb: "FF16a34a" } };
+  incomeRow.getCell("amount").numFmt = '"Q"#,##0.00';
+  incomeRow.getCell("amount").font = { bold: true, color: { argb: "FF16a34a" } };
+  incomeRow.getCell("amount").alignment = { horizontal: "right" };
 
-  const summaryHeader = summary.getRow(1);
-  summaryHeader.eachCell((cell) => {
-    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1a1a2e" } };
-    cell.font = { bold: true, color: { argb: "FFA8FF3E" }, size: 11 };
-    cell.alignment = { horizontal: "center" };
-  });
-  summaryHeader.height = 22;
+  const expenseRow = ws.addRow({ id: "", date: "", type: "Total Expenses", description: "", category: "", amount: totalExpenses, notes: "" });
+  expenseRow.getCell("type").font = { bold: true, color: { argb: "FFe11d48" } };
+  expenseRow.getCell("amount").numFmt = '"Q"#,##0.00';
+  expenseRow.getCell("amount").font = { bold: true, color: { argb: "FFe11d48" } };
+  expenseRow.getCell("amount").alignment = { horizontal: "right" };
 
-  const summaryData = [
-    { metric: "Total Transactions", value: rows.length },
-    { metric: "Total Income",       value: totalIncome },
-    { metric: "Total Expenses",     value: totalExpenses },
-    { metric: "Balance",            value: totalIncome - totalExpenses },
-  ];
+  const balance = totalIncome - totalExpenses;
+  const balanceRow = ws.addRow({ id: "", date: "", type: "Balance", description: "", category: "", amount: balance, notes: "" });
+  balanceRow.getCell("type").font = { bold: true };
+  balanceRow.getCell("amount").numFmt = '"Q"#,##0.00';
+  balanceRow.getCell("amount").font = { bold: true, color: { argb: balance >= 0 ? "FF16a34a" : "FFe11d48" } };
+  balanceRow.getCell("amount").alignment = { horizontal: "right" };
 
-  summaryData.forEach((d, i) => {
-    const row = summary.addRow(d);
-    const bgColor = i % 2 === 0 ? "FFF5F5F5" : "FFFFFFFF";
-    row.eachCell((cell) => {
-      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: bgColor } };
-      cell.alignment = { vertical: "middle" };
-    });
-    if (i > 0) {
-      row.getCell("value").numFmt = '"Q"#,##0.00';
-      const color = d.value >= 0 ? "FF16a34a" : "FFe11d48";
-      row.getCell("value").font = { bold: true, color: { argb: color } };
-    }
-    row.height = 18;
-  });
-
-  // Send file
-  res.setHeader("Content-Disposition", `attachment; filename="financeflow-${new Date().toISOString().slice(0, 10)}.xlsx"`);
+  res.setHeader("Content-Disposition", `attachment; filename="flowfinance-${new Date().toISOString().slice(0, 10)}.xlsx"`);
   res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-
   await wb.xlsx.write(res);
   res.end();
 });
