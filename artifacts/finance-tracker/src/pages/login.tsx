@@ -3,6 +3,8 @@ import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 import { Mail, Lock, Eye, EyeOff, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useEffect } from "react";
+import { App } from "@capacitor/app";
 
 type Mode = "home" | "login" | "register" | "forgot";
 
@@ -15,16 +17,23 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [previousMode, setPreviousMode] = useState<Mode>("home");
+
+  useEffect(() => {
+    const handler = App.addListener("backButton", () => {
+      if (mode === "register") setMode(previousMode);
+      else if (mode === "login" || mode === "forgot") setMode("home");
+      else if (mode === "home") App.exitApp();
+    });
+    return () => { handler.then(h => h.remove()); };
+  }, [mode]);
 
   const handleSubmit = async () => {
     if (!email || !password) {
       toast({ title: "Please fill in all fields", variant: "destructive" });
       return;
     }
-    if (mode === "register" && !firstName) {
-      toast({ title: "Please enter your name", variant: "destructive" });
-      return;
-    }
+
     setIsLoading(true);
     try {
       if (mode === "login") {
@@ -87,6 +96,9 @@ export default function Login() {
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <input
                   type="email"
+                  inputMode="email"
+                  autoComplete="email"
+                  autoCapitalize="none"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@example.com"
@@ -98,8 +110,10 @@ export default function Login() {
               onClick={async () => {
                 if (!email) { toast({ title: "Enter your email", variant: "destructive" }); return; }
                 setIsLoading(true);
-                const { error } = await supabase.auth.resetPasswordForEmail(email);
-                setIsLoading(false);
+                const { error } = await supabase.auth.resetPasswordForEmail(email, {
+                  redirectTo: "com.florian.financetracker://login-callback?type=recovery",
+                });
+                                setIsLoading(false);
                 if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return; }
                 toast({ title: "Email sent!", description: "Check your inbox for the reset link." });
                 setMode("login");
@@ -116,7 +130,7 @@ export default function Login() {
 
     return (
       <div className="min-h-screen bg-background flex flex-col p-6">
-        <button onClick={() => setMode("home")} className="flex items-center gap-2 px-4 h-10 w-fit rounded-full bg-muted hover:bg-muted/80 transition-all mb-8" style={{ marginTop: 'calc(env(safe-area-inset-top) + 12px)' }}>
+        <button onClick={() => setMode(mode === "register" ? previousMode : "home")} className="flex items-center gap-2 px-4 h-10 w-fit rounded-full bg-muted hover:bg-muted/80 transition-all mb-8" style={{ marginTop: 'calc(env(safe-area-inset-top) + 12px)' }}>
   <ArrowLeft className="h-4 w-4 text-foreground" />
   <span className="text-sm font-semibold text-foreground">Back</span>
 </button>
@@ -131,25 +145,15 @@ export default function Login() {
             </p>
           </div>
 
-          {mode === "register" && (
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Name</label>
-              <input
-                type="text"
-                value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
-                placeholder="John"
-                className="w-full px-4 py-3 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-foreground/20 focus:border-foreground/40 transition-all"
-              />
-            </div>
-          )}
-
           <div className="space-y-1.5">
             <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Email</label>
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <input
                 type="email"
+                inputMode="email"
+                autoComplete="email"
+                autoCapitalize="none"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
@@ -190,13 +194,14 @@ export default function Login() {
             </button>
           )}
 
-          <p className="text-center text-sm text-muted-foreground">
-            {mode === "login" ? "Don't have an account?" : "Already have an account?"}
-            {" "}
-            <button onClick={() => setMode(mode === "login" ? "register" : "login")} className="font-semibold text-foreground">
-              {mode === "login" ? "Register" : "Log in"}
-            </button>
-          </p>
+{mode === "login" && (
+  <p className="text-center text-sm text-muted-foreground">
+    Don't have an account?{" "}
+    <button onClick={() => { setPreviousMode("login"); setMode("register"); }} className="font-semibold text-foreground">
+      Register
+    </button>
+  </p>
+)}
         </div>
       </div>
     );
@@ -217,11 +222,11 @@ export default function Login() {
     
         {/* Continue with Email */}
         <button
-          onClick={() => setMode("register")}
+          onClick={() => setMode("login")}
           className="w-full py-3.5 rounded-2xl bg-[#A8FF3E] text-black text-sm font-bold hover:bg-[#9AEF30] transition-all flex items-center justify-center gap-2 shadow-sm"
         >
           <Mail className="h-4 w-4" />
-          Continue with Email
+          Log in with Email
         </button>
 
         {/* Continue with Google */}
@@ -236,15 +241,15 @@ export default function Login() {
             <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/>
             <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
           </svg>
-          {isGoogleLoading ? "Connecting..." : "Continue with Google"}
+          {isGoogleLoading ? "Connecting..." : "Log in with Google"}
         </button>
 
         {/* Already have account */}
         <p className="text-center text-sm text-muted-foreground pt-1">
-          Already have an account?{" "}
-          <button onClick={() => setMode("login")} className="font-semibold text-foreground">
-            Log in
-          </button>
+        Don't have an account?{" "}
+<button onClick={() => { setPreviousMode("home"); setMode("register"); }} className="font-semibold text-foreground">
+  Register
+</button>
         </p>
       </div>
     </div>

@@ -5,7 +5,7 @@ const config: CapacitorConfig = {
   appName: 'Flow Finance',
   webDir: 'dist/public',
   android: {
-    captureInput: true,
+    captureInput: false,
   },
   plugins: {
     App: {

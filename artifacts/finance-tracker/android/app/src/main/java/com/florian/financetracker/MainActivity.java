@@ -9,9 +9,11 @@ public class MainActivity extends BridgeActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        getWindow().getDecorView().setBackgroundColor(Color.parseColor("#A8FF3E"));
         getWindow().setBackgroundDrawableResource(android.R.color.transparent);
         WebView webView = getBridge().getWebView();
-        webView.setBackgroundColor(Color.parseColor("#A8FF3E"));
+        getWindow().getDecorView().setBackgroundColor(Color.parseColor("#F5F0E8"));
+        webView.setBackgroundColor(Color.parseColor("#F5F0E8"));
+        webView.getSettings().setDomStorageEnabled(true);
+        webView.getSettings().setJavaScriptEnabled(true);
     }
 }

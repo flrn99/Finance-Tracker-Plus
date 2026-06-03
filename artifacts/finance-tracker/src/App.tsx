@@ -1,5 +1,5 @@
 import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -10,6 +10,7 @@ import { ThemeProvider } from "@/lib/theme-context";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
 import Login from "@/pages/login";
 import { supabase } from "@/lib/supabase";
+import ResetPassword from "@/pages/reset-password";
 
 // Pages
 import Dashboard from "@/pages/dashboard";
@@ -28,18 +29,11 @@ const queryClient = new QueryClient({
   },
 });
 
-function ScrollToTop() {
-  const [location] = useLocation();
-  useEffect(() => {
-    window.scrollTo({ top: 0, behavior: "instant" });
-  }, [location]);
-  return null;
-}
+let globalSetIsResetting: ((v: boolean) => void) | null = null;
 
 function Router() {
   return (
     <Layout>
-      {/* <ScrollToTop /> */}
       <Switch>
         <Route path="/" component={Dashboard} />
         <Route path="/transactions" component={Transactions} />
@@ -56,10 +50,18 @@ function Router() {
 function ProtectedRouter() {
   const { user, isLoading } = useAuth();
   const [, navigate] = useLocation();
+  const [isResetting, setIsResetting] = useState(false);
 
   useEffect(() => {
-    if (user) navigate("/");
-  }, [user]);
+    globalSetIsResetting = setIsResetting;
+    return () => { globalSetIsResetting = null; };
+  }, []);
+
+  useEffect(() => {
+    if (user && !isResetting) navigate("/");
+  }, [user, isResetting]);
+
+  if (isResetting && user) return <ResetPassword onDone={() => setIsResetting(false)} />;
 
   if (isLoading) return (
     <div className="min-h-screen flex items-center justify-center bg-background">
@@ -74,35 +76,44 @@ function ProtectedRouter() {
 
 function App() {
   useEffect(() => {
-    // Handle deep link callback from Google OAuth
     const handleDeepLink = async (url: string) => {
       if (url.includes("login-callback")) {
         const hashParams = new URLSearchParams(url.split("#")[1] || url.split("?")[1] || "");
         const accessToken = hashParams.get("access_token");
         const refreshToken = hashParams.get("refresh_token");
+        const type = hashParams.get("type");
+
+        if (type === "recovery" && accessToken) {
+          await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken ?? "" });
+          if (globalSetIsResetting) globalSetIsResetting(true);
+          try {
+            const { Browser } = await import("@capacitor/browser");
+            await Browser.close();
+          } catch {}
+          return;
+        }
+
         if (accessToken && refreshToken) {
           await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
-const { Browser } = await import("@capacitor/browser");
-await Browser.close();
+          try {
+            const { Browser } = await import("@capacitor/browser");
+            await Browser.close();
+          } catch {}
         }
       }
     };
 
-    // Listen for app URL opens (Capacitor deep links)
     const setupDeepLink = async () => {
       try {
         const { App } = await import("@capacitor/app");
         App.addListener("appUrlOpen", async (data: { url: string }) => {
           await handleDeepLink(data.url);
         });
-      } catch {
-        // Not in Capacitor environment
-      }
+      } catch {}
     };
 
     setupDeepLink();
 
-    // Also handle web hash-based redirects
     if (window.location.hash.includes("access_token")) {
       handleDeepLink(window.location.href);
     }

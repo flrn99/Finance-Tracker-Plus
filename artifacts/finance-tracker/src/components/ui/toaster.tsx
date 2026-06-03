@@ -27,7 +27,7 @@ export function Toaster() {
           </Toast>
         )
       })}
-      <ToastViewport />
+      <ToastViewport style={{ bottom: 'calc(env(safe-area-inset-bottom) + 80px)' }} />
     </ToastProvider>
   )
 }

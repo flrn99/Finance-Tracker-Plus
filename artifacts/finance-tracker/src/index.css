@@ -64,7 +64,7 @@
   --color-sidebar-ring: hsl(var(--sidebar-ring));
 
   --font-sans: 'Plus Jakarta Sans', sans-serif;
-  --font-serif: 'Oswald', sans-serif;
+  --font-serif: 'Righteous', sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 
   --radius-sm: calc(var(--radius) - 4px);
