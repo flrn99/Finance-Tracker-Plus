@@ -5,6 +5,7 @@ import categoriesRouter from "./categories";
 import dashboardRouter from "./dashboard";
 import exportRouter from "./export";
 import accountRouter from "./account";
+import importRouter from "./import";
 
 const router: IRouter = Router();
 
@@ -14,5 +15,6 @@ router.use(categoriesRouter);
 router.use(dashboardRouter);
 router.use(exportRouter);
 router.use(accountRouter);
+router.use(importRouter);
 
 export default router;

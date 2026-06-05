@@ -7,6 +7,7 @@ import {
   Plus,
   DollarSign,
   Settings,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -20,6 +21,7 @@ const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/transactions", label: "Transactions", icon: ListOrdered },
   { href: "/categories", label: "Categories", icon: Tags },
+  { href: "/insights", label: "Insights", icon: Sparkles },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
