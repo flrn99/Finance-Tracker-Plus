@@ -4,8 +4,7 @@ import { transactionsTable, categoriesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { authMiddleware } from "../middlewares/auth";
 import multer from "multer";
-import * as pdfParseModule from "pdf-parse";
-const pdfParse = (pdfParseModule as any).default || pdfParseModule;
+import pdfParse from "pdf-parse";
 
 const router = Router();
 router.use(authMiddleware);
