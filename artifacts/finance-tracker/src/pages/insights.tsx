@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Capacitor } from "@capacitor/core";
 import { FilePicker } from "@capawesome/capacitor-file-picker";
-import { Sparkles, Upload, FileText, Loader2, AlertCircle } from "lucide-react";
+import { Sparkles, Upload, FileText, Loader2, AlertCircle, ChevronDown, Check, X } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { getApiUrl } from "@/lib/api-config";
 import { cn } from "@/lib/utils";
@@ -9,13 +9,34 @@ import ReactMarkdown from "react-markdown";
 
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 
+interface EditableTx {
+  date: string;
+  description: string;
+  amount: number;
+  type: "income" | "expense";
+  categoryId: number | null;
+  selected: boolean;
+}
+
 export default function Insights() {
   const { session } = useAuth();
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [insights, setInsights] = useState<string | null>(null);
-  const [importResult, setImportResult] = useState<any[] | null>(null);
+  const [editableTxs, setEditableTxs] = useState<EditableTx[] | null>(null);
+  const [categories, setCategories] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!session) return;
+    fetch(getApiUrl("/api/categories"), {
+      headers: { Authorization: `Bearer ${session?.access_token}` },
+    })
+      .then(r => r.json())
+      .then(d => setCategories(d.data || d))
+      .catch(() => {});
+  }, [session]);
 
   const analyzeFinances = async () => {
     setIsAnalyzing(true);
@@ -71,89 +92,72 @@ Keep it concise, friendly and actionable. Use emojis to make it engaging.`;
     }
   };
 
-  const importPDF = async (base64: string) => {
-    setIsImporting(true);
-    setError(null);
-    setImportResult(null);
+  const handleUpload = async () => {
     try {
-      const prompt = `Extract ALL transactions from this bank statement PDF. Return ONLY a JSON array with no extra text, like this:
-[
-  {"date": "2026-05-03", "description": "NOTA DEBITO MEMBRESIA", "amount": 15.00, "type": "expense"},
-  {"date": "2026-05-04", "description": "ACH WALTER EDUARDO", "amount": 900.00, "type": "income"}
-]
-Rules:
-- Debits = expense, Credits = income
-- date format: YYYY-MM-DD
-- amount: positive number always
-- Include ALL transactions, skip SALDO ANTERIOR and ULTIMA LINEA
-- Return ONLY the JSON array, no markdown, no explanation`;
+      setError(null);
+      let blob: Blob;
+      let filename = "statement.pdf";
 
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{
-              parts: [
-                { inline_data: { mime_type: "application/pdf", data: base64 } },
-                { text: prompt }
-              ]
-            }],
-          }),
-        }
-      );
+      if (Capacitor.isNativePlatform()) {
+        const result = await FilePicker.pickFiles({ types: ["application/pdf"], readData: true, limit: 1 });
+        const file = result.files[0];
+        if (!file?.data) { setError("Could not read file"); return; }
+        const byteChars = atob(file.data);
+        const byteArr = new Uint8Array(byteChars.length);
+        for (let i = 0; i < byteChars.length; i++) byteArr[i] = byteChars.charCodeAt(i);
+        blob = new Blob([byteArr], { type: "application/pdf" });
+        filename = file.name || filename;
+      } else {
+        return;
+      }
 
-      const geminiData = await response.json();
-      const text = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!text) throw new Error("No response from Gemini");
+      setIsImporting(true);
+      const formData = new FormData();
+      formData.append("pdf", blob, filename);
 
-      const clean = text.replace(/```json|```/g, "").trim();
-      const transactions = JSON.parse(clean);
-      setImportResult(transactions);
+      const res = await fetch(getApiUrl("/api/import/pdf"), {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session?.access_token}` },
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Import failed");
+
+      // Get default categories
+      const expenseCat = categories.find(c => c.type === "expense");
+      const incomeCat = categories.find(c => c.type === "income");
+
+      const txs: EditableTx[] = data.transactions.map((tx: any) => ({
+        ...tx,
+        categoryId: tx.type === "income" ? (incomeCat?.id || null) : (expenseCat?.id || null),
+        selected: true,
+      }));
+
+      setEditableTxs(txs);
     } catch (e: any) {
-      setError(e.message || "Failed to import PDF");
+      if (!e.message?.includes("cancel")) setError("Failed: " + e.message);
     } finally {
       setIsImporting(false);
     }
   };
 
-  const handleUpload = async () => {
-    try {
-      if (Capacitor.isNativePlatform()) {
-        const result = await FilePicker.pickFiles({ types: ["application/pdf"], readData: true, limit: 1 });
-        const file = result.files[0];
-        if (file?.data) {
-          await importPDF(file.data);
-        } else {
-          setError("Could not read file data");
-        }
-      } else {
-        document.getElementById("pdf-input")?.click();
-      }
-    } catch (e: any) {
-      if (!e.message?.includes("cancel") && !e.message?.includes("Cancel")) {
-        setError("Failed to pick file: " + e.message);
-      }
-    }
+  const updateTx = (i: number, field: keyof EditableTx, value: any) => {
+    setEditableTxs(prev => {
+      if (!prev) return prev;
+      const updated = [...prev];
+      updated[i] = { ...updated[i], [field]: value };
+      return updated;
+    });
   };
 
-  const confirmImport = async () => {
-    if (!importResult) return;
-    setIsImporting(true);
+  const saveTransactions = async () => {
+    if (!editableTxs) return;
+    setIsSaving(true);
     try {
-      const catRes = await fetch(getApiUrl("/api/categories"), {
-        headers: { Authorization: `Bearer ${session?.access_token}` },
-      });
-      const catData = await catRes.json();
-      const categories = catData.data || catData;
-      const defaultExpenseCat = categories.find((c: any) => c.type === "expense")?.id;
-      const defaultIncomeCat = categories.find((c: any) => c.type === "income")?.id;
-
+      const toImport = editableTxs.filter(tx => tx.selected && tx.categoryId);
       let success = 0;
-      for (const tx of importResult) {
-        const categoryId = tx.type === "income" ? defaultIncomeCat : defaultExpenseCat;
-        if (!categoryId) continue;
+      for (const tx of toImport) {
         const res = await fetch(getApiUrl("/api/transactions"), {
           method: "POST",
           headers: {
@@ -165,19 +169,19 @@ Rules:
             amount: tx.amount,
             description: tx.description,
             date: tx.date,
-            categoryId,
+            categoryId: tx.categoryId,
             notes: "Imported from bank statement",
           }),
         });
         if (res.ok) success++;
       }
-      setImportResult(null);
+      setEditableTxs(null);
       setError(null);
-      alert(`✅ ${success} transactions imported successfully!`);
+      alert(`✅ ${success} transactions imported!`);
     } catch (e: any) {
-      setError(e.message || "Failed to save transactions");
+      setError(e.message || "Failed to save");
     } finally {
-      setIsImporting(false);
+      setIsSaving(false);
     }
   };
 
@@ -189,70 +193,96 @@ Rules:
       </div>
 
       {/* Import PDF */}
-      <div className="bg-card border border-card-border rounded-2xl p-5 space-y-3">
-        <div className="flex items-center gap-2">
-          <FileText className="h-5 w-5 text-sidebar-primary" />
-          <p className="font-bold text-sm">Import Bank Statement</p>
-        </div>
-        <p className="text-xs text-muted-foreground">Upload your bank statement PDF and we'll extract all transactions automatically.</p>
-        <button
-          onClick={handleUpload}
-          disabled={isImporting}
-          className="w-full py-3 rounded-xl bg-[#A8FF3E] text-black text-sm font-bold transition-all border-0 flex items-center justify-center gap-2 disabled:opacity-60"
-        >
-          {isImporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-          {isImporting ? "Reading PDF..." : "Upload PDF"}
-        </button>
-        <input
-          id="pdf-input"
-          type="file"
-          accept="application/pdf"
-          className="hidden"
-          onChange={async (e) => {
-            const file = e.target.files?.[0];
-            if (!file) return;
-            const base64 = await new Promise<string>((resolve, reject) => {
-              const reader = new FileReader();
-              reader.onload = () => resolve((reader.result as string).split(",")[1]);
-              reader.onerror = reject;
-              reader.readAsDataURL(file);
-            });
-            await importPDF(base64);
-          }}
-        />
-      </div>
-
-      {/* Import preview */}
-      {importResult && (
+      {!editableTxs && (
         <div className="bg-card border border-card-border rounded-2xl p-5 space-y-3">
-          <p className="font-bold text-sm">Found {importResult.length} transactions</p>
-          <div className="space-y-2 max-h-48 overflow-y-auto">
-            {importResult.slice(0, 10).map((tx, i) => (
-              <div key={i} className="flex items-center justify-between text-xs">
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium truncate">{tx.description}</p>
-                  <p className="text-muted-foreground">{tx.date}</p>
+          <div className="flex items-center gap-2">
+            <FileText className="h-5 w-5 text-sidebar-primary" />
+            <p className="font-bold text-sm">Import Bank Statement</p>
+          </div>
+          <p className="text-xs text-muted-foreground">Upload your bank statement PDF and we'll extract all transactions automatically.</p>
+          <button
+            onClick={handleUpload}
+            disabled={isImporting}
+            className="w-full py-3 rounded-xl bg-[#A8FF3E] text-black text-sm font-bold transition-all border-0 flex items-center justify-center gap-2 disabled:opacity-60"
+          >
+            {isImporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+            {isImporting ? "Reading PDF..." : "Upload PDF"}
+          </button>
+        </div>
+      )}
+
+      {/* Review transactions */}
+      {editableTxs && (
+        <div className="bg-card border border-card-border rounded-2xl overflow-hidden">
+          <div className="px-5 py-4 border-b border-border flex items-center justify-between">
+            <p className="font-bold text-sm">Review {editableTxs.length} transactions</p>
+            <button onClick={() => setEditableTxs(null)} className="text-muted-foreground">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          <div className="divide-y divide-border max-h-[60vh] overflow-y-auto">
+            {editableTxs.map((tx, i) => (
+              <div key={i} className={cn("p-4 space-y-3", !tx.selected && "opacity-50")}>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => updateTx(i, "selected", !tx.selected)}
+                    className={cn("w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-all",
+                      tx.selected ? "bg-[#A8FF3E] border-[#A8FF3E]" : "border-border"
+                    )}
+                  >
+                    {tx.selected && <Check className="h-3 w-3 text-black" />}
+                  </button>
+                  <div className="flex-1 min-w-0">
+                    <input
+                      type="text"
+                      value={tx.description}
+                      onChange={e => updateTx(i, "description", e.target.value)}
+                      className="w-full text-sm font-medium bg-transparent border-none outline-none text-foreground"
+                    />
+                    <p className="text-xs text-muted-foreground">{tx.date}</p>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <p className={cn("text-sm font-bold", tx.type === "income" ? "text-income" : "text-expense")}>
+                      {tx.type === "income" ? "+" : "-"}{tx.amount}
+                    </p>
+                    <button
+                      onClick={() => updateTx(i, "type", tx.type === "income" ? "expense" : "income")}
+                      className="text-xs text-muted-foreground underline"
+                    >
+                      {tx.type}
+                    </button>
+                  </div>
                 </div>
-                <span className={cn("font-bold ml-2", tx.type === "income" ? "text-income" : "text-expense")}>
-                  {tx.type === "income" ? "+" : "-"}{tx.amount}
-                </span>
+
+                <select
+                  value={tx.categoryId ?? ""}
+                  onChange={e => updateTx(i, "categoryId", Number(e.target.value))}
+                  className="w-full text-xs px-3 py-2 rounded-xl border border-border bg-background text-foreground focus:outline-none"
+                >
+                  <option value="">Select category...</option>
+                  {categories
+                    .filter(c => c.type === tx.type)
+                    .map(c => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))
+                  }
+                </select>
               </div>
             ))}
-            {importResult.length > 10 && (
-              <p className="text-xs text-muted-foreground text-center">+{importResult.length - 10} more</p>
-            )}
           </div>
-          <div className="flex gap-2">
+
+          <div className="px-5 py-4 border-t border-border flex gap-2">
             <button
-              onClick={confirmImport}
-              disabled={isImporting}
-              className="flex-1 py-2.5 rounded-xl bg-[#A8FF3E] text-black text-sm font-bold hover:bg-[#9bfe32] transition-all border-0"
+              onClick={saveTransactions}
+              disabled={isSaving}
+              className="flex-1 py-3 rounded-xl bg-[#A8FF3E] text-black text-sm font-bold hover:bg-[#9bfe32] transition-all border-0 disabled:opacity-60"
             >
-              {isImporting ? "Importing..." : "Import All"}
+              {isSaving ? "Importing..." : `Import ${editableTxs.filter(t => t.selected).length} selected`}
             </button>
             <button
-              onClick={() => setImportResult(null)}
-              className="flex-1 py-2.5 rounded-xl bg-muted text-foreground text-sm font-semibold hover:bg-muted/80 transition-all border-0"
+              onClick={() => setEditableTxs(null)}
+              className="px-4 py-3 rounded-xl bg-muted text-foreground text-sm font-semibold border-0"
             >
               Cancel
             </button>

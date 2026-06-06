@@ -59,10 +59,6 @@ function ProtectedRouter() {
     return () => { globalSetIsResetting = null; };
   }, []);
 
-  useEffect(() => {
-    if (user && !isResetting) navigate("/");
-  }, [user, isResetting]);
-
   if (isResetting && user) return <ResetPassword onDone={() => setIsResetting(false)} />;
 
   if (isLoading) return (
