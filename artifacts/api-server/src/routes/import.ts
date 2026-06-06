@@ -21,7 +21,7 @@ function extractTransactions(pdfData: any, year: string, month: string) {
     for (const text of texts) {
       const y = Math.round(text.y * 10);
       if (!lineMap[y]) lineMap[y] = [];
-      const str = text.R?.map((r: any) => decodeURIComponent(r.T)).join("") || "";
+      const str = text.R?.map((r: any) => { try { return decodeURIComponent(r.T); } catch { return r.T; } }).join("") || "";
       lineMap[y].push(str);
     }
     
