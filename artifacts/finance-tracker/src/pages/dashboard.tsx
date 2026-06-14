@@ -313,9 +313,9 @@ export default function Dashboard() {
                       radius={[6, 6, 0, 0]}
                       maxBarSize={48}
                       isAnimationActive
-                      animationBegin={0}
-                      animationDuration={700}
-                      animationEasing="ease-out"
+                      animationBegin={50}
+                      animationDuration={900}
+                      animationEasing="ease-in-out"
                     >
                       {spending.map((entry, index) => (
                         <Cell key={`bar-${index}`} fill={entry.categoryColor} />

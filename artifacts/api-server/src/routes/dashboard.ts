@@ -181,7 +181,7 @@ router.get("/dashboard/top-expenses", async (req, res) => {
   const userId = (req as any).userId;
   const range = resolveDateRange(parsed.data);
   const limit = parsed.data.limit ?? 5;
-  const txType = (parsed.data as any).type === "income" ? "income" : "expense";
+  const txType = req.query.type === "income" ? "income" : "expense";
 
   const conditions = [
     eq(transactionsTable.userId, userId),
