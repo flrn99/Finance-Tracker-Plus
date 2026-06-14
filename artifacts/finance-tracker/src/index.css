@@ -251,4 +251,9 @@
   .border-expense {
     --ring: var(--expense);
   }
+
+  ::selection {
+    background-color: rgba(168, 255, 62, 0.35);
+    color: inherit;
+  }
 }

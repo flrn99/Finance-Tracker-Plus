@@ -48,11 +48,26 @@ export default function MonthSelect({
     onBlur?.();
   };
 
-  const triggerCls =
+  const glassStyle =
     variant === "expense"
-      ? "h-10 w-full bg-expense/12 text-expense font-semibold border-0 rounded-xl hover:bg-expense/18 transition-colors focus:ring-1 focus:ring-expense/30"
+      ? {
+          backdropFilter: "blur(24px) saturate(1.6)",
+          WebkitBackdropFilter: "blur(24px) saturate(1.6)",
+          background: "linear-gradient(135deg, rgba(255,59,59,0.35), rgba(255,59,59,0.15))",
+          boxShadow: "inset 0 1px 1px rgba(255,255,255,0.4), inset 0 -1px 1px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.06)",
+        }
       : variant === "income"
-      ? "h-10 w-full bg-income/12 text-income font-semibold border-0 rounded-xl hover:bg-income/18 transition-colors focus:ring-1 focus:ring-income/30"
+      ? {
+          backdropFilter: "blur(24px) saturate(1.6)",
+          WebkitBackdropFilter: "blur(24px) saturate(1.6)",
+          background: "linear-gradient(135deg, rgba(29,185,84,0.35), rgba(29,185,84,0.15))",
+          boxShadow: "inset 0 1px 1px rgba(255,255,255,0.4), inset 0 -1px 1px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.06)",
+        }
+      : undefined;
+
+  const triggerCls =
+    variant === "expense" || variant === "income"
+      ? "h-10 w-full text-black dark:text-white font-semibold border-0 rounded-xl transition-colors focus:ring-0"
       : "h-10 w-full bg-background border border-input rounded-md text-sm";
 
   return (
@@ -61,7 +76,7 @@ export default function MonthSelect({
         value={selectedMonth !== undefined ? String(selectedMonth) : ""}
         onValueChange={handleMonth}
       >
-        <SelectTrigger className={triggerCls}>
+        <SelectTrigger className={triggerCls} style={glassStyle}>
           <SelectValue placeholder={isEmpty ? (placeholder ?? "Month") : "Month"} />
         </SelectTrigger>
         <SelectContent>
@@ -81,7 +96,7 @@ export default function MonthSelect({
         value={selectedYear !== undefined ? String(selectedYear) : ""}
         onValueChange={handleYear}
       >
-        <SelectTrigger className={triggerCls}>
+        <SelectTrigger className={triggerCls} style={glassStyle}>
           <SelectValue placeholder={isEmpty ? (placeholder ?? "Year") : "Year"} />
         </SelectTrigger>
         <SelectContent>

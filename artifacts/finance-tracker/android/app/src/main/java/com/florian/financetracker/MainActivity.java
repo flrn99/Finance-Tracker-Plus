@@ -1,5 +1,4 @@
 package com.florian.financetracker;
-
 import android.graphics.Color;
 import android.os.Bundle;
 import android.webkit.WebView;
@@ -11,10 +10,10 @@ public class MainActivity extends BridgeActivity {
     protected void onCreate(Bundle savedInstanceState) {
         registerPlugin(FilePickerPlugin.class);
         super.onCreate(savedInstanceState);
-        getWindow().getDecorView().setBackgroundColor(Color.parseColor("#F5F0E8"));
-        getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+
+        getWindow().getDecorView().setBackgroundColor(Color.parseColor("#A8FF3E"));
         WebView webView = getBridge().getWebView();
-        webView.setBackgroundColor(Color.parseColor("#F5F0E8"));
+        webView.setBackgroundColor(Color.parseColor("#A8FF3E"));
         webView.getSettings().setDomStorageEnabled(true);
         webView.getSettings().setJavaScriptEnabled(true);
     }

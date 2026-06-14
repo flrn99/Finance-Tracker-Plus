@@ -97,13 +97,34 @@ export default function QuickEntry() {
   return (
     <div
       className={cn(
-        "rounded-xl border-2 p-5 transition-colors duration-300",
-        isIncome ? "border-income/30 bg-income/5" : "border-expense/30 bg-expense/5"
+        "rounded-xl p-4 transition-colors duration-300 border-0",
+        isIncome ? "bg-[#1DB954]/30 dark:bg-[#39D96B]/25" : "bg-[#FF3B3B]/30 dark:bg-[#FF3B3B]/25"
       )}
     >
-      <div className="flex items-center justify-between mb-4 gap-2">
+      <div className="flex items-center justify-between mb-3 gap-2">
         <h3 className="font-serif font-semibold text-lg text-foreground shrink-0">New Entry</h3>
-        <div className="flex rounded-lg border border-border overflow-hidden shrink-0">
+        <div
+          className="relative flex items-center p-1 rounded-full shrink-0 overflow-hidden"
+          style={{
+            backdropFilter: "blur(24px) saturate(1.6)",
+            WebkitBackdropFilter: "blur(24px) saturate(1.6)",
+            background: "linear-gradient(135deg, rgba(255,255,255,0.35), rgba(255,255,255,0.08))",
+            boxShadow: "inset 0 1px 1px rgba(255,255,255,0.5), inset 0 -1px 1px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.06)",
+          }}
+        >
+          {/* Sliding glass indicator */}
+          <div
+            className="absolute top-1 left-1 rounded-full transition-transform duration-300 ease-out"
+            style={{
+              bottom: "4px",
+              width: "calc(50% - 4px)",
+              transform: isIncome ? "translateX(100%)" : "translateX(0%)",
+              background: isIncome
+                ? "linear-gradient(135deg, rgba(29,185,84,0.95), rgba(29,185,84,0.75))"
+                : "linear-gradient(135deg, rgba(255,59,59,0.95), rgba(255,59,59,0.75))",
+              boxShadow: "inset 0 1px 1px rgba(255,255,255,0.4), 0 2px 6px rgba(0,0,0,0.18)",
+            }}
+          />
           <button
             type="button"
             data-testid="toggle-expense"
@@ -112,10 +133,8 @@ export default function QuickEntry() {
               form.setValue("categoryId", undefined as unknown as number);
             }}
             className={cn(
-              "flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold transition-all whitespace-nowrap rounded-md",
-              !isIncome
-                ? "bg-expense/15 text-expense"
-                : "bg-transparent text-muted-foreground hover:bg-muted"
+              "relative z-10 flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold transition-colors duration-300 whitespace-nowrap rounded-full",
+              !isIncome ? "text-white" : "text-foreground/50 hover:text-foreground/70"
             )}
           >
             <TrendingDown className="h-3.5 w-3.5 shrink-0" />
@@ -129,10 +148,8 @@ export default function QuickEntry() {
               form.setValue("categoryId", undefined as unknown as number);
             }}
             className={cn(
-              "flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold transition-all whitespace-nowrap rounded-md",
-              isIncome
-                ? "bg-income/15 text-income"
-                : "bg-transparent text-muted-foreground hover:bg-muted"
+              "relative z-10 flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold transition-colors duration-300 whitespace-nowrap rounded-full",
+              isIncome ? "text-white" : "text-foreground/50 hover:text-foreground/70"
             )}
           >
             <TrendingUp className="h-3.5 w-3.5 shrink-0" />
@@ -142,7 +159,7 @@ export default function QuickEntry() {
       </div>
 
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-2.5">
           {/* Row 1: Amount + Category */}
           <div className="flex gap-3">
             <FormField
@@ -252,13 +269,16 @@ export default function QuickEntry() {
               data-testid="button-quick-save"
               disabled={createTx.isPending || saved}
               className={cn(
-                "shrink-0 gap-1.5 transition-all h-10 px-5",
-                saved
-                  ? "bg-income text-income-foreground border-income/60"
-                  : isIncome
-                  ? "bg-income hover:bg-income/90 text-income-foreground border-income/60"
-                  : "bg-expense hover:bg-expense/90 text-expense-foreground border-expense/60"
+                "shrink-0 gap-1.5 transition-all h-10 px-5 border-0 text-black dark:text-white font-semibold",
               )}
+              style={{
+                backdropFilter: "blur(24px) saturate(1.6)",
+                WebkitBackdropFilter: "blur(24px) saturate(1.6)",
+                background: saved || isIncome
+                  ? "linear-gradient(135deg, rgba(29,185,84,0.55), rgba(29,185,84,0.3))"
+                  : "linear-gradient(135deg, rgba(255,59,59,0.55), rgba(255,59,59,0.3))",
+                boxShadow: "inset 0 1px 1px rgba(255,255,255,0.4), inset 0 -1px 1px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.06)",
+              }}
             >
               {saved ? (
                 <><Check className="h-4 w-4" />Saved</>

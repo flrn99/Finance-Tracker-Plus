@@ -7,6 +7,9 @@ const config: CapacitorConfig = {
   android: {
     captureInput: false,
   },
+  ios: {
+    contentInset: "never",
+  },
   plugins: {
     App: {
       appUrlOpen: true,

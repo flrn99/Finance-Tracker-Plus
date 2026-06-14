@@ -181,10 +181,11 @@ router.get("/dashboard/top-expenses", async (req, res) => {
   const userId = (req as any).userId;
   const range = resolveDateRange(parsed.data);
   const limit = parsed.data.limit ?? 5;
+  const txType = (parsed.data as any).type === "income" ? "income" : "expense";
 
   const conditions = [
     eq(transactionsTable.userId, userId),
-    eq(transactionsTable.type, "expense"),
+    eq(transactionsTable.type, txType),
   ];
   if (range) {
     conditions.push(gte(transactionsTable.date, range.startDate));

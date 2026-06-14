@@ -159,24 +159,24 @@ const filteredTransactions = filterMonth
             filterType === "all" ? "grid-cols-1 sm:grid-cols-3" : "grid-cols-1 max-w-xs"
           )}>
             {(filterType === "all" || filterType === "income") && (
-              <div className="bg-income/10 rounded-xl px-4 py-3 flex sm:flex-col items-center sm:items-center justify-between sm:justify-center gap-1">
-                <p className="text-[10px] font-semibold text-income/70 uppercase tracking-wide">Income</p>
-                <p className="text-sm font-bold text-income">{formatAmount(monthlyTotal.income)}</p>
+              <div className="bg-[#1DB954]/10 rounded-xl px-4 py-3 flex sm:flex-col items-center sm:items-center justify-between sm:justify-center gap-1">
+                <p className="text-[10px] font-semibold text-[#1DB954]/70 dark:text-[#39D96B]/70 uppercase tracking-wide">Income</p>
+                <p className="text-sm font-bold text-[#1DB954] dark:text-[#39D96B]">{formatAmount(monthlyTotal.income)}</p>
               </div>
             )}
             {(filterType === "all" || filterType === "expense") && (
-              <div className="bg-expense/10 rounded-xl px-4 py-3 flex sm:flex-col items-center sm:items-center justify-between sm:justify-center gap-1">
-                <p className="text-[10px] font-semibold text-expense/70 uppercase tracking-wide">Expenses</p>
-                <p className="text-sm font-bold text-expense">{formatAmount(monthlyTotal.expense)}</p>
+              <div className="bg-[#FF3B3B]/10 rounded-xl px-4 py-3 flex sm:flex-col items-center sm:items-center justify-between sm:justify-center gap-1">
+                <p className="text-[10px] font-semibold text-[#FF3B3B]/70 dark:text-[#FF5C5C]/70 uppercase tracking-wide">Expenses</p>
+                <p className="text-sm font-bold text-[#FF3B3B] dark:text-[#FF5C5C]">{formatAmount(monthlyTotal.expense)}</p>
               </div>
             )}
             {filterType === "all" && (
               <div className={cn(
                 "rounded-xl px-4 py-3 flex sm:flex-col items-center sm:items-center justify-between sm:justify-center gap-1",
-                monthlyTotal.income - monthlyTotal.expense >= 0 ? "bg-income/10" : "bg-expense/10"
+                monthlyTotal.income - monthlyTotal.expense >= 0 ? "bg-[#1DB954]/10" : "bg-[#FF3B3B]/10"
               )}>
                 <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Balance</p>
-                <p className={cn("text-sm font-bold", monthlyTotal.income - monthlyTotal.expense >= 0 ? "text-income" : "text-expense")}>
+                <p className={cn("text-sm font-bold", monthlyTotal.income - monthlyTotal.expense >= 0 ? "text-[#1DB954] dark:text-[#39D96B]" : "text-[#FF3B3B] dark:text-[#FF5C5C]")}>
                   {formatAmount(monthlyTotal.income - monthlyTotal.expense)}
                 </p>
               </div>
@@ -236,7 +236,7 @@ const filteredTransactions = filterMonth
                 {/* Amount + category row */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className={cn("text-base font-bold shrink-0", tx.type === "income" ? "text-income" : "text-expense")}>
+                    <span className={cn("text-base font-bold shrink-0", tx.type === "income" ? "text-[#1DB954] dark:text-[#39D96B]" : "text-[#FF3B3B] dark:text-[#FF5C5C]")}>
                       {tx.type === "income" ? "+" : "-"}{formatAmount(tx.amount)}
                     </span>
                     <span
