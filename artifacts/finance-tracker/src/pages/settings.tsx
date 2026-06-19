@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Sun, Moon, Monitor, Trash2, LogOut, UserX, Download, ChevronRight, DollarSign, Palette, Database, User, Plus } from "lucide-react";
+import { Sun, Moon, Monitor, Trash2, LogOut, UserX, Download, ChevronRight, DollarSign, Palette, Database, User, Plus, Fingerprint, ShieldCheck, X } from "lucide-react";
 import { Link } from "wouter";
 import { useTheme, type Theme } from "@/lib/theme-context";
 import { useCurrency, type Currency, CURRENCY_INFO } from "@/lib/currency-context";
@@ -8,6 +8,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth-context";
 import { getListTransactionsQueryKey, getGetDashboardSummaryQueryKey, getGetSpendingByCategoryQueryKey, getGetTopExpensesQueryKey } from "@workspace/api-client-react";
 import { cn } from "@/lib/utils";
+import { useBiometric } from "@/lib/biometric-context";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger
@@ -41,12 +42,12 @@ function SettingItem({
       className={cn("flex items-center gap-4 px-4 py-3.5 cursor-pointer active:bg-muted/50 transition-colors", onClick && "cursor-pointer")}
       onClick={onClick}
     >
-      <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center shrink-0", destructive ? "bg-destructive/10" : "bg-muted")}>
+      <div className={cn("w-9 h-9 rounded-2xl flex items-center justify-center shrink-0", destructive ? "bg-destructive/10" : "bg-muted")}>
         <Icon className={cn("h-4 w-4", destructive ? "text-destructive" : "text-foreground")} />
       </div>
       <div className="flex-1 min-w-0">
         <p className={cn("text-sm font-semibold", destructive ? "text-destructive" : "text-foreground")}>{label}</p>
-        {description && <p className="text-xs text-muted-foreground mt-0.5 truncate">{description}</p>}
+        {description && <p className="text-xs text-muted-foreground mt-0.5 leading-snug">{description}</p>}
       </div>
       <div className="shrink-0 flex items-center gap-1">
         {right}
@@ -57,7 +58,7 @@ function SettingItem({
 
 function Section({ children }: { children: React.ReactNode }) {
   return (
-    <div className="bg-card border border-card-border rounded-2xl overflow-hidden divide-y divide-border">
+    <div className="bg-card rounded-2xl shadow-sm overflow-hidden divide-y divide-border">
       {children}
     </div>
   );
@@ -72,6 +73,13 @@ export default function Settings() {
   const [erasing, setErasing] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
+  const { isEnabled: biometricEnabled, isSupported: biometricSupported, enable: enableBiometric, disable: disableBiometric } = useBiometric();
+  const [showPinSetup, setShowPinSetup] = useState(false);
+  const [pinStep, setPinStep] = useState<"enter" | "confirm" | "disable">("enter");
+  const [pinValue, setPinValue] = useState("");
+  const [pinConfirm, setPinConfirm] = useState("");
+  const [pinError, setPinError] = useState("");
+  const [biometricLoading, setBiometricLoading] = useState(false);
   const [avatar, setAvatar] = useState<"male" | "female" | null>(() => {
   try { return localStorage.getItem("ff-avatar") as "male" | "female" | null; } catch { return null; }
 });
@@ -130,6 +138,130 @@ const selectAvatar = (a: "male" | "female") => {
 
   const themeLabel = theme === "light" ? "Light" : theme === "dark" ? "Dark" : "System";
 
+  const handleBiometricToggle = async () => {
+    if (biometricEnabled) {
+      // Show PIN entry to disable
+      setShowPinSetup(true);
+      setPinStep("disable");
+      setPinValue("");
+      setPinError("");
+      return;
+    }
+    // Check if supported before showing PIN setup
+    if (!biometricSupported) {
+      toast({
+        title: "Biometrics not available",
+        description: "Please configure Face ID or fingerprint in your device settings first.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setShowPinSetup(true);
+    setPinStep("enter");
+    setPinValue("");
+    setPinConfirm("");
+    setPinError("");
+  };
+
+  const handlePinDigit = (digit: string) => {
+    if (pinStep === "disable") {
+      if (pinValue.length >= 6) return;
+      const next = pinValue + digit;
+      setPinValue(next);
+      if (next.length === 6) {
+        const success = disableBiometric(next);
+        if (success) {
+          setShowPinSetup(false);
+          toast({ title: "Biometric lock disabled" });
+        } else {
+          setPinError("Incorrect PIN. Try again.");
+          setTimeout(() => {
+            setPinValue("");
+            setPinError("");
+          }, 800);
+        }
+      }
+      return;
+    }
+    if (pinStep === "enter") {
+      if (pinValue.length >= 6) return;
+      const next = pinValue + digit;
+      setPinValue(next);
+      if (next.length === 6) {
+        setTimeout(() => {
+          setPinStep("confirm");
+          setPinConfirm("");
+          setPinError("");
+        }, 150);
+      }
+    } else {
+      if (pinConfirm.length >= 6) return;
+      const next = pinConfirm + digit;
+      setPinConfirm(next);
+      if (next.length === 6) {
+        if (next !== pinValue) {
+          setPinError("PINs don't match. Try again.");
+          setTimeout(() => {
+            setPinStep("enter");
+            setPinValue("");
+            setPinConfirm("");
+            setPinError("");
+          }, 800);
+        } else {
+          handleEnableBiometric(next);
+        }
+      }
+    }
+  };
+
+  const handlePinDelete = () => {
+    if (pinStep === "enter" || pinStep === "disable") setPinValue(p => p.slice(0, -1));
+    else setPinConfirm(p => p.slice(0, -1));
+    setPinError("");
+  };
+
+  const handleEnableBiometric = async (pin: string) => {
+    setBiometricLoading(true);
+    const result = await enableBiometric(pin);
+    setBiometricLoading(false);
+    if (result.success) {
+      setShowPinSetup(false);
+      toast({ title: "Biometric lock enabled", description: "Your app is now protected." });
+    } else {
+      if (result.error === "biometrics_not_configured") {
+        setShowPinSetup(false);
+        toast({
+          title: "Biometrics not configured",
+          description: "Please set up Face ID or fingerprint in your device settings first.",
+          variant: "destructive",
+        });
+      } else {
+        setPinError("Biometric authentication failed. Try again.");
+        setTimeout(() => {
+          setPinStep("enter");
+          setPinValue("");
+          setPinConfirm("");
+          setPinError("");
+        }, 1000);
+      }
+    }
+  };
+
+  const PIN_DIGITS = [
+    ["1", "2", "3"],
+    ["4", "5", "6"],
+    ["7", "8", "9"],
+    ["", "0", "del"],
+  ];
+
+  const currentPin = pinStep === "confirm" ? pinConfirm : pinValue;
+
+  const haptic = () => {
+    import("@capacitor/haptics").then(({ Haptics, ImpactStyle }) => {
+      Haptics.impact({ style: ImpactStyle.Light }).catch(() => {});
+    }).catch(() => {});
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500 max-w-lg">
 
@@ -152,7 +284,7 @@ const selectAvatar = (a: "male" | "female") => {
 
 {showAvatarPicker && (
   <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40" onClick={() => setShowAvatarPicker(false)}>
-    <div className="bg-background rounded-t-3xl p-6 w-full max-w-sm space-y-4" onClick={(e) => e.stopPropagation()}>
+    <div className="bg-background rounded-t-2xl p-6 w-full max-w-sm space-y-4" onClick={(e) => e.stopPropagation()}>
       <p className="font-bold text-center text-foreground uppercase tracking-widest text-xs">Choose Avatar</p>
       <div className="flex gap-4 justify-center">
         <button onClick={() => selectAvatar("male")} className={cn("rounded-2xl overflow-hidden border-4 transition-all", avatar === "male" ? "border-[#A8FF3E]" : "border-transparent")}>
@@ -179,9 +311,10 @@ const selectAvatar = (a: "male" | "female") => {
             icon={DollarSign}
             label="Display Currency"
             description="All amounts shown in this currency"
+
             right={
               <Select value={currency} onValueChange={(val) => setCurrency(val as Currency)}>
-                <SelectTrigger className="w-auto border-0 ring-0 focus:ring-0 bg-[#A8FF3E] text-black font-bold text-sm px-3 py-1.5 rounded-xl h-auto">
+                <SelectTrigger className="w-24 border-0 ring-0 focus:ring-0 bg-[#A8FF3E] text-black font-bold text-sm px-3 py-1.5 rounded-full h-auto">
                   <SelectValue>{currency}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
@@ -196,9 +329,10 @@ const selectAvatar = (a: "male" | "female") => {
             icon={Palette}
             label="Theme"
             description="Switch between light and dark mode"
+
             right={
               <Select value={theme} onValueChange={(val) => setTheme(val as Theme)}>
-                <SelectTrigger className="w-auto border-0 ring-0 focus:ring-0 bg-[#A8FF3E] text-black font-bold text-sm px-3 py-1.5 rounded-xl h-auto">
+                <SelectTrigger className="w-24 border-0 ring-0 focus:ring-0 bg-[#A8FF3E] text-black font-bold text-sm px-3 py-1.5 rounded-full h-auto">
                   <SelectValue>{themeLabel}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
@@ -252,6 +386,143 @@ const selectAvatar = (a: "male" | "female") => {
         </Section>
       </div>
 
+      {/* Security */}
+      <div className="space-y-2">
+        <SectionTitle title="Security" />
+        <Section>
+          <SettingItem
+            icon={biometricEnabled ? ShieldCheck : Fingerprint}
+            label="Biometric Lock"
+            description={biometricEnabled ? "App is protected · Tap to disable" : "Require Face ID or fingerprint to open"}
+            right={
+              <div
+                className={cn(
+                  "w-12 h-6 rounded-full transition-colors duration-300 relative cursor-pointer",
+                  biometricEnabled ? "bg-[#A8FF3E]" : "bg-muted"
+                )}
+                onClick={handleBiometricToggle}
+              >
+                <div
+                  className="absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-transform duration-300"
+                  style={{ transform: biometricEnabled ? "translateX(26px)" : "translateX(2px)" }}
+                />
+              </div>
+            }
+          />
+        </Section>
+      </div>
+
+      {/* PIN Setup Modal */}
+      {showPinSetup && (
+        <div className="fixed inset-0 z-50 flex flex-col justify-end" style={{ backgroundColor: "rgba(0,0,0,0.6)" }} onClick={() => setShowPinSetup(false)}>
+          <div
+            className="rounded-t-3xl overflow-hidden"
+            style={{
+              backdropFilter: "blur(40px) saturate(1.8)",
+              WebkitBackdropFilter: "blur(40px) saturate(1.8)",
+              background: "hsl(var(--background) / 0.92)",
+              boxShadow: "0 -1px 0 hsl(var(--foreground) / 0.06), 0 -8px 32px rgba(0,0,0,0.08)",
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Handle bar */}
+            <div className="flex justify-center pt-3 pb-1">
+              <div className="w-10 h-1 rounded-full" style={{ background: "hsl(var(--foreground) / 0.15)" }} />
+            </div>
+
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 pt-3 pb-5">
+              <div>
+                <p className="font-bold text-base text-foreground">
+                  {pinStep === "disable" ? "Enter PIN" : pinStep === "enter" ? "Create PIN" : "Confirm PIN"}
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {pinStep === "disable"
+                    ? "Enter your PIN to disable biometric lock"
+                    : pinStep === "enter"
+                    ? "Set a 6-digit PIN as backup"
+                    : "Re-enter your PIN to confirm"
+                  }
+                </p>
+              </div>
+              <button
+                onClick={() => setShowPinSetup(false)}
+                className="w-8 h-8 rounded-full flex items-center justify-center"
+                style={{
+                  backdropFilter: "blur(12px)",
+                  WebkitBackdropFilter: "blur(12px)",
+                  background: "hsl(var(--foreground) / 0.08)",
+                  boxShadow: "inset 0 1px 1px hsl(var(--foreground) / 0.06)",
+                }}
+              >
+                <X className="h-4 w-4 text-foreground" />
+              </button>
+            </div>
+
+            <div className="px-5 flex flex-col items-center gap-5" style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 2rem)" }}>
+              {/* PIN dots */}
+              <div className="flex gap-4 py-1">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="rounded-full transition-all duration-200"
+                    style={{
+                      width: i < currentPin.length ? "16px" : "14px",
+                      height: i < currentPin.length ? "16px" : "14px",
+                      background: i < currentPin.length
+                        ? "hsl(var(--foreground))"
+                        : "hsl(var(--foreground) / 0.18)",
+                      boxShadow: i < currentPin.length
+                        ? "0 2px 6px hsl(var(--foreground) / 0.25)"
+                        : "none",
+                      transform: i < currentPin.length ? "scale(1.1)" : "scale(1)",
+                    }}
+                  />
+                ))}
+              </div>
+
+              {pinError && (
+                <p className="text-xs font-semibold text-destructive text-center animate-in fade-in duration-200">{pinError}</p>
+              )}
+
+              {biometricLoading && (
+                <p className="text-xs text-muted-foreground">Verifying biometrics…</p>
+              )}
+
+              {/* Numpad — liquid glass buttons */}
+              <div className="grid grid-cols-3 gap-2 w-full">
+                {PIN_DIGITS.flat().map((digit, i) => {
+                  if (digit === "") return <div key={i} />;
+                  if (digit === "del") return (
+                    <button
+                      key={i}
+                      onPointerDown={(e) => { e.preventDefault(); haptic(); handlePinDelete(); }}
+                      disabled={currentPin.length === 0}
+                      className="h-16 w-full rounded-2xl flex items-center justify-center bg-muted disabled:opacity-30"
+                      style={{ touchAction: "manipulation" }}
+                    >
+                      <Trash2 className="h-5 w-5 text-foreground" />
+                    </button>
+                  );
+                  return (
+                    <button
+                      key={i}
+                      onPointerDown={(e) => { e.preventDefault(); haptic(); handlePinDigit(digit); }}
+                      disabled={currentPin.length >= 6}
+                      className="h-16 w-full rounded-2xl flex items-center justify-center text-2xl font-bold text-foreground bg-muted disabled:opacity-30"
+                      style={{ touchAction: "manipulation" }}
+                    >
+                      {digit}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+        </div>
+      )}
+
       {/* Account */}
       <div className="space-y-2">
         <SectionTitle title="Account" />
@@ -287,7 +558,7 @@ const selectAvatar = (a: "male" | "female") => {
                 <SettingItem
                   icon={UserX}
                   label={deletingAccount ? "Deleting..." : "Delete Account"}
-                  description="Permanently deletes your account and all data"
+      
                   destructive
                   right={<ChevronRight className="h-4 w-4 text-destructive" />}
                 />

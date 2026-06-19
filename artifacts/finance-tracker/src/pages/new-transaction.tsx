@@ -13,18 +13,16 @@ import {
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardFooter } from "@/components/ui/card";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, FolderPlus } from "lucide-react";
+import { ArrowLeft, FolderPlus, TrendingDown, TrendingUp } from "lucide-react";
 import { Link } from "wouter";
-import { useCurrency } from "@/lib/currency-context";
 import CurrencyInput from "@/components/currency-input";
 import MonthSelect from "@/components/month-select";
+import { cn } from "@/lib/utils";
 
 const formSchema = z.object({
   type: z.enum(["income", "expense"]),
@@ -41,8 +39,7 @@ export default function NewTransaction() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { } = useCurrency();
-  const { data: categories, isLoading: isLoadingCategories } = useListCategories({
+  const { data: categories } = useListCategories({
     query: { queryKey: getListCategoriesQueryKey() }
   });
 
@@ -61,22 +58,22 @@ export default function NewTransaction() {
   });
 
   const type = form.watch("type");
+  const isIncome = type === "income";
   const filteredCategories = Array.isArray(categories)
-  ? categories.filter((c) => c.type === type || c.type === "both")
-  : [];
+    ? categories.filter((c) => c.type === type || c.type === "both")
+    : [];
 
   const onSubmit = (data: FormValues) => {
-    const usdAmount = data.amount;
     const fullDate = data.date.length === 7 ? `${data.date}-01` : data.date;
     createTx.mutate(
-      { data: { ...data, amount: usdAmount, date: fullDate } },
+      { data: { ...data, date: fullDate } },
       {
         onSuccess: () => {
           toast({ title: "Transaction added successfully" });
           queryClient.invalidateQueries({ queryKey: getListTransactionsQueryKey() });
           queryClient.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey({}) });
           queryClient.invalidateQueries({ queryKey: getGetSpendingByCategoryQueryKey({}) });
-          queryClient.invalidateQueries({ queryKey: getGetTopExpensesQueryKey({ limit: 5 }) });
+          queryClient.invalidateQueries({ queryKey: getGetTopExpensesQueryKey({ limit: 3 }) });
           setLocation("/transactions");
         },
         onError: () => {
@@ -87,172 +84,218 @@ export default function NewTransaction() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6 animate-in fade-in duration-500">
-      <div className="flex items-center gap-4">
+    <div className="max-w-lg mx-auto space-y-4 animate-in fade-in duration-500">
+      {/* Header */}
+      <div className="flex items-center gap-3">
         <Link href="/transactions">
-          <Button variant="ghost" size="icon" className="rounded-full">
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
+          <button className="w-9 h-9 flex items-center justify-center rounded-full bg-muted shrink-0">
+            <ArrowLeft className="h-4 w-4" />
+          </button>
         </Link>
         <div>
-          <h2 className="text-2xl sm:text-3xl font-serif font-bold tracking-tight">New Transaction</h2>
-          <p className="text-muted-foreground mt-1">Record a new income or expense.</p>
+          <h2 className="text-xl font-bold">New Transaction</h2>
         </div>
       </div>
 
-      <Card style={{ ['--ring' as string]: type === 'expense' ? 'var(--expense)' : 'var(--income)' }}>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)}>
-            <CardContent className="space-y-6 pt-6">
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
 
-              <FormField
-                control={form.control}
-                name="type"
-                render={({ field }) => (
-                  <FormItem className="space-y-3">
-                    <FormLabel>Type</FormLabel>
-                    <FormControl>
-                      <RadioGroup
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                        className="flex gap-4"
-                      >
-                        <FormItem className="flex items-center space-x-2 space-y-0 border rounded-xl p-4 flex-1 cursor-pointer [&:has([data-state=checked])]:border-expense [&:has([data-state=checked])]:bg-expense/5">
-                          <FormControl><RadioGroupItem value="expense" className="text-expense" /></FormControl>
-                          <FormLabel className="font-normal cursor-pointer w-full">Expense</FormLabel>
-                        </FormItem>
-                        <FormItem className="flex items-center space-x-2 space-y-0 border rounded-xl p-4 flex-1 cursor-pointer [&:has([data-state=checked])]:border-income [&:has([data-state=checked])]:bg-income/5">
-                          <FormControl><RadioGroupItem value="income" className="text-income" /></FormControl>
-                          <FormLabel className="font-normal cursor-pointer w-full">Income</FormLabel>
-                        </FormItem>
-                      </RadioGroup>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+          {/* Type toggle — liquid glass slider */}
+          <FormField
+            control={form.control}
+            name="type"
+            render={({ field }) => (
+              <FormItem>
+                <FormControl>
+                  <div
+                    className="relative flex items-center p-1 rounded-full w-full"
+                    style={{
+                      backdropFilter: "blur(24px) saturate(1.6)",
+                      WebkitBackdropFilter: "blur(24px) saturate(1.6)",
+                      background: "linear-gradient(135deg, rgba(255,255,255,0.35), rgba(255,255,255,0.08))",
+                      boxShadow: "inset 0 1px 1px rgba(255,255,255,0.5), inset 0 -1px 1px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.06)",
+                    }}
+                  >
+                    <div
+                      className="absolute top-1 left-1 rounded-full transition-transform duration-300 ease-out"
+                      style={{
+                        bottom: "4px",
+                        width: "calc(50% - 4px)",
+                        transform: isIncome ? "translateX(100%)" : "translateX(0%)",
+                        background: isIncome
+                          ? "linear-gradient(135deg, rgba(29,185,84,0.95), rgba(29,185,84,0.75))"
+                          : "linear-gradient(135deg, rgba(255,59,59,0.95), rgba(255,59,59,0.75))",
+                        boxShadow: "inset 0 1px 1px rgba(255,255,255,0.4), 0 2px 6px rgba(0,0,0,0.18)",
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => { field.onChange("expense"); form.setValue("categoryId", undefined as any); }}
+                      className={cn("relative z-10 flex-1 flex items-center justify-center gap-1.5 py-2.5 text-sm font-semibold transition-colors duration-300 rounded-full", !isIncome ? "text-white" : "text-foreground/50")}
+                    >
+                      <TrendingDown className="h-4 w-4" />Expense
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { field.onChange("income"); form.setValue("categoryId", undefined as any); }}
+                      className={cn("relative z-10 flex-1 flex items-center justify-center gap-1.5 py-2.5 text-sm font-semibold transition-colors duration-300 rounded-full", isIncome ? "text-white" : "text-foreground/50")}
+                    >
+                      <TrendingUp className="h-4 w-4" />Income
+                    </button>
+                  </div>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                <FormField
-                  control={form.control}
-                  name="amount"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Amount</FormLabel>
-                      <FormControl>
-                        <CurrencyInput
-                          value={field.value}
-                          onChange={field.onChange}
-                          onBlur={field.onBlur}
-                          placeholder="0.00"
-                          className="text-lg"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+          {/* Amount + Date */}
+          <div className="grid grid-cols-2 gap-3">
+            <FormField
+              control={form.control}
+              name="amount"
+              render={({ field }) => (
+                <FormItem>
+                  <FormControl>
+                    <CurrencyInput
+                      value={field.value}
+                      onChange={field.onChange}
+                      onBlur={field.onBlur}
+                      placeholder="0.00"
+                      className="text-base font-semibold bg-card rounded-2xl h-12 shadow-sm"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-                <FormField
-                  control={form.control}
-                  name="date"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Date</FormLabel>
-                      <FormControl>
-                        <MonthSelect
-                          value={field.value}
-                          onChange={field.onChange}
-                          onBlur={field.onBlur}
-                          variant={type}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
+            <FormField
+              control={form.control}
+              name="date"
+              render={({ field }) => (
+                <FormItem>
+                  <FormControl>
+                    <MonthSelect
+                      value={field.value}
+                      onChange={field.onChange}
+                      onBlur={field.onBlur}
+                      variant={type}
+                      size="lg"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
 
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Description</FormLabel>
-                    <FormControl>
-                    <Input placeholder="e.g. Groceries, Rent, Salary..." {...field} onFocus={(e) => setTimeout(() => e.target.scrollIntoView({ behavior: 'instant', block: 'center' }), 150)} onClick={(e) => setTimeout(() => (e.target as HTMLInputElement).scrollIntoView({ behavior: 'instant', block: 'center' }), 150)} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+          {/* Description */}
+          <FormField
+            control={form.control}
+            name="description"
+            render={({ field }) => (
+              <FormItem>
+                <FormControl>
+                  <Input
+                    placeholder="What was this for?"
+                    className="bg-card rounded-2xl h-12 shadow-sm"
+                    {...field}
+                    onFocus={(e) => setTimeout(() => e.target.scrollIntoView({ behavior: "smooth", block: "center" }), 300)}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
-              <FormField
-                control={form.control}
-                name="categoryId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Category</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value?.toString() ?? ""}>
-                      <FormControl>
-                        <SelectTrigger><SelectValue placeholder="Select a category" /></SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {filteredCategories.length === 0 ? (
-                          <div className="py-2 px-1">
-                            <Link href="/categories" onClick={(e) => e.stopPropagation()}>
-                              <button
-                                type="button"
-                                className="w-full flex items-center gap-2 px-2 py-2 rounded-md text-sm text-primary hover:bg-primary/10 transition-colors"
-                              >
-                                <FolderPlus className="h-4 w-4 shrink-0" />
-                                Add a category
-                              </button>
-                            </Link>
+          {/* Category */}
+          <FormField
+            control={form.control}
+            name="categoryId"
+            render={({ field }) => (
+              <FormItem>
+                <Select onValueChange={field.onChange} value={field.value?.toString() ?? ""}>
+                  <FormControl>
+                    <SelectTrigger className="bg-card rounded-2xl h-12 shadow-sm">
+                      <SelectValue placeholder="Select category...">
+                        {field.value && Array.isArray(categories) && (() => {
+                          const cat = categories.find(c => c.id === field.value);
+                          if (!cat) return "Select category...";
+                          return (
+                            <div className="flex items-center gap-2">
+                              <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />
+                              {cat.name}
+                            </div>
+                          );
+                        })()}
+                      </SelectValue>
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {filteredCategories.length === 0 ? (
+                      <div className="py-2 px-1">
+                        <Link href="/categories" onClick={(e) => e.stopPropagation()}>
+                          <button type="button" className="w-full flex items-center gap-2 px-2 py-2 rounded-2xl text-sm text-primary hover:bg-primary/10 transition-colors">
+                            <FolderPlus className="h-4 w-4 shrink-0" />
+                            Add a category
+                          </button>
+                        </Link>
+                      </div>
+                    ) : (
+                      filteredCategories.map(c => (
+                        <SelectItem key={c.id} value={c.id.toString()}>
+                          <div className="flex items-center gap-2">
+                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: c.color }} />
+                            {c.name}
                           </div>
-                        ) : (
-                          filteredCategories.map(c => (
-                            <SelectItem key={c.id} value={c.id.toString()}>
-                              <div className="flex items-center gap-2">
-                                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: c.color }} />
-                                {c.name}
-                              </div>
-                            </SelectItem>
-                          ))
-                        )}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
-              <FormField
-                control={form.control}
-                name="notes"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Notes (Optional)</FormLabel>
-                    <FormControl>
-                    <Textarea placeholder="Add any extra details here..." className="resize-none" {...field} onFocus={(e) => setTimeout(() => e.target.scrollIntoView({ behavior: 'instant', block: 'center' }), 150)} onClick={(e) => setTimeout(() => (e.target as HTMLTextAreaElement).scrollIntoView({ behavior: 'instant', block: 'center' }), 150)} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+          {/* Notes */}
+          <FormField
+            control={form.control}
+            name="notes"
+            render={({ field }) => (
+              <FormItem>
+                <FormControl>
+                  <Textarea
+                    placeholder="Notes (optional)"
+                    className="resize-none bg-card rounded-2xl shadow-sm"
+                    rows={2}
+                    {...field}
+                    onFocus={(e) => setTimeout(() => e.target.scrollIntoView({ behavior: "smooth", block: "center" }), 300)}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
-            </CardContent>
-            <CardFooter className="flex justify-end gap-3 border-t bg-muted/20 px-6 py-4">
-              <Link href="/transactions">
-                <Button type="button" variant="outline">Cancel</Button>
-              </Link>
-              <Button type="submit" disabled={createTx.isPending} className="bg-[#A8FF3E] text-black hover:bg-[#9bfe32] border-0">
-                {createTx.isPending ? "Saving..." : "Save Transaction"}
-              </Button>
-            </CardFooter>
-          </form>
-        </Form>
-      </Card>
+          {/* Actions */}
+          <div className="flex gap-2 pt-1">
+            <button
+              type="submit"
+              disabled={createTx.isPending}
+              className="flex-1 py-3.5 rounded-2xl bg-black text-white text-sm font-bold border-0 disabled:opacity-60 dark:bg-white dark:text-black"
+            >
+              {createTx.isPending ? "Saving..." : "Save Transaction"}
+            </button>
+            <Link href="/transactions">
+              <button type="button" className="px-6 py-3.5 rounded-2xl bg-muted text-foreground text-sm font-semibold border-0">
+                Cancel
+              </button>
+            </Link>
+          </div>
+        </form>
+      </Form>
     </div>
   );
 }

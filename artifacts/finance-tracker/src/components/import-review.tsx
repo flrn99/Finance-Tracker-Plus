@@ -37,8 +37,8 @@ function ConfirmModal({ message, onConfirm, onClose }: { message: string; onConf
           <p className="text-sm text-foreground leading-relaxed pt-1.5">{message}</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={onClose} className="flex-1 py-2.5 rounded-xl bg-muted text-foreground text-sm font-semibold border-0">Cancel</button>
-          <button onClick={() => { onConfirm(); onClose(); }} className="flex-1 py-2.5 rounded-xl bg-destructive text-white text-sm font-semibold border-0">Confirm</button>
+          <button onClick={onClose} className="flex-1 py-2.5 rounded-2xl bg-muted text-foreground text-sm font-semibold border-0">Cancel</button>
+          <button onClick={() => { onConfirm(); onClose(); }} className="flex-1 py-2.5 rounded-2xl bg-destructive text-white text-sm font-semibold border-0">Confirm</button>
         </div>
       </div>
     </div>
@@ -158,7 +158,7 @@ export default function ImportReview({ transactions: initial, categories, onDone
                       type="text" autoFocus value={tx.description}
                       onChange={e => updateTx(i, "description", e.target.value)}
                       onBlur={() => setEditingIndex(null)}
-                      className="w-full text-sm font-medium bg-muted rounded-lg px-2 py-0.5 border-none outline-none text-foreground"
+                      className="w-full text-sm font-medium bg-muted rounded-2xl px-2 py-0.5 border-none outline-none text-foreground"
                     />
                   ) : (
                     <div className="flex items-center gap-1.5 min-w-0">
@@ -187,7 +187,7 @@ export default function ImportReview({ transactions: initial, categories, onDone
               {/* Fila inferior: categoría */}
               <div className="mt-2 pl-7">
                 <Select value={tx.categoryId?.toString() ?? ""} onValueChange={v => updateTx(i, "categoryId", Number(v))}>
-                  <SelectTrigger className="h-8 text-xs bg-muted/50 border-0 rounded-xl px-2.5">
+                  <SelectTrigger className="h-8 text-xs bg-muted/50 border-0 rounded-2xl px-2.5">
                     <SelectValue placeholder="Select category...">
                       {tx.categoryId && (() => {
                         const cat = categories.find(c => c.id === tx.categoryId);
@@ -220,7 +220,7 @@ export default function ImportReview({ transactions: initial, categories, onDone
       {/* Footer con fade */}
       <div
         className="fixed left-0 right-0 flex flex-col"
-        style={{ bottom: "var(--nav-height, 90px)", zIndex: 35 }}
+        style={{ bottom: "calc(var(--nav-height, 90px) + 28px)", zIndex: 35 }}
       >
         <div
           className="w-full pointer-events-none"
@@ -230,14 +230,14 @@ export default function ImportReview({ transactions: initial, categories, onDone
           <button
             onClick={saveTransactions}
             disabled={isSaving || selectedCount === 0}
-            className="flex-1 py-3 rounded-xl bg-black text-white text-sm font-bold border-0 disabled:opacity-60 dark:bg-white dark:text-black"
+            className="flex-1 py-3 rounded-2xl bg-black text-white text-sm font-bold border-0 disabled:opacity-60 dark:bg-white dark:text-black"
           >
             {isSaving ? "Importing..." : `Import ${selectedCount} selected`}
           </button>
           <button
             onClick={handleCancel}
             disabled={isSaving}
-            className="px-5 py-3 rounded-xl bg-muted text-foreground text-sm font-semibold border-0 disabled:opacity-60"
+            className="px-5 py-3 rounded-2xl bg-red-500/10 text-red-500 dark:text-red-400 text-sm font-semibold border-0 disabled:opacity-60"
           >
             Cancel
           </button>

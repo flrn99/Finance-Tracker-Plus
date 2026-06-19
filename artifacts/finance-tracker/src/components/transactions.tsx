@@ -484,7 +484,7 @@ function TransactionList({ filteredTransactions, isLoading, formatAmount, onSele
                 />
                 <span className="text-[11px] font-bold text-muted-foreground tracking-wide uppercase">{monthLabel}</span>
               </div>
-              <span className="text-[11px] text-muted-foreground/60">
+              <span className="text-[11px] font-bold text-foreground/70 tracking-wide">
                 {txs.length} {txs.length === 1 ? "item" : "items"}
               </span>
             </button>

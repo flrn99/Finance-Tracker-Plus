@@ -5,7 +5,6 @@ import {
   useGetTopExpenses, getGetTopExpensesQueryKey,
 } from "@workspace/api-client-react";
 import { formatDate } from "@/lib/format";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ComposedChart, Bar, Cell, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid } from "recharts";
 import { ArrowDownIcon, ArrowUpIcon, Wallet, TrendingDown, TrendingUp } from "lucide-react";
@@ -64,12 +63,6 @@ export default function Dashboard() {
     { query: { queryKey: getGetTopExpensesQueryKey(topExpensesParams) } }
   );
 
-  const modes: { key: FilterMode; label: string }[] = [
-    { key: "month", label: "This Month" },
-    { key: "all", label: "All Time" },
-  ];
-
-  // In-view animation for chart
   const chartRef = useRef<HTMLDivElement>(null);
   const [chartInView, setChartInView] = useState(false);
 
@@ -77,9 +70,7 @@ export default function Dashboard() {
     const el = chartRef.current;
     if (!el) return;
     const rect = el.getBoundingClientRect();
-    if (rect.top < window.innerHeight && rect.bottom > 0) {
-      setChartInView(true);
-    }
+    if (rect.top < window.innerHeight && rect.bottom > 0) setChartInView(true);
     const observer = new IntersectionObserver(
       ([entry]) => { if (entry.isIntersecting) setChartInView(true); },
       { threshold: 0.1 }
@@ -89,17 +80,15 @@ export default function Dashboard() {
   }, [spending]);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl sm:text-3xl font-serif font-bold tracking-tight text-foreground">Dashboard</h2>
-        <p className="text-muted-foreground mt-1 text-sm">A summary of your financial health.</p>
-      </div>
+    <div className="space-y-3">
+      <h2 className="text-2xl font-bold tracking-tight text-foreground">Dashboard</h2>
 
+      {/* ── Quick Entry ───────────────────────────────────────────── */}
       <QuickEntry />
 
-      {/* Period toggle */}
+      {/* ── Period toggle ─────────────────────────────────────────── */}
       <div
-        className="relative flex items-center p-1 rounded-xl w-full overflow-hidden"
+        className="relative flex items-center p-1 rounded-2xl w-full overflow-hidden"
         style={{
           backdropFilter: "blur(24px) saturate(1.6)",
           WebkitBackdropFilter: "blur(24px) saturate(1.6)",
@@ -108,7 +97,7 @@ export default function Dashboard() {
         }}
       >
         <div
-          className="absolute top-1 left-1 rounded-lg transition-transform duration-300 ease-out"
+          className="absolute top-1 left-1 rounded-2xl transition-transform duration-300 ease-out"
           style={{
             bottom: "4px",
             width: "calc(50% - 4px)",
@@ -119,21 +108,21 @@ export default function Dashboard() {
             boxShadow: "inset 0 1px 1px hsl(var(--foreground) / 0.06), 0 2px 6px rgba(0,0,0,0.12)",
           }}
         />
-        {modes.map(({ key, label }) => (
+        {(["month", "all"] as FilterMode[]).map((key) => (
           <button
             key={key}
             onClick={() => setFilterMode(key)}
             className={cn(
-              "relative z-10 flex-1 py-2 rounded-lg text-xs font-semibold transition-colors duration-300 whitespace-nowrap text-center",
+              "relative z-10 flex-1 py-2 rounded-2xl text-xs font-semibold transition-colors duration-300 whitespace-nowrap text-center",
               filterMode === key ? "text-foreground" : "text-muted-foreground hover:text-foreground"
             )}
           >
-            {label}
+            {key === "month" ? "This Month" : "All Time"}
           </button>
         ))}
       </div>
 
-      {/* Summary Cards */}
+      {/* ── Summary Cards — original glass, intactas ──────────────── */}
       <div className="space-y-3">
         {/* Balance */}
         <div className="relative overflow-hidden rounded-2xl px-5 py-4" style={{
@@ -171,7 +160,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Expenses + Income 2 cols */}
+        {/* Expenses + Income */}
         <div className="grid grid-cols-2 gap-3">
           <div className="relative overflow-hidden rounded-2xl px-4 py-4" style={{
             backdropFilter: "blur(24px) saturate(1.6)",
@@ -217,63 +206,64 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Chart + Top 3 — combined card */}
-      <Card className="border border-card-border shadow-sm">
-        <CardHeader className="pb-2">
-          <div className="flex items-center justify-between gap-2">
-            <CardTitle className="text-base">
+      {/* ── Chart + Top 3 ─────────────────────────────────────────── */}
+      <div className="bg-card rounded-2xl shadow-sm overflow-hidden">
+        <div className="flex items-center justify-between gap-2 px-5 pt-5 pb-2">
+          <div>
+            <p className="text-sm font-bold text-foreground">
               {categoryType === "expense" ? "Spending" : "Income"} by Category
-            </CardTitle>
-            {/* Toggle Expense/Income — liquid glass slider */}
-            <div
-              className="relative flex items-center p-1 rounded-full shrink-0"
-              style={{
-                backdropFilter: "blur(24px) saturate(1.6)",
-                WebkitBackdropFilter: "blur(24px) saturate(1.6)",
-                background: "linear-gradient(135deg, rgba(255,255,255,0.35), rgba(255,255,255,0.08))",
-                boxShadow: "inset 0 1px 1px rgba(255,255,255,0.5), inset 0 -1px 1px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.06)",
-              }}
-            >
-              <div
-                className="absolute top-1 left-1 rounded-full transition-transform duration-300 ease-out"
-                style={{
-                  bottom: "4px",
-                  width: "calc(50% - 4px)",
-                  transform: categoryType === "income" ? "translateX(100%)" : "translateX(0%)",
-                  background: categoryType === "income"
-                    ? "linear-gradient(135deg, rgba(29,185,84,0.95), rgba(29,185,84,0.75))"
-                    : "linear-gradient(135deg, rgba(255,59,59,0.95), rgba(255,59,59,0.75))",
-                  boxShadow: "inset 0 1px 1px rgba(255,255,255,0.4), 0 2px 6px rgba(0,0,0,0.18)",
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => setCategoryType("expense")}
-                className={cn(
-                  "relative z-10 flex items-center gap-1 px-2.5 py-1 text-xs font-semibold transition-colors duration-300 whitespace-nowrap rounded-full",
-                  categoryType === "expense" ? "text-white" : "text-foreground/50 hover:text-foreground/70"
-                )}
-              >
-                <TrendingDown className="h-3 w-3 shrink-0" />
-                Expense
-              </button>
-              <button
-                type="button"
-                onClick={() => setCategoryType("income")}
-                className={cn(
-                  "relative z-10 flex items-center gap-1 px-2.5 py-1 text-xs font-semibold transition-colors duration-300 whitespace-nowrap rounded-full",
-                  categoryType === "income" ? "text-white" : "text-foreground/50 hover:text-foreground/70"
-                )}
-              >
-                <TrendingUp className="h-3 w-3 shrink-0" />
-                Income
-              </button>
-            </div>
+            </p>
+            <p className="text-xs font-semibold text-muted-foreground mt-0.5">{periodLabel}</p>
           </div>
-          <CardDescription className="text-xs font-semibold mt-0.5">{periodLabel}</CardDescription>
-        </CardHeader>
 
-        <CardContent className="space-y-6">
+          {/* Toggle — liquid glass slider, original */}
+          <div
+            className="relative flex items-center p-1 rounded-full shrink-0"
+            style={{
+              backdropFilter: "blur(24px) saturate(1.6)",
+              WebkitBackdropFilter: "blur(24px) saturate(1.6)",
+              background: "linear-gradient(135deg, rgba(255,255,255,0.35), rgba(255,255,255,0.08))",
+              boxShadow: "inset 0 1px 1px rgba(255,255,255,0.5), inset 0 -1px 1px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.06)",
+            }}
+          >
+            <div
+              className="absolute top-1 left-1 rounded-full transition-transform duration-300 ease-out"
+              style={{
+                bottom: "4px",
+                width: "calc(50% - 4px)",
+                transform: categoryType === "income" ? "translateX(100%)" : "translateX(0%)",
+                background: categoryType === "income"
+                  ? "linear-gradient(135deg, rgba(29,185,84,0.95), rgba(29,185,84,0.75))"
+                  : "linear-gradient(135deg, rgba(255,59,59,0.95), rgba(255,59,59,0.75))",
+                boxShadow: "inset 0 1px 1px rgba(255,255,255,0.4), 0 2px 6px rgba(0,0,0,0.18)",
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => setCategoryType("expense")}
+              className={cn(
+                "relative z-10 flex items-center gap-1 px-2.5 py-1 text-xs font-semibold transition-colors duration-300 whitespace-nowrap rounded-full",
+                categoryType === "expense" ? "text-white" : "text-foreground/50 hover:text-foreground/70"
+              )}
+            >
+              <TrendingDown className="h-3 w-3 shrink-0" />
+              Expense
+            </button>
+            <button
+              type="button"
+              onClick={() => setCategoryType("income")}
+              className={cn(
+                "relative z-10 flex items-center gap-1 px-2.5 py-1 text-xs font-semibold transition-colors duration-300 whitespace-nowrap rounded-full",
+                categoryType === "income" ? "text-white" : "text-foreground/50 hover:text-foreground/70"
+              )}
+            >
+              <TrendingUp className="h-3 w-3 shrink-0" />
+              Income
+            </button>
+          </div>
+        </div>
+
+        <div className="px-5 pb-5 space-y-6">
           {/* Bar chart */}
           {isLoadingSpending ? (
             <Skeleton className="h-[200px] w-full" />
@@ -281,22 +271,9 @@ export default function Dashboard() {
             <div className="flex flex-col gap-4" ref={chartRef}>
               <div className="h-[200px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart
-                    data={chartInView ? spending : []}
-                    margin={{ top: 12, right: 8, left: 8, bottom: 0 }}
-                  >
-                    <CartesianGrid
-                      vertical={false}
-                      stroke="hsl(var(--border))"
-                      strokeDasharray="3 3"
-                    />
-                    {/* Solid baseline */}
-                    <XAxis
-                      dataKey="categoryName"
-                      hide
-                      axisLine={{ stroke: "hsl(var(--border))", strokeWidth: 1.5 }}
-                      tickLine={false}
-                    />
+                  <ComposedChart data={chartInView ? spending : []} margin={{ top: 12, right: 8, left: 8, bottom: 0 }}>
+                    <CartesianGrid vertical={false} stroke="hsl(var(--border))" strokeDasharray="3 3" />
+                    <XAxis dataKey="categoryName" hide axisLine={{ stroke: "hsl(var(--border))", strokeWidth: 1.5 }} tickLine={false} />
                     <YAxis hide domain={[0, "dataMax"]} />
                     <Tooltip
                       contentStyle={{
@@ -308,15 +285,7 @@ export default function Dashboard() {
                       formatter={(value: number) => [formatAmount(value), categoryType === "expense" ? "Expense" : "Income"]}
                       labelFormatter={(label) => label}
                     />
-                    <Bar
-                      dataKey="total"
-                      radius={[6, 6, 0, 0]}
-                      maxBarSize={48}
-                      isAnimationActive
-                      animationBegin={50}
-                      animationDuration={900}
-                      animationEasing="ease-in-out"
-                    >
+                    <Bar dataKey="total" radius={[6, 6, 0, 0]} maxBarSize={48} isAnimationActive animationBegin={50} animationDuration={900} animationEasing="ease-in-out">
                       {spending.map((entry, index) => (
                         <Cell key={`bar-${index}`} fill={entry.categoryColor} />
                       ))}
@@ -325,10 +294,13 @@ export default function Dashboard() {
                 </ResponsiveContainer>
               </div>
 
-              {/* Category legend with progress bars */}
               <div className="flex flex-col gap-2.5">
-                {spending.map((entry) => (
-                  <div key={entry.categoryId} className="flex flex-col gap-1">
+                {spending.map((entry, idx) => (
+                  <div
+                    key={entry.categoryId}
+                    className="flex flex-col gap-1 animate-in fade-in slide-in-from-bottom-1"
+                    style={{ animationDuration: "400ms", animationDelay: idx * 60 + "ms", animationFillMode: "backwards" }}
+                  >
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-1.5 min-w-0">
                         <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: entry.categoryColor }} />
@@ -352,10 +324,8 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* Divider */}
           <div className="border-t border-border" />
 
-          {/* Top 3 — oro, plata, bronce */}
           <div>
             <p className="text-sm font-bold mb-3">
               Top {categoryType === "expense" ? "Expenses" : "Income"}
@@ -376,9 +346,12 @@ export default function Dashboard() {
             ) : Array.isArray(topItems) && topItems.length > 0 ? (
               <div className="space-y-3">
                 {topItems.slice(0, 3).map((expense: any, idx: number) => (
-                  <div key={expense.id} className="flex items-center justify-between gap-3">
+                  <div
+                    key={expense.id}
+                    className="flex items-center justify-between gap-3 animate-in fade-in slide-in-from-bottom-1"
+                    style={{ animationDuration: "400ms", animationDelay: idx * 80 + "ms", animationFillMode: "backwards" }}
+                  >
                     <div className="flex items-center gap-3 min-w-0">
-                      {/* Medal */}
                       <div
                         className="w-9 h-9 rounded-full flex items-center justify-center text-base shrink-0"
                         style={{ background: `${MEDALS[idx].color}22`, border: `1.5px solid ${MEDALS[idx].color}55` }}
@@ -404,8 +377,8 @@ export default function Dashboard() {
               </div>
             )}
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }

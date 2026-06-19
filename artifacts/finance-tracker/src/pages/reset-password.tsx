@@ -53,7 +53,7 @@ export default function ResetPassword({ onDone }: { onDone: () => void }) {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
-              className="w-full pl-9 pr-10 py-3 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-foreground/20 focus:border-foreground/40 transition-all"
+              className="w-full pl-9 pr-10 py-3 rounded-2xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-foreground/20 focus:border-foreground/40 transition-all"
             />
             <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
               {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -70,7 +70,7 @@ export default function ResetPassword({ onDone }: { onDone: () => void }) {
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
               placeholder="••••••••"
-              className="w-full pl-9 pr-4 py-3 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-foreground/20 focus:border-foreground/40 transition-all"
+              className="w-full pl-9 pr-4 py-3 rounded-2xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-foreground/20 focus:border-foreground/40 transition-all"
             />
           </div>
         </div>
@@ -78,7 +78,7 @@ export default function ResetPassword({ onDone }: { onDone: () => void }) {
         <button
           onClick={handleReset}
           disabled={isLoading}
-          className="w-full py-3 rounded-xl bg-[#A8FF3E] text-black text-sm font-semibold hover:bg-[#9bfe32] transition-all disabled:opacity-60 shadow-sm border-0"
+          className="w-full py-3 rounded-2xl bg-[#A8FF3E] text-black text-sm font-semibold hover:bg-[#9bfe32] transition-all disabled:opacity-60 shadow-sm border-0"
         >
           {isLoading ? "Updating..." : "Update Password"}
         </button>

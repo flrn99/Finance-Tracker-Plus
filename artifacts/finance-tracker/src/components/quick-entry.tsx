@@ -97,7 +97,7 @@ export default function QuickEntry() {
   return (
     <div
       className={cn(
-        "rounded-xl p-4 transition-colors duration-300 border-0",
+        "rounded-2xl p-4 transition-colors duration-300 border-0",
         isIncome ? "bg-[#1DB954]/30 dark:bg-[#39D96B]/25" : "bg-[#FF3B3B]/30 dark:bg-[#FF3B3B]/25"
       )}
     >
@@ -201,7 +201,7 @@ export default function QuickEntry() {
                           <Link href="/categories" onClick={(e) => e.stopPropagation()}>
                             <button
                               type="button"
-                              className="w-full flex items-center gap-2 px-2 py-2 rounded-md text-sm text-primary hover:bg-primary/10 transition-colors"
+                              className="w-full flex items-center gap-2 px-2 py-2 rounded-2xl text-sm text-primary hover:bg-primary/10 transition-colors"
                             >
                               <FolderPlus className="h-4 w-4 shrink-0" />
                               Add a category

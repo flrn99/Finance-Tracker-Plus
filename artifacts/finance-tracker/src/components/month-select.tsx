@@ -12,11 +12,12 @@ interface MonthSelectProps {
   onBlur?: () => void;
   className?: string;
   variant?: "income" | "expense" | "neutral";
+  size?: "sm" | "lg";
   placeholder?: string;
 }
 
 export default function MonthSelect({
-  value, onChange, onBlur, className, variant = "income", placeholder
+  value, onChange, onBlur, className, variant = "income", size = "sm", placeholder
 }: MonthSelectProps) {
   const now = new Date();
   const currentYear = now.getFullYear();
@@ -48,27 +49,29 @@ export default function MonthSelect({
     onBlur?.();
   };
 
+  const heightCls = size === "lg" ? "h-12" : "h-10";
+
   const glassStyle =
     variant === "expense"
       ? {
           backdropFilter: "blur(24px) saturate(1.6)",
           WebkitBackdropFilter: "blur(24px) saturate(1.6)",
-          background: "linear-gradient(135deg, rgba(255,59,59,0.35), rgba(255,59,59,0.15))",
-          boxShadow: "inset 0 1px 1px rgba(255,255,255,0.4), inset 0 -1px 1px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.06)",
+          background: "linear-gradient(135deg, rgba(255,59,59,0.22), rgba(255,59,59,0.08))",
+          boxShadow: "inset 0 1px 1px rgba(255,255,255,0.3), inset 0 -1px 1px rgba(0,0,0,0.06)",
         }
       : variant === "income"
       ? {
           backdropFilter: "blur(24px) saturate(1.6)",
           WebkitBackdropFilter: "blur(24px) saturate(1.6)",
-          background: "linear-gradient(135deg, rgba(29,185,84,0.35), rgba(29,185,84,0.15))",
-          boxShadow: "inset 0 1px 1px rgba(255,255,255,0.4), inset 0 -1px 1px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.06)",
+          background: "linear-gradient(135deg, rgba(29,185,84,0.22), rgba(29,185,84,0.08))",
+          boxShadow: "inset 0 1px 1px rgba(255,255,255,0.3), inset 0 -1px 1px rgba(0,0,0,0.06)",
         }
       : undefined;
 
   const triggerCls =
     variant === "expense" || variant === "income"
-      ? "h-10 w-full text-black dark:text-white font-semibold border-0 rounded-xl transition-colors focus:ring-0"
-      : "h-10 w-full bg-background border border-input rounded-md text-sm";
+      ? cn(heightCls, "w-full text-black dark:text-white font-semibold border-0 rounded-2xl transition-colors focus:ring-0")
+      : cn(heightCls, "w-full bg-card border border-card-border rounded-2xl text-sm");
 
   return (
     <div className={cn("grid grid-cols-2 gap-2", className)}>

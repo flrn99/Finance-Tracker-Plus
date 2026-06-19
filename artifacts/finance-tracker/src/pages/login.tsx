@@ -73,7 +73,7 @@ function HomeScreen({ onLogin, onGoogle, onRegister, isGoogleLoading }: {
       {/* Slide card */}
       <div className="px-4 pt-4" style={{ height: "58vh" }}>
         <div
-          className="rounded-3xl overflow-hidden h-full relative"
+          className="rounded-2xl overflow-hidden h-full relative"
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
         >

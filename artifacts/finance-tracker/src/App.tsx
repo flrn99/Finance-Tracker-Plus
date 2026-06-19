@@ -8,6 +8,8 @@ import Layout from "@/components/layout";
 import { CurrencyProvider } from "@/lib/currency-context";
 import { ThemeProvider } from "@/lib/theme-context";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
+import { BiometricProvider, useBiometric } from "@/lib/biometric-context";
+import BiometricLock from "@/components/biometric-lock";
 import Login from "@/pages/login";
 import { supabase } from "@/lib/supabase";
 import ResetPassword from "@/pages/reset-password";
@@ -51,6 +53,7 @@ function Router() {
 
 function ProtectedRouter() {
   const { user, isLoading } = useAuth();
+  const { isLocked } = useBiometric();
   const [, navigate] = useLocation();
   const [isResetting, setIsResetting] = useState(false);
 
@@ -68,6 +71,9 @@ function ProtectedRouter() {
   );
 
   if (!user) return <Login />;
+
+  // Show biometric lock screen on top of the app
+  if (isLocked) return <BiometricLock />;
 
   return <Router />;
 }
@@ -123,10 +129,12 @@ function App() {
         <CurrencyProvider>
           <TooltipProvider>
             <AuthProvider>
-              <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-                <ProtectedRouter />
-              </WouterRouter>
-              <Toaster />
+              <BiometricProvider>
+                <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+                  <ProtectedRouter />
+                </WouterRouter>
+                <Toaster />
+              </BiometricProvider>
             </AuthProvider>
           </TooltipProvider>
         </CurrencyProvider>

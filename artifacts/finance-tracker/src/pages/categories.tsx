@@ -15,7 +15,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Trash2, Tag, Check, Pencil, X } from "lucide-react";
+import { Plus, Trash2, Tag, Check, Pencil, X, TrendingDown, TrendingUp } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -26,6 +26,33 @@ const PRESET_COLORS = [
   "#3b82f6", "#6366f1", "#8b5cf6", "#a855f7", "#d946ef",
   "#ec4899", "#f43f5e", "#64748b", "#0f172a", "#7c3aed",
 ];
+
+const COLOR_NAMES: Record<string, string> = {
+  "#ef4444": "Cherry Bomb",
+  "#f97316": "Tangerine Dream",
+  "#f59e0b": "Golden Hour",
+  "#eab308": "Lemon Zest",
+  "#84cc16": "Electric Lime",
+  "#22c55e": "Jungle Green",
+  "#10b981": "Mint Condition",
+  "#14b8a6": "Tropical Teal",
+  "#06b6d4": "Cyber Cyan",
+  "#0ea5e9": "Sky High",
+  "#3b82f6": "Cobalt Blast",
+  "#6366f1": "Cosmic Indigo",
+  "#8b5cf6": "Ultraviolet",
+  "#a855f7": "Grape Soda",
+  "#d946ef": "Neon Orchid",
+  "#ec4899": "Bubblegum Pop",
+  "#f43f5e": "Wild Rose",
+  "#64748b": "Storm Cloud",
+  "#0f172a": "Midnight Void",
+  "#7c3aed": "Royal Velvet",
+};
+
+function colorLabel(hex: string): string {
+  return COLOR_NAMES[hex.toLowerCase()] ?? hex;
+}
 
 const categorySchema = z.object({
   name: z.string().min(2, "Name is required"),
@@ -62,7 +89,7 @@ function FloatingModal({ open, onClose, title, children }: { open: boolean; onCl
         }}
       />
       <div
-        className="relative w-full max-w-xs bg-card rounded-3xl shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-200"
+        className="relative w-full max-w-xs bg-card rounded-2xl shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-200"
         style={{ willChange: 'transform, opacity', transform: 'translate3d(0,0,0)' }}
         onClick={e => e.stopPropagation()}
       >
@@ -106,7 +133,7 @@ function CategoryForm({
             <FormItem>
               <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Name</FormLabel>
               <FormControl>
-                <Input placeholder="e.g. Subscriptions" className="rounded-xl" {...field} />
+                <Input placeholder="e.g. Subscriptions" className="rounded-2xl" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -116,29 +143,53 @@ function CategoryForm({
         <FormField
           control={form.control}
           name="type"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Type</FormLabel>
-              <div className="flex gap-2">
-                {(["expense", "income"] as const).map(t => (
+          render={({ field }) => {
+            const isIncome = field.value === "income";
+            return (
+              <FormItem>
+                <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Type</FormLabel>
+                <div
+                  className="relative flex items-center p-1 rounded-full w-full"
+                  style={{
+                    backdropFilter: "blur(24px) saturate(1.6)",
+                    WebkitBackdropFilter: "blur(24px) saturate(1.6)",
+                    background: "linear-gradient(135deg, rgba(255,255,255,0.35), rgba(255,255,255,0.08))",
+                    boxShadow: "inset 0 1px 1px rgba(255,255,255,0.5), inset 0 -1px 1px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.06)",
+                  }}
+                >
+                  <div
+                    className="absolute top-1 left-1 rounded-full transition-transform duration-300 ease-out"
+                    style={{
+                      bottom: "4px",
+                      width: "calc(50% - 4px)",
+                      transform: isIncome ? "translateX(100%)" : "translateX(0%)",
+                      background: isIncome
+                        ? "linear-gradient(135deg, rgba(29,185,84,0.95), rgba(29,185,84,0.75))"
+                        : "linear-gradient(135deg, rgba(255,59,59,0.95), rgba(255,59,59,0.75))",
+                      boxShadow: "inset 0 1px 1px rgba(255,255,255,0.4), 0 2px 6px rgba(0,0,0,0.18)",
+                    }}
+                  />
                   <button
-                    key={t}
                     type="button"
-                    onClick={() => field.onChange(t)}
-                    className={cn(
-                      "flex-1 py-2 rounded-xl text-sm font-semibold border-0 transition-all",
-                      field.value === t && t === "expense" ? "bg-[#FF3B3B] text-white" :
-                      field.value === t && t === "income" ? "bg-[#1DB954] text-white" :
-                      "bg-muted text-muted-foreground"
-                    )}
+                    onClick={() => field.onChange("expense")}
+                    className={cn("relative z-10 flex-1 flex items-center justify-center gap-1.5 py-2 text-sm font-semibold transition-colors duration-300 rounded-full", !isIncome ? "text-white" : "text-foreground/50")}
                   >
-                    {t === "expense" ? "Expense" : "Income"}
+                    <TrendingDown className="h-4 w-4" />
+                    Expense
                   </button>
-                ))}
-              </div>
-              <FormMessage />
-            </FormItem>
-          )}
+                  <button
+                    type="button"
+                    onClick={() => field.onChange("income")}
+                    className={cn("relative z-10 flex-1 flex items-center justify-center gap-1.5 py-2 text-sm font-semibold transition-colors duration-300 rounded-full", isIncome ? "text-white" : "text-foreground/50")}
+                  >
+                    <TrendingUp className="h-4 w-4" />
+                    Income
+                  </button>
+                </div>
+                <FormMessage />
+              </FormItem>
+            );
+          }}
         />
 
         {/* Color — compact swatch picker */}
@@ -153,10 +204,10 @@ function CategoryForm({
                   <button
                     type="button"
                     onClick={() => setColorOpen(o => !o)}
-                    className="flex items-center gap-2.5 w-full px-3 py-2.5 rounded-xl bg-muted border-0 text-sm font-medium"
+                    className="flex items-center gap-2.5 w-full px-3 py-2.5 rounded-2xl bg-muted border-0 text-sm font-medium"
                   >
                     <span className="w-5 h-5 rounded-full shrink-0 border-2 border-white shadow" style={{ backgroundColor: selectedColor }} />
-                    <span className="flex-1 text-left text-foreground">{selectedColor}</span>
+                    <span className="flex-1 text-left text-foreground">{colorLabel(selectedColor)}</span>
                     <span className="text-muted-foreground text-xs">{colorOpen ? "▲" : "▼"}</span>
                   </button>
                   {colorOpen && (
@@ -168,11 +219,7 @@ function CategoryForm({
                             type="button"
                             onClick={() => { field.onChange(color); setColorOpen(false); }}
                             className="w-6 h-6 rounded-full flex items-center justify-center transition-transform active:scale-90 focus:outline-none"
-                            style={{
-                              backgroundColor: color,
-                              boxShadow: selectedColor === color ? `0 0 0 2px white, 0 0 0 3.5px ${color}` : "none",
-                              transform: selectedColor === color ? "scale(1.15)" : "scale(1)",
-                            }}
+                            style={{ backgroundColor: color }}
                           >
                             {selectedColor === color && <Check className="h-3 w-3 text-white drop-shadow" />}
                           </button>
@@ -188,8 +235,8 @@ function CategoryForm({
         />
 
         <div className="flex gap-2 pt-1">
-          <button type="button" onClick={onCancel} className="flex-1 py-2.5 rounded-xl bg-muted text-foreground text-sm font-semibold border-0">Cancel</button>
-          <button type="submit" disabled={isPending} className="flex-1 py-2.5 rounded-xl bg-[#A8FF3E] text-black text-sm font-bold border-0 disabled:opacity-60">
+          <button type="button" onClick={onCancel} className="flex-1 py-2.5 rounded-2xl bg-muted text-foreground text-sm font-semibold border-0">Cancel</button>
+          <button type="submit" disabled={isPending} className="flex-1 py-2.5 rounded-2xl bg-[#A8FF3E] text-black text-sm font-bold border-0 disabled:opacity-60">
             {isPending ? "Saving..." : submitLabel}
           </button>
         </div>
@@ -270,12 +317,11 @@ export default function Categories() {
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
+    <div className="space-y-4 animate-in fade-in duration-500">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl sm:text-3xl font-serif font-bold tracking-tight">Categories</h2>
-          <p className="text-muted-foreground mt-1 text-sm">Manage tags for your transactions.</p>
+          <h2 className="text-2xl font-bold tracking-tight">Categories</h2>
         </div>
 
         <Button className="gap-2 w-full sm:w-auto bg-[#A8FF3E] text-black hover:bg-[#9bfe32] border-0" onClick={() => setIsCreateOpen(true)}>
@@ -308,17 +354,17 @@ export default function Categories() {
 
       {/* List — grouped by type */}
       {isLoading ? (
-        <div className="bg-card border border-card-border rounded-2xl overflow-hidden divide-y divide-border">
+        <div className="bg-card rounded-2xl shadow-sm overflow-hidden divide-y divide-border">
           {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="flex items-center gap-4 px-4 py-3.5">
-              <Skeleton className="w-10 h-10 rounded-xl shrink-0" />
+              <Skeleton className="w-10 h-10 rounded-2xl shrink-0" />
               <Skeleton className="h-4 w-32" />
               <Skeleton className="h-5 w-16 rounded-full ml-auto" />
             </div>
           ))}
         </div>
       ) : !categories?.length ? (
-        <div className="bg-card border border-card-border rounded-2xl flex flex-col items-center justify-center py-16 text-muted-foreground gap-2">
+        <div className="bg-card rounded-2xl shadow-sm flex flex-col items-center justify-center py-16 text-muted-foreground gap-2">
           <Tag className="h-8 w-8 opacity-30" />
           <p className="text-sm">No categories yet. Create one above.</p>
         </div>
@@ -343,12 +389,12 @@ export default function Categories() {
                   {filtered.map((cat) => (
                     <div
                       key={cat.id}
-                      className="bg-card border border-card-border rounded-2xl p-3 flex flex-col gap-2"
+                      className="bg-card rounded-2xl shadow-sm p-3 flex flex-col gap-2"
                     >
                       {/* Top row: color bubble + actions */}
                       <div className="flex items-start justify-between">
                         <div
-                          className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                          className="w-9 h-9 rounded-2xl flex items-center justify-center shrink-0"
                           style={{ backgroundColor: `${cat.color}20` }}
                         >
                           <Tag className="h-4 w-4" style={{ color: cat.color }} />
@@ -356,13 +402,13 @@ export default function Categories() {
                         <div className="flex items-center gap-0.5">
                           <button
                             onClick={() => openEdit(cat)}
-                            className="h-7 w-7 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
+                            className="h-7 w-7 flex items-center justify-center rounded-2xl text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
                           >
                             <Pencil className="h-3 w-3" />
                           </button>
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
-                              <button className="h-7 w-7 flex items-center justify-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all">
+                              <button className="h-7 w-7 flex items-center justify-center rounded-2xl text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all">
                                 <Trash2 className="h-3 w-3" />
                               </button>
                             </AlertDialogTrigger>

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+
 import { Label } from "@/components/ui/label";
 import { Download, FileSpreadsheet, DatabaseZap } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -74,55 +74,54 @@ export default function Export() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6 animate-in fade-in duration-500">
+    <div className="max-w-2xl mx-auto space-y-4 animate-in fade-in duration-500">
       <div>
-        <h2 className="text-3xl font-serif font-bold tracking-tight">Export Data</h2>
-        <p className="text-muted-foreground mt-1">Download your transactions for your records.</p>
+        <h2 className="text-3xl font-bold tracking-tight">Export Data</h2>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileSpreadsheet className="h-5 w-5 text-primary" />
-            Excel Export
-          </CardTitle>
-          <CardDescription>
-            Download all your transactions, or filter by a specific month range.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>From (Optional)</Label>
-              <MonthSelect value={startMonth} onChange={setStartMonth} variant="neutral" />
+      <div className="bg-card rounded-2xl shadow-sm overflow-hidden">
+        <div className="px-5 pt-5 pb-4 flex items-center gap-2">
+          <FileSpreadsheet className="h-5 w-5 text-primary shrink-0" />
+          <div>
+            <p className="text-sm font-bold text-foreground">Excel Export</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Filter by date range or download everything</p>
+          </div>
+        </div>
+
+        <div className="px-5 pb-5 space-y-3">
+          <div className="grid grid-cols-1 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-muted-foreground">From (Optional)</Label>
+              <MonthSelect value={startMonth} onChange={setStartMonth} variant="neutral" className="w-full" />
             </div>
-            <div className="space-y-2">
-              <Label>To (Optional)</Label>
-              <MonthSelect value={endMonth} onChange={setEndMonth} variant="neutral" />
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-muted-foreground">To (Optional)</Label>
+              <MonthSelect value={endMonth} onChange={setEndMonth} variant="neutral" className="w-full" />
             </div>
           </div>
-        </CardContent>
-        <CardFooter className="bg-muted/20 border-t px-6 py-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-        <Button
+        </div>
+
+        <div className="border-t border-border px-5 py-4 flex flex-col sm:flex-row gap-3">
+          <Button
             onClick={() => doExport(true)}
             disabled={isExportingAll || isExporting}
-            className="gap-2 sm:w-auto w-full bg-[#A8FF3E] text-black hover:bg-[#9bfe32] border-0"
+            className="gap-2 flex-1 bg-[#A8FF3E] text-black hover:bg-[#9bfe32] border-0 font-bold"
             data-testid="button-download-excel"
-            >
+          >
             <DatabaseZap className="h-4 w-4" />
-            {isExportingAll ? "Generating…" : "Download All Data"}
+            {isExportingAll ? "Generating…" : "Download All"}
           </Button>
           <Button
             onClick={() => doExport(false)}
             disabled={isExporting || isExportingAll}
-            className="gap-2 sm:w-auto w-full bg-[#A8FF3E] text-black hover:bg-[#9bfe32] border-0"
+            className="gap-2 flex-1 bg-[#0a0a0a] text-white hover:bg-[#1a1a1a] border-0 font-bold"
             data-testid="button-download-excel"
           >
             <Download className="h-4 w-4" />
-            {isExporting ? "Generating…" : "Download Selected Range"}
+            {isExporting ? "Generating…" : "Download Range"}
           </Button>
-        </CardFooter>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }

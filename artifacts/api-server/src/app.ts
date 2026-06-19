@@ -34,6 +34,10 @@ app.use((_req, res, next) => {
   next();
 });
 
+app.get("/health", (_req, res) => {
+  res.json({ status: "ok", timestamp: new Date().toISOString() });
+});
+
 app.use("/api", router);
 
 export default app;

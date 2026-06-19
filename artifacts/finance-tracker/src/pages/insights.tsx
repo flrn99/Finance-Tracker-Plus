@@ -42,13 +42,13 @@ function InsightsModal({ insights, onClose }: { insights: string; onClose: () =>
     >
 
       <div
-        className="bg-background rounded-t-3xl flex flex-col animate-in slide-in-from-bottom duration-300"
+        className="bg-background rounded-t-2xl flex flex-col animate-in slide-in-from-bottom duration-300"
         style={{ maxHeight: "calc(100vh - env(safe-area-inset-top) - 40px)" }}
         onClick={e => e.stopPropagation()}
       >
 
         <div className="px-5 py-3 border-b border-border flex items-center gap-3 shrink-0">
-          <div className="w-8 h-8 rounded-xl bg-black flex items-center justify-center">
+          <div className="w-8 h-8 rounded-2xl bg-black flex items-center justify-center">
           <Sparkles className="h-4 w-4 text-white" />
           </div>
           <div className="flex-1">
@@ -317,7 +317,7 @@ Keep it concise, friendly and actionable. Use emojis to make it engaging.`;
 
       {/* Hero — B3 dark tech cyan */}
       <div
-        className="relative overflow-hidden rounded-3xl px-5 pt-4 pb-4"
+        className="relative overflow-hidden rounded-2xl px-5 pt-4 pb-4"
         style={{ background: "#080C14", boxShadow: "0 0 0 1px rgba(14,165,233,0.35), 0 0 30px rgba(14,165,233,0.12), inset 0 0 40px rgba(14,165,233,0.04)" }}
       >
         {/* Dot grid */}
@@ -339,7 +339,7 @@ Keep it concise, friendly and actionable. Use emojis to make it engaging.`;
 
           <div className="space-y-1.5">
             {/* AI Analysis tile */}
-            <div className="rounded-xl px-3 py-2 space-y-2" style={{ background: "rgba(14,165,233,0.08)", border: "1px solid rgba(14,165,233,0.25)" }}>
+            <div className="rounded-2xl px-3 py-2 space-y-2" style={{ background: "rgba(14,165,233,0.08)", border: "1px solid rgba(14,165,233,0.25)" }}>
               <div className="flex items-center gap-2">
                 <Sparkles className="h-3.5 w-3.5 shrink-0" style={{ color: "#0ea5e9" }} />
                 <div>
@@ -353,7 +353,7 @@ Keep it concise, friendly and actionable. Use emojis to make it engaging.`;
               <button
                 onClick={analyzeFinances}
                 disabled={isAnalyzing}
-                className="w-full py-1.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 disabled:opacity-60 active:scale-[0.98] transition-all border-0 min-h-[28px]"
+                className="w-full py-1.5 rounded-2xl text-xs font-bold flex items-center justify-center gap-1.5 disabled:opacity-60 active:scale-[0.98] transition-all border-0 min-h-[28px]"
                 style={{ background: "#0ea5e9", color: "#000" }}
               >
                 {isAnalyzing ? (
@@ -365,7 +365,7 @@ Keep it concise, friendly and actionable. Use emojis to make it engaging.`;
             </div>
 
             {/* Import PDF tile */}
-            <div className="rounded-xl px-3 py-2 space-y-2" style={{ background: "rgba(14,165,233,0.04)", border: "1px solid rgba(14,165,233,0.15)" }}>
+            <div className="rounded-2xl px-3 py-2 space-y-2" style={{ background: "rgba(14,165,233,0.04)", border: "1px solid rgba(14,165,233,0.15)" }}>
               <div className="flex items-center gap-2">
                 <Upload className="h-3.5 w-3.5 shrink-0" style={{ color: "rgba(14,165,233,0.6)" }} />
                 <div>
@@ -376,7 +376,7 @@ Keep it concise, friendly and actionable. Use emojis to make it engaging.`;
               <button
                 onClick={handleUpload}
                 disabled={isImporting}
-                className="w-full py-1.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 disabled:opacity-60 active:scale-[0.98] transition-all min-h-[28px]"
+                className="w-full py-1.5 rounded-2xl text-xs font-bold flex items-center justify-center gap-1.5 disabled:opacity-60 active:scale-[0.98] transition-all min-h-[28px]"
                 style={{ background: "rgba(14,165,233,0.12)", border: "1px solid rgba(14,165,233,0.3)", color: "#0ea5e9" }}
               >
                 {isImporting ? (
@@ -430,7 +430,7 @@ Keep it concise, friendly and actionable. Use emojis to make it engaging.`;
           </div>
         ) : (
           <div className="px-5 py-5 flex items-start gap-3">
-            <div className="w-8 h-8 rounded-xl bg-muted flex items-center justify-center shrink-0">
+            <div className="w-8 h-8 rounded-2xl bg-muted flex items-center justify-center shrink-0">
               <TrendingDown className="h-4 w-4 text-muted-foreground/50" />
             </div>
             <div>
@@ -445,7 +445,7 @@ Keep it concise, friendly and actionable. Use emojis to make it engaging.`;
       {lastAnalysis ? (
         <div className="bg-card border-2 border-[#0ea5e9]/40 rounded-2xl p-4">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-9 h-9 rounded-xl bg-black flex items-center justify-center shrink-0 dark:bg-white">
+            <div className="w-9 h-9 rounded-2xl bg-black flex items-center justify-center shrink-0 dark:bg-white">
               <Sparkles className="h-4 w-4 text-white dark:text-black" />
             </div>
             <div className="flex-1 min-w-0">
@@ -455,7 +455,7 @@ Keep it concise, friendly and actionable. Use emojis to make it engaging.`;
             <button
               onClick={analyzeFinances}
               disabled={isAnalyzing}
-              className="shrink-0 text-xs font-bold text-white bg-black px-3 py-1.5 rounded-lg border-0 disabled:opacity-60 dark:bg-white dark:text-black"
+              className="shrink-0 text-xs font-bold text-white bg-black px-3 py-1.5 rounded-2xl border-0 disabled:opacity-60 dark:bg-white dark:text-black"
             >
               Refresh
             </button>
@@ -476,7 +476,7 @@ Keep it concise, friendly and actionable. Use emojis to make it engaging.`;
         </div>
       ) : (
         <div className="bg-card border border-card-border rounded-2xl p-4 flex items-start gap-3">
-          <div className="w-9 h-9 rounded-xl bg-muted flex items-center justify-center shrink-0">
+          <div className="w-9 h-9 rounded-2xl bg-muted flex items-center justify-center shrink-0">
             <Sparkles className="h-4 w-4 text-muted-foreground/50" />
           </div>
           <div>
