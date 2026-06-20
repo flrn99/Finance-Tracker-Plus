@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Sun, Moon, Monitor, Trash2, LogOut, UserX, Download, ChevronRight, DollarSign, Palette, Database, User, Plus, Fingerprint, ShieldCheck, X } from "lucide-react";
 import { Link } from "wouter";
 import { useTheme, type Theme } from "@/lib/theme-context";
@@ -75,21 +75,25 @@ export default function Settings() {
   const [deletingAccount, setDeletingAccount] = useState(false);
   const { isEnabled: biometricEnabled, isSupported: biometricSupported, enable: enableBiometric, disable: disableBiometric } = useBiometric();
   const [showPinSetup, setShowPinSetup] = useState(false);
+  
+  // 🛡️ ESTADO DEL ESCUDO ANTI-GHOST CLICKS
+  const [isGhostShieldActive, setIsGhostShieldActive] = useState(false);
+
   const [pinStep, setPinStep] = useState<"enter" | "confirm" | "disable">("enter");
   const [pinValue, setPinValue] = useState("");
   const [pinConfirm, setPinConfirm] = useState("");
   const [pinError, setPinError] = useState("");
   const [biometricLoading, setBiometricLoading] = useState(false);
   const [avatar, setAvatar] = useState<"male" | "female" | null>(() => {
-  try { return localStorage.getItem("ff-avatar") as "male" | "female" | null; } catch { return null; }
-});
-const [showAvatarPicker, setShowAvatarPicker] = useState(false);
+    try { return localStorage.getItem("ff-avatar") as "male" | "female" | null; } catch { return null; }
+  });
+  const [showAvatarPicker, setShowAvatarPicker] = useState(false);
 
-const selectAvatar = (a: "male" | "female") => {
-  setAvatar(a);
-  try { localStorage.setItem("ff-avatar", a); } catch {}
-  setShowAvatarPicker(false);
-};
+  const selectAvatar = (a: "male" | "female") => {
+    setAvatar(a);
+    try { localStorage.setItem("ff-avatar", a); } catch {}
+    setShowAvatarPicker(false);
+  };
 
   const handleEraseAll = async () => {
     setErasing(true);
@@ -138,16 +142,30 @@ const selectAvatar = (a: "male" | "female") => {
 
   const themeLabel = theme === "light" ? "Light" : theme === "dark" ? "Dark" : "System";
 
+  // 🛡️ FUNCIÓN DE CIERRE BLINDADA
+  const closePinModal = () => {
+    // 1. Activamos el escudo en la página de fondo inmediatamente
+    setIsGhostShieldActive(true);
+    
+    // 2. El delay original de 150ms para terminar la animación de tap
+    setTimeout(() => {
+      setShowPinSetup(false);
+      
+      // 3. Mantenemos el escudo por 400ms extra para aniquilar el doble tap
+      setTimeout(() => {
+        setIsGhostShieldActive(false);
+      }, 400);
+    }, 150);
+  };
+
   const handleBiometricToggle = async () => {
     if (biometricEnabled) {
-      // Show PIN entry to disable
       setShowPinSetup(true);
       setPinStep("disable");
       setPinValue("");
       setPinError("");
       return;
     }
-    // Check if supported before showing PIN setup
     if (!biometricSupported) {
       toast({
         title: "Biometrics not available",
@@ -171,7 +189,7 @@ const selectAvatar = (a: "male" | "female") => {
       if (next.length === 6) {
         const success = disableBiometric(next);
         if (success) {
-          setShowPinSetup(false);
+          closePinModal();
           toast({ title: "Biometric lock disabled" });
         } else {
           setPinError("Incorrect PIN. Try again.");
@@ -225,11 +243,11 @@ const selectAvatar = (a: "male" | "female") => {
     const result = await enableBiometric(pin);
     setBiometricLoading(false);
     if (result.success) {
-      setShowPinSetup(false);
+      closePinModal();
       toast({ title: "Biometric lock enabled", description: "Your app is now protected." });
     } else {
       if (result.error === "biometrics_not_configured") {
-        setShowPinSetup(false);
+        closePinModal();
         toast({
           title: "Biometrics not configured",
           description: "Please set up Face ID or fingerprint in your device settings first.",
@@ -263,322 +281,321 @@ const selectAvatar = (a: "male" | "female") => {
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500 max-w-lg">
-
-      {/* Profile header */}
-      <div className="flex flex-col items-center justify-center py-4 gap-2 w-full">
-        <div className="relative" onClick={() => setShowAvatarPicker(true)}>
-  <div className="w-20 h-20 rounded-full overflow-hidden bg-[#A8FF3E]">
-    {avatar ? (
-      <img src={`/${avatar}.png`} alt="avatar" className="w-full h-full object-cover" />
-    ) : (
-      <div className="w-full h-full flex items-center justify-center">
-        <User className="h-10 w-10 text-black" />
-      </div>
-    )}
-  </div>
-  <div className="absolute bottom-0 right-0 w-6 h-6 rounded-full bg-[#A8FF3E] border-2 border-background flex items-center justify-center">
-    <Plus className="h-3 w-3 text-black" />
-  </div>
-</div>
-
-{showAvatarPicker && (
-  <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40" onClick={() => setShowAvatarPicker(false)}>
-    <div className="bg-background rounded-t-2xl p-6 w-full max-w-sm space-y-4" onClick={(e) => e.stopPropagation()}>
-      <p className="font-bold text-center text-foreground uppercase tracking-widest text-xs">Choose Avatar</p>
-      <div className="flex gap-4 justify-center">
-        <button onClick={() => selectAvatar("male")} className={cn("rounded-2xl overflow-hidden border-4 transition-all", avatar === "male" ? "border-[#A8FF3E]" : "border-transparent")}>
-        <img src="/male.png" alt="Male" className="w-28 h-28 object-cover" />
-        </button>
-        <button onClick={() => selectAvatar("female")} className={cn("rounded-2xl overflow-hidden border-4 transition-all", avatar === "female" ? "border-[#A8FF3E]" : "border-transparent")}>
-        <img src="/female.png" alt="Female" className="w-28 h-28 object-cover" />
-        </button>
-      </div>
-    </div>
-  </div>
-)}
-        <div className="text-center">
-          <p className="font-bold text-lg text-foreground">{user?.user_metadata?.name || user?.email?.split("@")[0]}</p>
-          <p className="text-sm text-muted-foreground">{user?.email}</p>
-        </div>
-      </div>
-
-      {/* Preferences */}
-      <div className="space-y-2">
-        <SectionTitle title="Preferences" />
-        <Section>
-          <SettingItem
-            icon={DollarSign}
-            label="Display Currency"
-            description="All amounts shown in this currency"
-
-            right={
-              <Select value={currency} onValueChange={(val) => setCurrency(val as Currency)}>
-                <SelectTrigger className="w-24 border-0 ring-0 focus:ring-0 bg-[#A8FF3E] text-black font-bold text-sm px-3 py-1.5 rounded-full h-auto">
-                  <SelectValue>{currency}</SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {(Object.keys(CURRENCY_INFO) as Currency[]).map((c) => (
-                    <SelectItem key={c} value={c}>{CURRENCY_INFO[c].label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            }
-          />
-          <SettingItem
-            icon={Palette}
-            label="Theme"
-            description="Switch between light and dark mode"
-
-            right={
-              <Select value={theme} onValueChange={(val) => setTheme(val as Theme)}>
-                <SelectTrigger className="w-24 border-0 ring-0 focus:ring-0 bg-[#A8FF3E] text-black font-bold text-sm px-3 py-1.5 rounded-full h-auto">
-                  <SelectValue>{themeLabel}</SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="light"><div className="flex items-center gap-2"><Sun className="h-3.5 w-3.5" />Light</div></SelectItem>
-                  <SelectItem value="dark"><div className="flex items-center gap-2"><Moon className="h-3.5 w-3.5" />Dark</div></SelectItem>
-                  <SelectItem value="system"><div className="flex items-center gap-2"><Monitor className="h-3.5 w-3.5" />System</div></SelectItem>
-                </SelectContent>
-              </Select>
-            }
-          />
-        </Section>
-      </div>
-
-      {/* Data */}
-      <div className="space-y-2">
-        <SectionTitle title="Data" />
-        <Section>
-          <Link href="/export">
-            <SettingItem
-              icon={Download}
-              label="Export to Excel"
-              description="Download all your transactions"
-              right={<ChevronRight className="h-4 w-4 text-muted-foreground" />}
-            />
-          </Link>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <div>
-                <SettingItem
-                  icon={Trash2}
-                  label="Erase All Transactions"
-                  description="Permanently deletes every transaction"
-                  destructive
-                  right={<ChevronRight className="h-4 w-4 text-destructive" />}
-                />
-              </div>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Erase all transactions?</AlertDialogTitle>
-                <AlertDialogDescription>This will permanently delete every transaction. This cannot be undone.</AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleEraseAll} disabled={erasing} className="bg-destructive text-destructive-foreground hover:bg-destructive/90 border-0">
-                  {erasing ? "Erasing..." : "Yes, erase all"}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </Section>
-      </div>
-
-      {/* Security */}
-      <div className="space-y-2">
-        <SectionTitle title="Security" />
-        <Section>
-          <SettingItem
-            icon={biometricEnabled ? ShieldCheck : Fingerprint}
-            label="Biometric Lock"
-            description={biometricEnabled ? "App is protected · Tap to disable" : "Require Face ID or fingerprint to open"}
-            right={
-              <div
-                className={cn(
-                  "w-12 h-6 rounded-full transition-colors duration-300 relative cursor-pointer",
-                  biometricEnabled ? "bg-[#A8FF3E]" : "bg-muted"
-                )}
-                onClick={handleBiometricToggle}
-              >
-                <div
-                  className="absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-transform duration-300"
-                  style={{ transform: biometricEnabled ? "translateX(26px)" : "translateX(2px)" }}
-                />
-              </div>
-            }
-          />
-        </Section>
-      </div>
-
-      {/* PIN Setup Modal */}
-      {showPinSetup && (
-        <div className="fixed inset-0 z-50 flex flex-col justify-end" style={{ backgroundColor: "rgba(0,0,0,0.6)" }} onClick={() => setShowPinSetup(false)}>
-          <div
-            className="rounded-t-3xl overflow-hidden"
-            style={{
-              backdropFilter: "blur(40px) saturate(1.8)",
-              WebkitBackdropFilter: "blur(40px) saturate(1.8)",
-              background: "hsl(var(--background) / 0.92)",
-              boxShadow: "0 -1px 0 hsl(var(--foreground) / 0.06), 0 -8px 32px rgba(0,0,0,0.08)",
-            }}
-            onClick={e => e.stopPropagation()}
-          >
-            {/* Handle bar */}
-            <div className="flex justify-center pt-3 pb-1">
-              <div className="w-10 h-1 rounded-full" style={{ background: "hsl(var(--foreground) / 0.15)" }} />
-            </div>
-
-            {/* Header */}
-            <div className="flex items-center justify-between px-5 pt-3 pb-5">
-              <div>
-                <p className="font-bold text-base text-foreground">
-                  {pinStep === "disable" ? "Enter PIN" : pinStep === "enter" ? "Create PIN" : "Confirm PIN"}
-                </p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {pinStep === "disable"
-                    ? "Enter your PIN to disable biometric lock"
-                    : pinStep === "enter"
-                    ? "Set a 6-digit PIN as backup"
-                    : "Re-enter your PIN to confirm"
-                  }
-                </p>
-              </div>
-              <button
-                onClick={() => setShowPinSetup(false)}
-                className="w-8 h-8 rounded-full flex items-center justify-center"
-                style={{
-                  backdropFilter: "blur(12px)",
-                  WebkitBackdropFilter: "blur(12px)",
-                  background: "hsl(var(--foreground) / 0.08)",
-                  boxShadow: "inset 0 1px 1px hsl(var(--foreground) / 0.06)",
-                }}
-              >
-                <X className="h-4 w-4 text-foreground" />
-              </button>
-            </div>
-
-            <div className="px-5 flex flex-col items-center gap-5" style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 2rem)" }}>
-              {/* PIN dots */}
-              <div className="flex gap-4 py-1">
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <div
-                    key={i}
-                    className="rounded-full transition-all duration-200"
-                    style={{
-                      width: i < currentPin.length ? "16px" : "14px",
-                      height: i < currentPin.length ? "16px" : "14px",
-                      background: i < currentPin.length
-                        ? "hsl(var(--foreground))"
-                        : "hsl(var(--foreground) / 0.18)",
-                      boxShadow: i < currentPin.length
-                        ? "0 2px 6px hsl(var(--foreground) / 0.25)"
-                        : "none",
-                      transform: i < currentPin.length ? "scale(1.1)" : "scale(1)",
-                    }}
-                  />
-                ))}
-              </div>
-
-              {pinError && (
-                <p className="text-xs font-semibold text-destructive text-center animate-in fade-in duration-200">{pinError}</p>
+    <div className="relative">
+      {/* 🛡️ EL ESCUDO: Envuelve a toda la página de fondo. Si está activo, ignora todos los toques. */}
+      <div className={cn(
+        "space-y-6 animate-in fade-in duration-500 max-w-lg transition-all",
+        isGhostShieldActive && "pointer-events-none select-none"
+      )}>
+        {/* Profile header */}
+        <div className="flex flex-col items-center justify-center py-4 gap-2 w-full">
+          <div className="relative" onClick={() => setShowAvatarPicker(true)}>
+            <div className="w-20 h-20 rounded-full overflow-hidden bg-[#A8FF3E]">
+              {avatar ? (
+                <img src={`/${avatar}.png`} alt="avatar" className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center">
+                  <User className="h-10 w-10 text-black" />
+                </div>
               )}
-
-              {biometricLoading && (
-                <p className="text-xs text-muted-foreground">Verifying biometrics…</p>
-              )}
-
-              {/* Numpad — liquid glass buttons */}
-              <div className="grid grid-cols-3 gap-2 w-full">
-                {PIN_DIGITS.flat().map((digit, i) => {
-                  if (digit === "") return <div key={i} />;
-                  if (digit === "del") return (
-                    <button
-                      key={i}
-                      onPointerDown={(e) => { e.preventDefault(); haptic(); handlePinDelete(); }}
-                      disabled={currentPin.length === 0}
-                      className="h-16 w-full rounded-2xl flex items-center justify-center bg-muted disabled:opacity-30"
-                      style={{ touchAction: "manipulation" }}
-                    >
-                      <Trash2 className="h-5 w-5 text-foreground" />
-                    </button>
-                  );
-                  return (
-                    <button
-                      key={i}
-                      onPointerDown={(e) => { e.preventDefault(); haptic(); handlePinDigit(digit); }}
-                      disabled={currentPin.length >= 6}
-                      className="h-16 w-full rounded-2xl flex items-center justify-center text-2xl font-bold text-foreground bg-muted disabled:opacity-30"
-                      style={{ touchAction: "manipulation" }}
-                    >
-                      {digit}
-                    </button>
-                  );
-                })}
-              </div>
+            </div>
+            <div className="absolute bottom-0 right-0 w-6 h-6 rounded-full bg-[#A8FF3E] border-2 border-background flex items-center justify-center">
+              <Plus className="h-3 w-3 text-black" />
             </div>
           </div>
 
+          {showAvatarPicker && (
+            <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 pointer-events-auto" onClick={() => setShowAvatarPicker(false)}>
+              <div className="bg-background rounded-t-2xl p-6 w-full max-w-sm space-y-4" onClick={(e) => e.stopPropagation()}>
+                <p className="font-bold text-center text-foreground uppercase tracking-widest text-xs">Choose Avatar</p>
+                <div className="flex gap-4 justify-center">
+                  <button onClick={() => selectAvatar("male")} className={cn("rounded-2xl overflow-hidden border-4 transition-all", avatar === "male" ? "border-[#A8FF3E]" : "border-transparent")}>
+                    <img src="/male.png" alt="Male" className="w-28 h-28 object-cover" />
+                  </button>
+                  <button onClick={() => selectAvatar("female")} className={cn("rounded-2xl overflow-hidden border-4 transition-all", avatar === "female" ? "border-[#A8FF3E]" : "border-transparent")}>
+                    <img src="/female.png" alt="Female" className="w-28 h-28 object-cover" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+          <div className="text-center">
+            <p className="font-bold text-lg text-foreground">{user?.user_metadata?.name || user?.email?.split("@")[0]}</p>
+            <p className="text-sm text-muted-foreground">{user?.email}</p>
+          </div>
+        </div>
+
+        {/* Preferences */}
+        <div className="space-y-2">
+          <SectionTitle title="Preferences" />
+          <Section>
+            <SettingItem
+              icon={DollarSign}
+              label="Display Currency"
+              description="All amounts shown in this currency"
+              right={
+                <Select value={currency} onValueChange={(val) => setCurrency(val as Currency)}>
+                  <SelectTrigger className="w-24 border-0 ring-0 focus:ring-0 bg-[#A8FF3E] text-black font-bold text-sm px-3 py-1.5 rounded-full h-auto">
+                    <SelectValue>{currency}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(Object.keys(CURRENCY_INFO) as Currency[]).map((c) => (
+                      <SelectItem key={c} value={c}>{CURRENCY_INFO[c].label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              }
+            />
+            <SettingItem
+              icon={Palette}
+              label="Theme"
+              description="Switch between light and dark mode"
+              right={
+                <Select value={theme} onValueChange={(val) => setTheme(val as Theme)}>
+                  <SelectTrigger className="w-24 border-0 ring-0 focus:ring-0 bg-[#A8FF3E] text-black font-bold text-sm px-3 py-1.5 rounded-full h-auto">
+                    <SelectValue>{themeLabel}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="light"><div className="flex items-center gap-2"><Sun className="h-3.5 w-3.5" />Light</div></SelectItem>
+                    <SelectItem value="dark"><div className="flex items-center gap-2"><Moon className="h-3.5 w-3.5" />Dark</div></SelectItem>
+                    <SelectItem value="system"><div className="flex items-center gap-2"><Monitor className="h-3.5 w-3.5" />System</div></SelectItem>
+                  </SelectContent>
+                </Select>
+              }
+            />
+          </Section>
+        </div>
+
+        {/* Data */}
+        <div className="space-y-2">
+          <SectionTitle title="Data" />
+          <Section>
+            <Link href="/export">
+              <SettingItem
+                icon={Download}
+                label="Export to Excel"
+                description="Download all your transactions"
+                right={<ChevronRight className="h-4 w-4 text-muted-foreground" />}
+              />
+            </Link>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <div>
+                  <SettingItem
+                    icon={Trash2}
+                    label="Erase All Transactions"
+                    description="Permanently deletes every transaction"
+                    destructive
+                    right={<ChevronRight className="h-4 w-4 text-destructive" />}
+                  />
+                </div>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Erase all transactions?</AlertDialogTitle>
+                  <AlertDialogDescription>This will permanently delete every transaction. This cannot be undone.</AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleEraseAll} disabled={erasing} className="bg-destructive text-destructive-foreground hover:bg-destructive/90 border-0">
+                    {erasing ? "Erasing..." : "Yes, erase all"}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </Section>
+        </div>
+
+        {/* Security */}
+        <div className="space-y-2">
+          <SectionTitle title="Security" />
+          <Section>
+            <SettingItem
+              icon={biometricEnabled ? ShieldCheck : Fingerprint}
+              label="Biometric Lock"
+              description={biometricEnabled ? "App is protected · Tap to disable" : "Require Face ID or fingerprint to open"}
+              right={
+                <div
+                  className={cn(
+                    "w-12 h-6 rounded-full transition-colors duration-300 relative cursor-pointer",
+                    biometricEnabled ? "bg-[#A8FF3E]" : "bg-muted"
+                  )}
+                  onClick={handleBiometricToggle}
+                >
+                  <div
+                    className="absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-transform duration-300"
+                    style={{ transform: biometricEnabled ? "translateX(26px)" : "translateX(2px)" }}
+                  />
+                </div>
+              }
+            />
+          </Section>
+        </div>
+
+        {/* Account - ESTA ES LA SECCIÓN QUE ME COMÍ */}
+        <div className="space-y-2">
+          <SectionTitle title="Account" />
+          <Section>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <div>
+                  <SettingItem
+                    icon={LogOut}
+                    label={signingOut ? "Logging out..." : "Log Out"}
+                    description={user?.email ?? ""}
+                    right={<ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                  />
+                </div>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Log out?</AlertDialogTitle>
+                  <AlertDialogDescription>You will need to log in again to access your data.</AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleSignOut} disabled={signingOut} className="bg-[#A8FF3E] text-black hover:bg-[#9bfe32] border-0">
+                    {signingOut ? "Logging out..." : "Log Out"}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <div>
+                  <SettingItem
+                    icon={UserX}
+                    label={deletingAccount ? "Deleting..." : "Delete Account"}
+                    destructive
+                    right={<ChevronRight className="h-4 w-4 text-destructive" />}
+                  />
+                </div>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete your account?</AlertDialogTitle>
+                  <AlertDialogDescription>This will permanently delete your account, all transactions, and all categories. This action cannot be undone.</AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleDeleteAccount} disabled={deletingAccount} className="bg-destructive text-destructive-foreground hover:bg-destructive/90 border-0">
+                    {deletingAccount ? "Deleting..." : "Yes, delete account"}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </Section>
+        </div>
+      </div>
+
+      {/* PIN Setup Modal ── EXACTAMENTE TU CÓDIGO CON TACTO PERFECTO */}
+      {showPinSetup && (
+        <div
+          className="fixed top-0 left-0 w-screen h-screen z-50 flex items-center justify-center p-4"
+          onClick={(e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            closePinModal();
+          }}
+        >
+          {/* 🛠️ BACKDROP 80%: Negro más oscuro, igual al del AlertDialog de Erase All Transactions */}
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[150vw] h-[150vh] bg-black/80 z-0 animate-in fade-in duration-200 pointer-events-none" />
+
+          {/* 💎 CRISTAL REAL GRIS ESPACIAL: Menos negro, más elegante con backdrop-blur-24px */}
+          <div 
+            className="relative z-10 w-full max-w-[310px] bg-white/85 dark:bg-[#242427]/85 border border-black/5 dark:border-white/10 shadow-2xl rounded-[36px] overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+            style={{ backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)" }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="relative p-6 flex flex-col items-center">
+              {/* Header */}
+              <div className="flex items-start justify-between w-full mb-3 gap-2">
+                <div className="space-y-0.5 flex-1 min-w-0">
+                  <p className="font-bold text-xl tracking-tight text-foreground">
+                    {pinStep === "disable" ? "Enter PIN" : pinStep === "enter" ? "Create PIN" : "Confirm PIN"}
+                  </p>
+                  <p className="text-xs font-medium text-muted-foreground truncate w-full">
+                    {pinStep === "disable"
+                      ? "Enter your PIN to disable lock"
+                      : pinStep === "enter"
+                      ? "Set a 6-digit PIN as backup"
+                      : "Re-enter your PIN to confirm"
+                    }
+                  </p>
+                </div>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    closePinModal();
+                  }}
+                  className="w-8 h-8 rounded-full flex items-center justify-center bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 transition-colors shrink-0 active:scale-90"
+                >
+                  <X className="h-4 w-4 text-foreground/80" />
+                </button>
+              </div>
+
+              <div className="flex flex-col items-center gap-4 w-full mt-1">
+                {/* PIN dots */}
+                <div className="flex gap-2.5 py-2 justify-center items-center">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <div
+                      key={i}
+                      className="rounded-full transition-all duration-200"
+                      style={{
+                        width: i < currentPin.length ? "14px" : "12px",
+                        height: i < currentPin.length ? "14px" : "12px",
+                        background: i < currentPin.length ? "currentColor" : "transparent",
+                        border: "1.5px solid currentColor",
+                        opacity: i < currentPin.length ? 1 : 0.2,
+                        transform: i < currentPin.length ? "scale(1.05)" : "scale(1)",
+                      }}
+                    />
+                  ))}
+                </div>
+
+                {pinError && (
+                  <p className="text-xs font-bold text-red-500 dark:text-red-400 text-center animate-in fade-in duration-200">{pinError}</p>
+                )}
+
+                {biometricLoading && (
+                  <p className="text-xs font-medium text-muted-foreground">Verifying biometrics…</p>
+                )}
+
+                {/* Numpad Botones Limpios (Apple-like) */}
+                <div className="grid grid-cols-3 gap-3 w-full max-w-[210px] mx-auto pb-1 mt-1">
+                  {PIN_DIGITS.flat().map((digit, i) => {
+                    if (digit === "") return <div key={i} />;
+                    if (digit === "del") return (
+                      <button
+                        key={i}
+                        onPointerDown={(e) => { e.preventDefault(); haptic(); handlePinDelete(); }}
+                        disabled={currentPin.length === 0}
+                        className="relative h-14 w-14 rounded-full mx-auto flex items-center justify-center bg-black/5 dark:bg-white/[0.06] active:bg-black/10 dark:active:bg-white/15 active:scale-90 transition-all disabled:opacity-20 shrink-0"
+                        style={{ touchAction: "manipulation" }}
+                      >
+                        <Trash2 className="relative z-10 h-5 w-5 text-foreground/90" />
+                      </button>
+                    );
+                    return (
+                      <button
+                        key={i}
+                        onPointerDown={(e) => { e.preventDefault(); haptic(); handlePinDigit(digit); }}
+                        disabled={currentPin.length >= 6}
+                        className="relative h-14 w-14 rounded-full mx-auto flex items-center justify-center bg-black/5 dark:bg-white/[0.06] active:bg-black/10 dark:active:bg-white/15 active:scale-90 transition-all disabled:opacity-20 shrink-0"
+                        style={{ touchAction: "manipulation", fontFeatureSettings: "'tnum' on" }}
+                      >
+                        <span className="relative z-10 text-2xl font-medium tracking-tight text-foreground/90">{digit}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
-
-      {/* Account */}
-      <div className="space-y-2">
-        <SectionTitle title="Account" />
-        <Section>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <div>
-                <SettingItem
-                  icon={LogOut}
-                  label={signingOut ? "Logging out..." : "Log Out"}
-                  description={user?.email ?? ""}
-                  right={<ChevronRight className="h-4 w-4 text-muted-foreground" />}
-                />
-              </div>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Log out?</AlertDialogTitle>
-                <AlertDialogDescription>You will need to log in again to access your data.</AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleSignOut} disabled={signingOut} className="bg-[#A8FF3E] text-black hover:bg-[#9bfe32] border-0">
-                  {signingOut ? "Logging out..." : "Log Out"}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <div>
-                <SettingItem
-                  icon={UserX}
-                  label={deletingAccount ? "Deleting..." : "Delete Account"}
-      
-                  destructive
-                  right={<ChevronRight className="h-4 w-4 text-destructive" />}
-                />
-              </div>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Delete your account?</AlertDialogTitle>
-                <AlertDialogDescription>This will permanently delete your account, all transactions, and all categories. This action cannot be undone.</AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleDeleteAccount} disabled={deletingAccount} className="bg-destructive text-destructive-foreground hover:bg-destructive/90 border-0">
-                  {deletingAccount ? "Deleting..." : "Yes, delete account"}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </Section>
-      </div>
 
     </div>
   );
