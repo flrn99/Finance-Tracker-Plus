@@ -4,6 +4,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Mail, Lock, Eye, EyeOff, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { App } from "@capacitor/app";
+import { Capacitor } from "@capacitor/core";
 
 type Mode = "home" | "login" | "register" | "forgot";
 
@@ -336,13 +337,22 @@ export default function Login() {
   const handleGoogle = async () => {
     setIsGoogleLoading(true);
     try {
-      const { Browser } = await import("@capacitor/browser");
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: { redirectTo: "com.florian.financetracker://login-callback", skipBrowserRedirect: true, queryParams: { prompt: "consent" } },
-      });
-      if (error) throw error;
-      if (data.url) await Browser.open({ url: data.url });
+      const isNative = Capacitor.isNativePlatform();
+      if (isNative) {
+        const { Browser } = await import("@capacitor/browser");
+        const { data, error } = await supabase.auth.signInWithOAuth({
+          provider: "google",
+          options: { redirectTo: "com.florian.financetracker://login-callback", skipBrowserRedirect: true, queryParams: { prompt: "consent" } },
+        });
+        if (error) throw error;
+        if (data.url) await Browser.open({ url: data.url });
+      } else {
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider: "google",
+          options: { redirectTo: `${window.location.origin}/`, queryParams: { prompt: "consent" } },
+        });
+        if (error) throw error;
+      }
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
       setIsGoogleLoading(false);
