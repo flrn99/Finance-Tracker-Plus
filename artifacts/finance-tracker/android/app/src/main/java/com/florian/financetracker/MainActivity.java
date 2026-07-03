@@ -16,12 +16,12 @@ public class MainActivity extends BridgeActivity {
         WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
 
         // Nav bar y status bar transparentes — la WebView controla el color desde JS
-        getWindow().setNavigationBarColor(Color.TRANSPARENT);
-        getWindow().setStatusBarColor(Color.TRANSPARENT);
+        getWindow().setNavigationBarColor(Color.parseColor("#CAFA01"));
+        getWindow().setStatusBarColor(Color.parseColor("#CAFA01"));
 
-        getWindow().getDecorView().setBackgroundColor(Color.parseColor("#A8FF3E"));
+        getWindow().getDecorView().setBackgroundColor(Color.parseColor("#CAFA01"));
         WebView webView = getBridge().getWebView();
-        webView.setBackgroundColor(Color.parseColor("#A8FF3E"));
+        webView.setBackgroundColor(Color.parseColor("#CAFA01"));
         webView.getSettings().setDomStorageEnabled(true);
         webView.getSettings().setJavaScriptEnabled(true);
     }

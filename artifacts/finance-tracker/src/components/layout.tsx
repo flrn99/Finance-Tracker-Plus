@@ -4,6 +4,7 @@ import {
   LayoutDashboard,
   ListOrdered,
   Tags,
+  Target,
   Plus,
   DollarSign,
   Settings,
@@ -22,6 +23,7 @@ const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/transactions", label: "Transactions", icon: ListOrdered },
   { href: "/insights", label: "Insights", icon: Sparkles },
+  { href: "/goals", label: "Goals", icon: Target },
   { href: "/categories", label: "Categories", icon: Tags },
   { href: "/settings", label: "Settings", icon: Settings },
 ];

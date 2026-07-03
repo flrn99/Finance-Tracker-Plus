@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.florian.financetracker',
-  appName: 'Flow Finance',
+  appName: 'Flow!',
   webDir: 'dist/public',
   android: {
     captureInput: false,

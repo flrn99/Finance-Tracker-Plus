@@ -21,6 +21,7 @@ import NewTransaction from "@/pages/new-transaction";
 import Categories from "@/pages/categories";
 import Export from "@/pages/export";
 import Insights from "@/pages/insights";
+import Goals from "@/pages/goals";
 import Settings from "@/pages/settings";
 
 const queryClient = new QueryClient({
@@ -44,6 +45,7 @@ function Router() {
         <Route path="/categories" component={Categories} />
         <Route path="/export" component={Export} />
         <Route path="/insights" component={Insights} />
+        <Route path="/goals" component={Goals} />
         <Route path="/settings" component={Settings} />
         <Route component={NotFound} />
       </Switch>
