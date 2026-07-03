@@ -8,7 +8,7 @@ import {
   insertHabitSchema,
 } from "@workspace/db";
 import { eq, and, gte, lte, desc, inArray } from "drizzle-orm";
-import { z } from "zod/v4";
+import { z } from "zod";
 import { authMiddleware } from "../middlewares/auth";
 
 const router = Router();
