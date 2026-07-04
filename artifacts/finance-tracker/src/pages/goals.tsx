@@ -218,21 +218,18 @@ function HabitIcon({ icon, className, style }: { icon: string | null; className?
 /* ------------------------------------------------------------------ */
 
 function FloatingModal({
-  open, onClose, title, children, align = "center",
+  open, onClose, title, children,
 }: {
   open: boolean; onClose: () => void; title: string; children: React.ReactNode;
-  align?: "center" | "top";
 }) {
   if (!open) return null;
   return (
     <div
-      className={cn(
-        "fixed z-50 flex justify-center px-5",
-        align === "top" ? "items-start" : "items-center"
-      )}
+      className="fixed inset-0 z-50 flex items-center justify-center px-5"
       style={{
-        top: 0, left: 0, right: 0, bottom: 0, height: "100dvh", width: "100vw",
-        paddingTop: align === "top" ? "calc(env(safe-area-inset-top) + 72px)" : undefined,
+        // respeta status bar y nav — el modal nunca los invade
+        paddingTop: "calc(env(safe-area-inset-top) + 12px)",
+        paddingBottom: "calc(env(safe-area-inset-bottom) + 12px)",
       }}
       onClick={onClose}
     >
@@ -245,7 +242,7 @@ function FloatingModal({
         }}
       />
       <div
-        className="relative w-full max-w-sm bg-card rounded-2xl shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-200 max-h-[85dvh] overflow-y-auto"
+        className="relative w-full max-w-sm bg-card rounded-2xl shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-200 max-h-full overflow-y-auto"
         style={{ willChange: "transform, opacity", transform: "translate3d(0,0,0)" }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -1097,7 +1094,6 @@ export default function Goals() {
       <FloatingModal
         open={addMoneyGoal !== null}
         onClose={() => setAddMoneyGoal(null)}
-        align="top"
         title={addMoneyGoal ? `Add to ${addMoneyGoal.name}` : ""}
       >
         {addMoneyGoal && (
@@ -1107,7 +1103,6 @@ export default function Goals() {
               <Input
                 type="text"
                 inputMode="decimal"
-                autoFocus
                 placeholder="0.00"
                 value={addAmount}
                 onChange={(e) => setAddAmount(formatAmountInput(e.target.value))}
@@ -1143,11 +1138,11 @@ export default function Goals() {
         )}
       </FloatingModal>
 
-      <FloatingModal open={goalModal !== null} onClose={() => setGoalModal(null)} align="top" title={goalModal === "create" ? "New Goal" : "Edit Goal"}>
+      <FloatingModal open={goalModal !== null} onClose={() => setGoalModal(null)} title={goalModal === "create" ? "New Goal" : "Edit Goal"}>
         <GoalForm form={goalForm} onSubmit={onGoalSubmit} isPending={createGoal.isPending || updateGoal.isPending} submitLabel={goalModal === "create" ? "Create" : "Save"} symbol={symbol} />
       </FloatingModal>
 
-      <FloatingModal open={habitModal !== null} onClose={() => setHabitModal(null)} align="top" title={habitModal === "create" ? "New Habit" : "Edit Habit"}>
+      <FloatingModal open={habitModal !== null} onClose={() => setHabitModal(null)} title={habitModal === "create" ? "New Habit" : "Edit Habit"}>
         <HabitForm form={habitForm} onSubmit={onHabitSubmit} isPending={createHabit.isPending || updateHabit.isPending} submitLabel={habitModal === "create" ? "Create" : "Save"} />
       </FloatingModal>
 

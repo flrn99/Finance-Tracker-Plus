@@ -148,18 +148,15 @@ function ProfileMenu() {
     },
   ];
 
-  return createPortal(
+  return (
     <>
-      {/* Avatar button — flotante arriba a la derecha en todas las páginas */}
+      {/* Avatar — vive en el flujo de la página, arriba a la derecha junto al título.
+          Scrollea junto con el contenido, como el título. */}
       <button
         onClick={() => setOpen((v) => !v)}
-        className="fixed z-40 w-10 h-10 rounded-full flex items-center justify-center active:scale-90 transition-transform overflow-hidden"
+        className="absolute top-0 right-0 z-30 w-10 h-10 rounded-full flex items-center justify-center active:scale-90 transition-transform overflow-hidden"
         style={{
-          top: "calc(env(safe-area-inset-top) + 10px)",
-          right: "16px",
-          backdropFilter: "blur(24px) saturate(1.8)",
-          WebkitBackdropFilter: "blur(24px) saturate(1.8)",
-          background: "hsl(var(--card) / 0.7)",
+          background: "hsl(var(--card))",
           border: "1px solid hsl(var(--foreground) / 0.08)",
           boxShadow: "0 2px 12px rgba(0,0,0,0.12), inset 0 1px 0 hsl(var(--foreground) / 0.06)",
         }}
@@ -171,6 +168,8 @@ function ProfileMenu() {
         )}
       </button>
 
+      {createPortal(
+        <>
       {/* Dropdown */}
       {open && (
         <>
@@ -178,7 +177,7 @@ function ProfileMenu() {
           <div
             className="fixed z-50 w-56 rounded-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200"
             style={{
-              top: "calc(env(safe-area-inset-top) + 56px)",
+              top: "calc(env(safe-area-inset-top) + 72px)",
               right: "16px",
               backdropFilter: "blur(24px) saturate(1.8)",
               WebkitBackdropFilter: "blur(24px) saturate(1.8)",
@@ -261,8 +260,10 @@ function ProfileMenu() {
           </div>
         </QuickPopup>
       )}
-    </>,
-    document.body
+        </>,
+        document.body
+      )}
+    </>
   );
 }
 
@@ -384,14 +385,12 @@ export default function Layout({ children }: LayoutProps) {
             paddingBottom: isIOS ? '110px' : '6rem',
           }}
         >
-          <div className="max-w-6xl mx-auto min-h-full">
+          <div className="max-w-6xl mx-auto min-h-full relative">
+            <ProfileMenu />
             {children}
           </div>
         </div>
       </main>
-
-      {/* Avatar de perfil — visible en todas las páginas */}
-      <ProfileMenu />
 
       {/* Mobile bottom navigation — liquid glass floating pill */}
       <nav
