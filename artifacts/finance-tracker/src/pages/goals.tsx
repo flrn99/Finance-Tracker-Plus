@@ -897,10 +897,10 @@ export default function Goals() {
             <div className="flex items-center justify-between mb-1.5 px-1">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-[#A8FF3E]" />
-                <p className="text-xs font-bold uppercase tracking-widest text-[#7DD900]">Savings</p>
+                <p className="text-xs font-bold uppercase tracking-widest text-foreground">Savings</p>
                 <span className="text-xs text-muted-foreground">({goals.length})</span>
               </div>
-              <button onClick={openCreateGoal} className="h-6 w-6 flex items-center justify-center rounded-full bg-[#A8FF3E] text-black active:scale-90 transition-transform">
+              <button onClick={openCreateGoal} className="h-6 w-6 flex items-center justify-center rounded-lg bg-[#A8FF3E] text-black active:scale-90 transition-transform">
                 <Plus className="h-3.5 w-3.5" />
               </button>
             </div>
@@ -933,7 +933,7 @@ export default function Goals() {
                           <span className="text-xs font-bold" style={{ color }}>{Math.round(pct)}%</span>
                           <button
                             onClick={() => { if (g.id < 0) return; setAddMoneyGoal(g); setAddAmount(""); }}
-                            className="h-7 px-2 flex items-center gap-0.5 rounded-full text-black text-[11px] font-bold active:scale-90 transition-transform"
+                            className="h-7 px-2 flex items-center gap-0.5 rounded-lg text-black text-[11px] font-bold active:scale-90 transition-transform"
                             style={{ backgroundColor: color }}
                           >
                             <Plus className="h-3 w-3" strokeWidth={3} />
@@ -978,10 +978,10 @@ export default function Goals() {
             <div className="flex items-center justify-between mb-1.5 px-1">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-[#A8FF3E]" />
-                <p className="text-xs font-bold uppercase tracking-widest text-[#7DD900]">Habits</p>
+                <p className="text-xs font-bold uppercase tracking-widest text-foreground">Habits</p>
                 <span className="text-xs text-muted-foreground">({habits.length})</span>
               </div>
-              <button onClick={openCreateHabit} className="h-6 w-6 flex items-center justify-center rounded-full bg-[#A8FF3E] text-black active:scale-90 transition-transform">
+              <button onClick={openCreateHabit} className="h-6 w-6 flex items-center justify-center rounded-lg bg-[#A8FF3E] text-black active:scale-90 transition-transform">
                 <Plus className="h-3.5 w-3.5" />
               </button>
             </div>

@@ -4,45 +4,94 @@ import {
   LayoutDashboard,
   ListOrdered,
   Tags,
-  Target,
   Plus,
   DollarSign,
   Sparkles,
-  User,
-  SlidersHorizontal,
-  Database,
-  Shield,
-  UserCog,
+  Palette,
+  Download,
+  Settings,
+  Sun,
+  Moon,
+  Monitor,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
+import { useTheme, type Theme } from "@/lib/theme-context";
+import { useCurrency, type Currency, CURRENCY_INFO } from "@/lib/currency-context";
 import { Capacitor } from "@capacitor/core";
 
 interface LayoutProps {
   children: React.ReactNode;
 }
 
+/** Target con flecha — el ícono de Goals */
+function TargetArrowIcon({ className, style }: { className?: string; style?: React.CSSProperties }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      style={style}
+    >
+      <path d="M12 7a5 5 0 1 0 5 5" />
+      <path d="M13 3.055A9 9 0 1 0 20.945 11" />
+      <path d="M15 6v3h3l3-3h-3V3z" />
+      <path d="M15 9l-3 3" />
+    </svg>
+  );
+}
+
 const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/transactions", label: "Transactions", icon: ListOrdered },
   { href: "/insights", label: "Insights", icon: Sparkles },
-  { href: "/goals", label: "Goals", icon: Target },
+  { href: "/goals", label: "Goals", icon: TargetArrowIcon },
   { href: "/categories", label: "Categories", icon: Tags },
 ];
 
-const profileMenuItems = [
-  { label: "Profile", icon: User, section: "profile" },
-  { label: "Preferences", icon: SlidersHorizontal, section: "preferences" },
-  { label: "Data", icon: Database, section: "data" },
-  { label: "Security", icon: Shield, section: "security" },
-  { label: "Account", icon: UserCog, section: "account" },
-];
+/** Mini popup centrado para acciones rápidas del menú de perfil */
+function QuickPopup({
+  title,
+  onClose,
+  children,
+}: {
+  title: string;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-6" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/70 animate-in fade-in-0 duration-200" />
+      <div
+        className="relative w-full max-w-xs bg-card rounded-2xl shadow-2xl animate-in fade-in zoom-in-95 duration-200 p-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between mb-3">
+          <p className="font-bold text-sm uppercase tracking-widest">{title}</p>
+          <button onClick={onClose} className="w-6 h-6 rounded-lg bg-muted flex items-center justify-center">
+            <X className="h-3 w-3" />
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
 
 function ProfileMenu() {
   const { user } = useAuth();
   const [location, navigate] = useLocation();
   const [open, setOpen] = useState(false);
+  const [popup, setPopup] = useState<null | "currency" | "theme">(null);
+  const { currency, setCurrency } = useCurrency();
+  const { theme, setTheme } = useTheme();
   const [avatar, setAvatar] = useState<string | null>(() => {
     try { return localStorage.getItem("ff-avatar"); } catch { return null; }
   });
@@ -58,13 +107,39 @@ function ProfileMenu() {
 
   const initial = (user?.email?.[0] ?? "?").toUpperCase();
 
-  const go = (section: string) => {
-    setOpen(false);
-    navigate(`/settings?section=${section}`);
-  };
-
   // En settings no tiene sentido mostrar el avatar/dropdown — ya estás ahí
   if (location.startsWith("/settings")) return null;
+
+  const themeOptions: { value: Theme; label: string; icon: any }[] = [
+    { value: "light", label: "Light", icon: Sun },
+    { value: "dark", label: "Dark", icon: Moon },
+    { value: "system", label: "System", icon: Monitor },
+  ];
+
+  const menuItems = [
+    {
+      label: "Display Currency",
+      icon: DollarSign,
+      right: currency,
+      action: () => { setOpen(false); setPopup("currency"); },
+    },
+    {
+      label: "Theme",
+      icon: Palette,
+      right: theme === "light" ? "Light" : theme === "dark" ? "Dark" : "System",
+      action: () => { setOpen(false); setPopup("theme"); },
+    },
+    {
+      label: "Export to Excel",
+      icon: Download,
+      action: () => { setOpen(false); navigate("/export"); },
+    },
+    {
+      label: "All Settings",
+      icon: Settings,
+      action: () => { setOpen(false); navigate("/settings"); },
+    },
+  ];
 
   return (
     <>
@@ -94,7 +169,7 @@ function ProfileMenu() {
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
           <div
-            className="fixed z-50 w-48 rounded-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200"
+            className="fixed z-50 w-56 rounded-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200"
             style={{
               top: "calc(env(safe-area-inset-top) + 56px)",
               right: "16px",
@@ -105,24 +180,71 @@ function ProfileMenu() {
               boxShadow: "0 8px 32px rgba(0,0,0,0.25)",
             }}
           >
-            {profileMenuItems.map((item, i) => {
+            {menuItems.map((item, i) => {
               const Icon = item.icon;
               return (
                 <button
-                  key={item.section}
-                  onClick={() => go(item.section)}
+                  key={item.label}
+                  onClick={item.action}
                   className={cn(
                     "w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-foreground hover:bg-muted/60 transition-colors text-left",
                     i > 0 && "border-t border-border/50"
                   )}
                 >
-                  <Icon className="h-4 w-4 text-muted-foreground" />
-                  {item.label}
+                  <Icon className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <span className="flex-1">{item.label}</span>
+                  {item.right && (
+                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-lg bg-[#A8FF3E] text-black">{item.right}</span>
+                  )}
                 </button>
               );
             })}
           </div>
         </>
+      )}
+
+      {/* Popup: moneda */}
+      {popup === "currency" && (
+        <QuickPopup title="Display Currency" onClose={() => setPopup(null)}>
+          <div className="space-y-1 max-h-72 overflow-y-auto">
+            {(Object.keys(CURRENCY_INFO) as Currency[]).map((c) => (
+              <button
+                key={c}
+                onClick={() => { setCurrency(c); setPopup(null); }}
+                className={cn(
+                  "w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-colors",
+                  currency === c ? "bg-[#A8FF3E] text-black font-bold" : "hover:bg-muted"
+                )}
+              >
+                {CURRENCY_INFO[c].label}
+              </button>
+            ))}
+          </div>
+        </QuickPopup>
+      )}
+
+      {/* Popup: tema */}
+      {popup === "theme" && (
+        <QuickPopup title="Theme" onClose={() => setPopup(null)}>
+          <div className="space-y-1">
+            {themeOptions.map((opt) => {
+              const Icon = opt.icon;
+              return (
+                <button
+                  key={opt.value}
+                  onClick={() => { setTheme(opt.value); setPopup(null); }}
+                  className={cn(
+                    "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors",
+                    theme === opt.value ? "bg-[#A8FF3E] text-black font-bold" : "hover:bg-muted"
+                  )}
+                >
+                  <Icon className="h-4 w-4" />
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
+        </QuickPopup>
       )}
     </>
   );
@@ -242,7 +364,7 @@ export default function Layout({ children }: LayoutProps) {
           ref={scrollRef}
           className="flex-1 overflow-y-auto overscroll-contain p-4 md:pt-8 md:pb-8 md:p-8"
           style={{
-            paddingTop: 'calc(env(safe-area-inset-top) + 16px)',
+            paddingTop: 'calc(env(safe-area-inset-top) + 64px)',
             paddingBottom: isIOS ? '110px' : '6rem',
           }}
         >
