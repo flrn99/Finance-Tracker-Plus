@@ -148,6 +148,30 @@ function fmtMoney(n: number): string {
   return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+/** Formatea lo que se escribe agregando comas de miles, respetando decimales en progreso */
+function formatAmountInput(raw: string): string {
+  // deja solo dígitos y un punto decimal
+  let clean = raw.replace(/[^\d.]/g, "");
+  const firstDot = clean.indexOf(".");
+  if (firstDot !== -1) {
+    clean = clean.slice(0, firstDot + 1) + clean.slice(firstDot + 1).replace(/\./g, "");
+  }
+  if (clean === "" || clean === ".") return clean;
+  const [intPart, decPart] = clean.split(".");
+  const withCommas = intPart ? parseInt(intPart, 10).toLocaleString("en-US") : "";
+  if (decPart !== undefined) {
+    // máximo 2 decimales
+    return `${withCommas}.${decPart.slice(0, 2)}`;
+  }
+  return withCommas;
+}
+
+/** Quita las comas para obtener el número real */
+function parseAmountInput(formatted: string): number {
+  const n = parseFloat(formatted.replace(/,/g, ""));
+  return Number.isNaN(n) ? 0 : n;
+}
+
 function todayKey(): string {
   return toKey(new Date());
 }
@@ -354,7 +378,14 @@ function GoalForm({
                 <FormControl>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-muted-foreground pointer-events-none">{symbol}</span>
-                    <Input type="number" inputMode="decimal" step="0.01" placeholder="5000.00" className="rounded-2xl pl-8" {...field} />
+                    <Input
+                      type="text"
+                      inputMode="decimal"
+                      placeholder="5,000.00"
+                      className="rounded-2xl pl-8"
+                      value={field.value ? formatAmountInput(String(field.value)) : ""}
+                      onChange={(e) => field.onChange(parseAmountInput(formatAmountInput(e.target.value)))}
+                    />
                   </div>
                 </FormControl>
                 <FormMessage />
@@ -370,7 +401,14 @@ function GoalForm({
                 <FormControl>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-muted-foreground pointer-events-none">{symbol}</span>
-                    <Input type="number" inputMode="decimal" step="0.01" placeholder="0.00" className="rounded-2xl pl-8" {...field} />
+                    <Input
+                      type="text"
+                      inputMode="decimal"
+                      placeholder="0.00"
+                      className="rounded-2xl pl-8"
+                      value={field.value ? formatAmountInput(String(field.value)) : ""}
+                      onChange={(e) => field.onChange(parseAmountInput(formatAmountInput(e.target.value)))}
+                    />
                   </div>
                 </FormControl>
                 <FormMessage />
@@ -1067,13 +1105,12 @@ export default function Goals() {
             <div className="relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-bold text-muted-foreground">{symbol}</span>
               <Input
-                type="number"
+                type="text"
                 inputMode="decimal"
-                step="any"
                 autoFocus
                 placeholder="0.00"
                 value={addAmount}
-                onChange={(e) => setAddAmount(e.target.value)}
+                onChange={(e) => setAddAmount(formatAmountInput(e.target.value))}
                 className="rounded-2xl pl-10 text-lg font-bold"
               />
             </div>
@@ -1082,7 +1119,7 @@ export default function Goals() {
                 <button
                   key={q}
                   type="button"
-                  onClick={() => setAddAmount(String((parseFloat(addAmount) || 0) + q))}
+                  onClick={() => setAddAmount(formatAmountInput(String(parseAmountInput(addAmount) + q)))}
                   className="flex-1 py-1.5 rounded-xl bg-muted text-xs font-bold active:scale-95 transition-transform"
                 >
                   +{q}
@@ -1090,11 +1127,11 @@ export default function Goals() {
               ))}
             </div>
             <p className="text-xs text-muted-foreground text-center">
-              {symbol} {fmtMoney(addMoneyGoal.currentAmount)} → {symbol} {fmtMoney(addMoneyGoal.currentAmount + (parseFloat(addAmount) || 0))}
+              {symbol} {fmtMoney(addMoneyGoal.currentAmount)} → {symbol} {fmtMoney(addMoneyGoal.currentAmount + parseAmountInput(addAmount))}
             </p>
             <Button
               onClick={() => {
-                const n = parseFloat(addAmount);
+                const n = parseAmountInput(addAmount);
                 if (!addMoneyGoal || Number.isNaN(n) || n <= 0) return;
                 addToGoal.mutate({ id: addMoneyGoal.id, newAmount: addMoneyGoal.currentAmount + n });
               }}

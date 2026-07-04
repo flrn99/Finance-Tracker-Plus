@@ -1,5 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { useRef, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   LayoutDashboard,
   ListOrdered,
@@ -147,7 +148,7 @@ function ProfileMenu() {
     },
   ];
 
-  return (
+  return createPortal(
     <>
       {/* Avatar button — flotante arriba a la derecha en todas las páginas */}
       <button
@@ -260,7 +261,8 @@ function ProfileMenu() {
           </div>
         </QuickPopup>
       )}
-    </>
+    </>,
+    document.body
   );
 }
 
