@@ -122,25 +122,15 @@ const ICON_KEYS = Object.keys(ICONS);
 
 const COLOR_OPTIONS: { hex: string; name: string }[] = [
   { hex: "#A8FF3E", name: "Flow Green" },
-  { hex: "#84cc16", name: "Toxic Lime" },
   { hex: "#22c55e", name: "Matcha Rush" },
-  { hex: "#10b981", name: "Emerald City" },
   { hex: "#14b8a6", name: "Caribbean Wave" },
-  { hex: "#06b6d4", name: "Electric Lagoon" },
   { hex: "#0ea5e9", name: "Miami Sky" },
-  { hex: "#3b82f6", name: "Deep Ocean" },
   { hex: "#6366f1", name: "Midnight Neon" },
-  { hex: "#7c3aed", name: "Galaxy Violet" },
-  { hex: "#8b5cf6", name: "Purple Haze" },
   { hex: "#a855f7", name: "Cosmic Grape" },
-  { hex: "#d946ef", name: "Cyber Magenta" },
   { hex: "#ec4899", name: "Neon Flamingo" },
-  { hex: "#f43f5e", name: "Punk Rose" },
   { hex: "#ef4444", name: "Lava Burst" },
   { hex: "#f97316", name: "Sunset Blaze" },
-  { hex: "#f59e0b", name: "Liquid Gold" },
-  { hex: "#eab308", name: "Electric Banana" },
-  { hex: "#64748b", name: "Moon Dust" },
+  { hex: "#eab308", name: "Liquid Gold" },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -152,6 +142,10 @@ function toKey(d: Date): string {
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
+}
+
+function fmtMoney(n: number): string {
+  return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function todayKey(): string {
@@ -200,15 +194,22 @@ function HabitIcon({ icon, className, style }: { icon: string | null; className?
 /* ------------------------------------------------------------------ */
 
 function FloatingModal({
-  open, onClose, title, children,
+  open, onClose, title, children, align = "center",
 }: {
   open: boolean; onClose: () => void; title: string; children: React.ReactNode;
+  align?: "center" | "top";
 }) {
   if (!open) return null;
   return (
     <div
-      className="fixed z-50 flex items-center justify-center px-5"
-      style={{ top: 0, left: 0, right: 0, bottom: 0, height: "100dvh", width: "100vw" }}
+      className={cn(
+        "fixed z-50 flex justify-center px-5",
+        align === "top" ? "items-start" : "items-center"
+      )}
+      style={{
+        top: 0, left: 0, right: 0, bottom: 0, height: "100dvh", width: "100vw",
+        paddingTop: align === "top" ? "calc(env(safe-area-inset-top) + 72px)" : undefined,
+      }}
       onClick={onClose}
     >
       <div
@@ -220,13 +221,13 @@ function FloatingModal({
         }}
       />
       <div
-        className="relative w-full max-w-sm bg-card rounded-2xl shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-200 max-h-[90dvh] overflow-y-auto"
+        className="relative w-full max-w-sm bg-card rounded-2xl shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-200 max-h-[85dvh] overflow-y-auto"
         style={{ willChange: "transform, opacity", transform: "translate3d(0,0,0)" }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-5 pt-5 pb-3">
           <p className="font-bold text-base">{title}</p>
-          <button onClick={onClose} className="w-7 h-7 rounded-full bg-muted flex items-center justify-center">
+          <button onClick={onClose} className="w-7 h-7 rounded-lg bg-muted flex items-center justify-center">
             <X className="h-3.5 w-3.5" />
           </button>
         </div>
@@ -262,28 +263,37 @@ function ColorSelect({ value, onChange }: { value: string; onChange: (c: string)
 
 function IconPicker({ value, onChange, color }: { value: string; onChange: (i: string) => void; color: string }) {
   return (
-    <div
-      className="flex gap-1.5 overflow-x-auto pb-1.5 -mx-1 px-1"
-      style={{ scrollbarWidth: "none", WebkitOverflowScrolling: "touch" }}
-    >
-      {ICON_KEYS.map((key) => {
-        const Comp = ICONS[key];
-        const active = value === key;
-        return (
-          <button
-            key={key}
-            type="button"
-            onClick={() => onChange(key)}
-            className={cn(
-              "w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-all active:scale-90",
-              active ? "" : "bg-muted"
-            )}
-            style={active ? { backgroundColor: `${color}30`, boxShadow: `0 0 0 1.5px ${color}` } : undefined}
-          >
-            <Comp className="h-4 w-4" style={{ color: active ? color : undefined }} />
-          </button>
-        );
-      })}
+    <div className="relative">
+      <div
+        className="flex gap-2 overflow-x-auto py-1 px-0.5"
+        style={{ scrollbarWidth: "none", WebkitOverflowScrolling: "touch" }}
+      >
+        {ICON_KEYS.map((key) => {
+          const Comp = ICONS[key];
+          const active = value === key;
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => onChange(key)}
+              className={cn(
+                "w-10 h-10 rounded-lg flex items-center justify-center shrink-0 transition-all active:scale-90",
+                active ? "" : "bg-muted"
+              )}
+              style={active ? { backgroundColor: `${color}30`, boxShadow: `0 0 0 1.5px ${color}` } : undefined}
+            >
+              <Comp className="h-4 w-4" style={{ color: active ? color : undefined }} />
+            </button>
+          );
+        })}
+        {/* espacio final para que el último ícono no quede pegado al fade */}
+        <div className="w-6 shrink-0" />
+      </div>
+      {/* Fade derecho — pista de que hay más íconos deslizando */}
+      <div
+        className="absolute top-0 right-0 h-full w-10 pointer-events-none rounded-r-lg"
+        style={{ background: "linear-gradient(to right, transparent, hsl(var(--card)))" }}
+      />
     </div>
   );
 }
@@ -309,12 +319,13 @@ const habitSchema = z.object({
 type HabitFormValues = z.infer<typeof habitSchema>;
 
 function GoalForm({
-  form, onSubmit, isPending, submitLabel,
+  form, onSubmit, isPending, submitLabel, symbol,
 }: {
   form: ReturnType<typeof useForm<GoalFormValues>>;
   onSubmit: (data: GoalFormValues) => void;
   isPending: boolean;
   submitLabel: string;
+  symbol: string;
 }) {
   const color = form.watch("color");
   return (
@@ -341,7 +352,10 @@ function GoalForm({
               <FormItem>
                 <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Target</FormLabel>
                 <FormControl>
-                  <Input type="number" inputMode="decimal" step="any" placeholder="5000" className="rounded-2xl" {...field} />
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-muted-foreground pointer-events-none">{symbol}</span>
+                    <Input type="number" inputMode="decimal" step="0.01" placeholder="5000.00" className="rounded-2xl pl-8" {...field} />
+                  </div>
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -354,7 +368,10 @@ function GoalForm({
               <FormItem>
                 <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Saved so far</FormLabel>
                 <FormControl>
-                  <Input type="number" inputMode="decimal" step="any" placeholder="0" className="rounded-2xl" {...field} />
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-muted-foreground pointer-events-none">{symbol}</span>
+                    <Input type="number" inputMode="decimal" step="0.01" placeholder="0.00" className="rounded-2xl pl-8" {...field} />
+                  </div>
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -882,7 +899,7 @@ export default function Goals() {
 
   return (
     <div className="space-y-4 animate-in fade-in duration-500">
-      <h2 className="text-2xl font-bold tracking-tight">Goals</h2>
+      <h2 className="text-2xl font-bold tracking-tight pr-14">Goals</h2>
 
       {isLoading ? (
         <div className="space-y-2">
@@ -900,8 +917,9 @@ export default function Goals() {
                 <p className="text-xs font-bold uppercase tracking-widest text-foreground">Savings</p>
                 <span className="text-xs text-muted-foreground">({goals.length})</span>
               </div>
-              <button onClick={openCreateGoal} className="h-6 w-6 flex items-center justify-center rounded-lg bg-[#A8FF3E] text-black active:scale-90 transition-transform">
-                <Plus className="h-3.5 w-3.5" />
+              <button onClick={openCreateGoal} className="h-7 px-2.5 flex items-center gap-1 rounded-lg bg-[#A8FF3E] text-black text-xs font-bold active:scale-95 transition-transform">
+                <Plus className="h-3.5 w-3.5" strokeWidth={3} />
+                New
               </button>
             </div>
 
@@ -925,7 +943,7 @@ export default function Goals() {
                           <div className="min-w-0">
                             <p className="text-sm font-bold leading-tight truncate">{g.name}</p>
                             <p className="text-[11px] text-muted-foreground leading-tight">
-                              {symbol} {g.currentAmount.toLocaleString()} <span className="opacity-60">/ {symbol} {g.targetAmount.toLocaleString()}</span>
+                              {symbol} {fmtMoney(g.currentAmount)} <span className="opacity-60">/ {symbol} {fmtMoney(g.targetAmount)}</span>
                             </p>
                           </div>
                         </div>
@@ -981,8 +999,9 @@ export default function Goals() {
                 <p className="text-xs font-bold uppercase tracking-widest text-foreground">Habits</p>
                 <span className="text-xs text-muted-foreground">({habits.length})</span>
               </div>
-              <button onClick={openCreateHabit} className="h-6 w-6 flex items-center justify-center rounded-lg bg-[#A8FF3E] text-black active:scale-90 transition-transform">
-                <Plus className="h-3.5 w-3.5" />
+              <button onClick={openCreateHabit} className="h-7 px-2.5 flex items-center gap-1 rounded-lg bg-[#A8FF3E] text-black text-xs font-bold active:scale-95 transition-transform">
+                <Plus className="h-3.5 w-3.5" strokeWidth={3} />
+                New
               </button>
             </div>
 
@@ -1040,6 +1059,7 @@ export default function Goals() {
       <FloatingModal
         open={addMoneyGoal !== null}
         onClose={() => setAddMoneyGoal(null)}
+        align="top"
         title={addMoneyGoal ? `Add to ${addMoneyGoal.name}` : ""}
       >
         {addMoneyGoal && (
@@ -1070,7 +1090,7 @@ export default function Goals() {
               ))}
             </div>
             <p className="text-xs text-muted-foreground text-center">
-              {symbol} {addMoneyGoal.currentAmount.toLocaleString()} → {symbol} {(addMoneyGoal.currentAmount + (parseFloat(addAmount) || 0)).toLocaleString()}
+              {symbol} {fmtMoney(addMoneyGoal.currentAmount)} → {symbol} {fmtMoney(addMoneyGoal.currentAmount + (parseFloat(addAmount) || 0))}
             </p>
             <Button
               onClick={() => {
@@ -1086,11 +1106,11 @@ export default function Goals() {
         )}
       </FloatingModal>
 
-      <FloatingModal open={goalModal !== null} onClose={() => setGoalModal(null)} title={goalModal === "create" ? "New Goal" : "Edit Goal"}>
-        <GoalForm form={goalForm} onSubmit={onGoalSubmit} isPending={createGoal.isPending || updateGoal.isPending} submitLabel={goalModal === "create" ? "Create" : "Save"} />
+      <FloatingModal open={goalModal !== null} onClose={() => setGoalModal(null)} align="top" title={goalModal === "create" ? "New Goal" : "Edit Goal"}>
+        <GoalForm form={goalForm} onSubmit={onGoalSubmit} isPending={createGoal.isPending || updateGoal.isPending} submitLabel={goalModal === "create" ? "Create" : "Save"} symbol={symbol} />
       </FloatingModal>
 
-      <FloatingModal open={habitModal !== null} onClose={() => setHabitModal(null)} title={habitModal === "create" ? "New Habit" : "Edit Habit"}>
+      <FloatingModal open={habitModal !== null} onClose={() => setHabitModal(null)} align="top" title={habitModal === "create" ? "New Habit" : "Edit Habit"}>
         <HabitForm form={habitForm} onSubmit={onHabitSubmit} isPending={createHabit.isPending || updateHabit.isPending} submitLabel={habitModal === "create" ? "Create" : "Save"} />
       </FloatingModal>
 

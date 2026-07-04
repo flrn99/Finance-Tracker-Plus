@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 import { useTheme, type Theme } from "@/lib/theme-context";
 import { useCurrency, type Currency, CURRENCY_INFO } from "@/lib/currency-context";
+import { ExportPanel } from "@/pages/export";
 import { Capacitor } from "@capacitor/core";
 
 interface LayoutProps {
@@ -61,16 +62,21 @@ function QuickPopup({
   title,
   onClose,
   children,
+  wide = false,
 }: {
   title: string;
   onClose: () => void;
   children: React.ReactNode;
+  wide?: boolean;
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-6" onClick={onClose}>
       <div className="absolute inset-0 bg-black/70 animate-in fade-in-0 duration-200" />
       <div
-        className="relative w-full max-w-xs bg-card rounded-2xl shadow-2xl animate-in fade-in zoom-in-95 duration-200 p-4"
+        className={cn(
+          "relative w-full bg-card rounded-2xl shadow-2xl animate-in fade-in zoom-in-95 duration-200 p-4 max-h-[85dvh] overflow-y-auto",
+          wide ? "max-w-md" : "max-w-xs"
+        )}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-3">
@@ -89,7 +95,7 @@ function ProfileMenu() {
   const { user } = useAuth();
   const [location, navigate] = useLocation();
   const [open, setOpen] = useState(false);
-  const [popup, setPopup] = useState<null | "currency" | "theme">(null);
+  const [popup, setPopup] = useState<null | "currency" | "theme" | "export">(null);
   const { currency, setCurrency } = useCurrency();
   const { theme, setTheme } = useTheme();
   const [avatar, setAvatar] = useState<string | null>(() => {
@@ -132,7 +138,7 @@ function ProfileMenu() {
     {
       label: "Export to Excel",
       icon: Download,
-      action: () => { setOpen(false); navigate("/export"); },
+      action: () => { setOpen(false); setPopup("export"); },
     },
     {
       label: "All Settings",
@@ -243,6 +249,14 @@ function ProfileMenu() {
                 </button>
               );
             })}
+          </div>
+        </QuickPopup>
+      )}
+      {/* Popup: export */}
+      {popup === "export" && (
+        <QuickPopup title="Export to Excel" onClose={() => setPopup(null)} wide>
+          <div className="[&>div]:bg-transparent [&>div]:shadow-none">
+            <ExportPanel onDone={() => setPopup(null)} />
           </div>
         </QuickPopup>
       )}
@@ -364,7 +378,7 @@ export default function Layout({ children }: LayoutProps) {
           ref={scrollRef}
           className="flex-1 overflow-y-auto overscroll-contain p-4 md:pt-8 md:pb-8 md:p-8"
           style={{
-            paddingTop: 'calc(env(safe-area-inset-top) + 64px)',
+            paddingTop: 'calc(env(safe-area-inset-top) + 24px)',
             paddingBottom: isIOS ? '110px' : '6rem',
           }}
         >
