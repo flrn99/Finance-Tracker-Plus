@@ -81,7 +81,7 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-3">
-      <h2 className="text-2xl font-bold tracking-tight text-foreground">Dashboard</h2>
+      <h2 className="text-2xl font-bold tracking-tight text-foreground pr-14 min-h-10 flex items-center">Dashboard</h2>
 
       {/* ── Quick Entry ───────────────────────────────────────────── */}
       <QuickEntry />

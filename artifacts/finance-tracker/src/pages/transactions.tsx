@@ -594,7 +594,7 @@ export default function Transactions() {
 
   return (
     <div className="space-y-3 animate-in fade-in duration-500">
-      <h2 className="text-2xl font-bold tracking-tight text-foreground">Transactions</h2>
+      <h2 className="text-2xl font-bold tracking-tight text-foreground pr-14 min-h-10 flex items-center">Transactions</h2>
 
       {/* Filters */}
       <div className="bg-card rounded-2xl shadow-sm p-3 space-y-2.5">
