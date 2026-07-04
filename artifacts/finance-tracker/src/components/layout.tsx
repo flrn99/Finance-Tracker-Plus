@@ -41,7 +41,7 @@ const profileMenuItems = [
 
 function ProfileMenu() {
   const { user } = useAuth();
-  const [, navigate] = useLocation();
+  const [location, navigate] = useLocation();
   const [open, setOpen] = useState(false);
   const [avatar, setAvatar] = useState<string | null>(() => {
     try { return localStorage.getItem("ff-avatar"); } catch { return null; }
@@ -62,6 +62,9 @@ function ProfileMenu() {
     setOpen(false);
     navigate(`/settings?section=${section}`);
   };
+
+  // En settings no tiene sentido mostrar el avatar/dropdown — ya estás ahí
+  if (location.startsWith("/settings")) return null;
 
   return (
     <>

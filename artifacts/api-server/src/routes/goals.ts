@@ -1,12 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import {
-  goalsTable,
-  habitsTable,
-  habitLogsTable,
-  insertGoalSchema,
-  insertHabitSchema,
-} from "@workspace/db";
+import { goalsTable, habitsTable, habitLogsTable } from "@workspace/db";
 import { eq, and, gte, lte, desc, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { authMiddleware } from "../middlewares/auth";
@@ -16,6 +10,20 @@ const router = Router();
 router.use(authMiddleware);
 
 const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+
+const goalBodySchema = z.object({
+  name: z.string().min(1),
+  targetAmount: z.coerce.number().positive(),
+  currentAmount: z.coerce.number().min(0).optional(),
+  icon: z.string().nullish(),
+  color: z.string().nullish(),
+});
+
+const habitBodySchema = z.object({
+  name: z.string().min(1),
+  icon: z.string().nullish(),
+  color: z.string().nullish(),
+});
 
 function computeStreak(dates: string[]): number {
   const set = new Set(dates);
@@ -60,7 +68,7 @@ router.get("/goals", async (req, res) => {
 });
 
 router.post("/goals", async (req, res) => {
-  const parsed = insertGoalSchema.safeParse(req.body);
+  const parsed = goalBodySchema.safeParse(req.body);
   if (!parsed.success)
     return res.status(400).json({ error: "Invalid body", details: parsed.error.issues });
 
@@ -91,7 +99,7 @@ router.patch("/goals/:id", async (req, res) => {
   const id = Number(req.params.id);
   if (Number.isNaN(id)) return res.status(400).json({ error: "Invalid id" });
 
-  const parsed = insertGoalSchema.partial().safeParse(req.body);
+  const parsed = goalBodySchema.partial().safeParse(req.body);
   if (!parsed.success)
     return res.status(400).json({ error: "Invalid body", details: parsed.error.issues });
 
@@ -133,7 +141,6 @@ router.delete("/goals/:id", async (req, res) => {
 
 // ---------- HABITS ----------
 
-// Lista de hábitos con sus días marcados (opcional ?from=YYYY-MM-DD) y racha
 router.get("/habits", async (req, res) => {
   const userId = (req as any).userId;
   const from =
@@ -151,7 +158,6 @@ router.get("/habits", async (req, res) => {
 
   const habitIds = habits.map((h) => h.id);
 
-  // Todos los logs (necesarios para la racha)
   const allLogs = await db
     .select({ habitId: habitLogsTable.habitId, date: habitLogsTable.date })
     .from(habitLogsTable)
@@ -172,7 +178,7 @@ router.get("/habits", async (req, res) => {
 });
 
 router.post("/habits", async (req, res) => {
-  const parsed = insertHabitSchema.safeParse(req.body);
+  const parsed = habitBodySchema.safeParse(req.body);
   if (!parsed.success)
     return res.status(400).json({ error: "Invalid body", details: parsed.error.issues });
 
@@ -196,7 +202,7 @@ router.patch("/habits/:id", async (req, res) => {
   const id = Number(req.params.id);
   if (Number.isNaN(id)) return res.status(400).json({ error: "Invalid id" });
 
-  const parsed = insertHabitSchema.partial().safeParse(req.body);
+  const parsed = habitBodySchema.partial().safeParse(req.body);
   if (!parsed.success)
     return res.status(400).json({ error: "Invalid body", details: parsed.error.issues });
 
@@ -233,7 +239,6 @@ router.delete("/habits/:id", async (req, res) => {
   return res.status(204).send();
 });
 
-// Logs de un hábito en un rango
 router.get("/habits/:id/logs", async (req, res) => {
   const id = Number(req.params.id);
   if (Number.isNaN(id)) return res.status(400).json({ error: "Invalid id" });
@@ -268,7 +273,6 @@ router.get("/habits/:id/logs", async (req, res) => {
   });
 });
 
-// Toggle de un día (marca si no existe, desmarca si existe)
 router.put("/habits/:id/logs/:date", async (req, res) => {
   const id = Number(req.params.id);
   if (Number.isNaN(id)) return res.status(400).json({ error: "Invalid id" });

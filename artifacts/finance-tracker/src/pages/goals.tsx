@@ -24,6 +24,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
+import { useCurrency, CURRENCY_INFO } from "@/lib/currency-context";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -261,7 +262,10 @@ function ColorSelect({ value, onChange }: { value: string; onChange: (c: string)
 
 function IconPicker({ value, onChange, color }: { value: string; onChange: (i: string) => void; color: string }) {
   return (
-    <div className="grid grid-cols-6 gap-1.5">
+    <div
+      className="flex gap-1.5 overflow-x-auto pb-1.5 -mx-1 px-1"
+      style={{ scrollbarWidth: "none", WebkitOverflowScrolling: "touch" }}
+    >
       {ICON_KEYS.map((key) => {
         const Comp = ICONS[key];
         const active = value === key;
@@ -271,7 +275,7 @@ function IconPicker({ value, onChange, color }: { value: string; onChange: (i: s
             type="button"
             onClick={() => onChange(key)}
             className={cn(
-              "aspect-square rounded-xl flex items-center justify-center transition-all active:scale-90",
+              "w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-all active:scale-90",
               active ? "" : "bg-muted"
             )}
             style={active ? { backgroundColor: `${color}30`, boxShadow: `0 0 0 1.5px ${color}` } : undefined}
@@ -453,8 +457,8 @@ function Heatmap({
       className="w-full"
       style={{
         display: "grid",
-        // Filas de altura fija — compact usa celdas de 6px para que la card sea bajita
-        gridTemplateRows: compact ? "repeat(7, 6px)" : "repeat(7, 1fr)",
+        // Filas de altura fija — compact usa celdas de 9px: bajito pero con presencia
+        gridTemplateRows: compact ? "repeat(7, 9px)" : "repeat(7, 1fr)",
         gridAutoFlow: "column",
         gridAutoColumns: "1fr",
         gap: "2px",
@@ -630,6 +634,12 @@ export default function Goals() {
   const [goalModal, setGoalModal] = useState<"create" | number | null>(null);
   const [habitModal, setHabitModal] = useState<"create" | number | null>(null);
   const [detailId, setDetailId] = useState<number | null>(null);
+  const [addMoneyGoal, setAddMoneyGoal] = useState<Goal | null>(null);
+  const [addAmount, setAddAmount] = useState("");
+
+  // Símbolo de la moneda elegida en settings (Q, $, €, ...)
+  const { currency } = useCurrency();
+  const symbol = ((CURRENCY_INFO as Record<string, any>)[currency]?.symbol as string | undefined) ?? currency;
 
   const goalsQuery = useQuery({ queryKey: ["goals"], queryFn: () => api<Goal[]>("/goals") });
   const habitsQuery = useQuery({ queryKey: ["habits"], queryFn: () => api<Habit[]>("/habits") });
@@ -701,6 +711,26 @@ export default function Goals() {
     onError: (_e, _id, ctx) => {
       if (ctx?.prev) queryClient.setQueryData(["goals"], ctx.prev);
       toast({ title: "Failed to delete goal", variant: "destructive" });
+    },
+    onSettled: () => invalidateGoals(),
+  });
+
+  // 💰 Agregar dinero a una meta — solo actualiza currentAmount, optimista
+  const addToGoal = useMutation({
+    mutationFn: ({ id, newAmount }: { id: number; newAmount: number }) =>
+      api(`/goals/${id}`, { method: "PATCH", body: JSON.stringify({ currentAmount: String(newAmount) }) }),
+    onMutate: async ({ id, newAmount }) => {
+      setAddMoneyGoal(null);
+      await queryClient.cancelQueries({ queryKey: ["goals"] });
+      const prev = queryClient.getQueryData<Goal[]>(["goals"]);
+      queryClient.setQueryData<Goal[]>(["goals"], (old) =>
+        (old ?? []).map((g) => (g.id === id ? { ...g, currentAmount: newAmount } : g))
+      );
+      return { prev };
+    },
+    onError: (e, _v, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(["goals"], ctx.prev);
+      toast({ title: "Failed to add money", description: String(e), variant: "destructive" });
     },
     onSettled: () => invalidateGoals(),
   });
@@ -843,7 +873,7 @@ export default function Goals() {
 
   const goals = goalsQuery.data ?? [];
   const habits = habitsQuery.data ?? [];
-  const heatmapWeeks = useMemo(() => buildWeeks(20), []);
+  const heatmapWeeks = useMemo(() => buildWeeks(30), []);
   const today = todayKey();
   const detailHabit = detailId !== null ? habits.find((h) => h.id === detailId) ?? null : null;
   const isLoading = goalsQuery.isLoading || habitsQuery.isLoading;
@@ -895,13 +925,21 @@ export default function Goals() {
                           <div className="min-w-0">
                             <p className="text-sm font-bold leading-tight truncate">{g.name}</p>
                             <p className="text-[11px] text-muted-foreground leading-tight">
-                              {g.currentAmount.toLocaleString()} / {g.targetAmount.toLocaleString()}
+                              {symbol} {g.currentAmount.toLocaleString()} <span className="opacity-60">/ {symbol} {g.targetAmount.toLocaleString()}</span>
                             </p>
                           </div>
                         </div>
-                        <div className="flex items-center gap-0.5 shrink-0">
-                          <span className="text-xs font-bold mr-1" style={{ color }}>{Math.round(pct)}%</span>
-                          <button onClick={() => openEditGoal(g)} className="h-6 w-6 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-all">
+                        <div className="flex items-center gap-1 shrink-0">
+                          <span className="text-xs font-bold" style={{ color }}>{Math.round(pct)}%</span>
+                          <button
+                            onClick={() => { if (g.id < 0) return; setAddMoneyGoal(g); setAddAmount(""); }}
+                            className="h-7 px-2 flex items-center gap-0.5 rounded-full text-black text-[11px] font-bold active:scale-90 transition-transform"
+                            style={{ backgroundColor: color }}
+                          >
+                            <Plus className="h-3 w-3" strokeWidth={3} />
+                            {symbol}
+                          </button>
+                          <button onClick={() => { if (g.id < 0) return; openEditGoal(g); }} className="h-6 w-6 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-all">
                             <Pencil className="h-3 w-3" />
                           </button>
                           <AlertDialog>
@@ -977,7 +1015,7 @@ export default function Goals() {
                           </div>
                         </button>
                         <button
-                          onClick={() => toggleLog.mutate({ id: h.id, date: today })}
+                          onClick={() => { if (h.id < 0) return; toggleLog.mutate({ id: h.id, date: today }); }}
                           className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-all active:scale-90"
                           style={{ backgroundColor: doneToday ? color : `${color}20` }}
                         >
@@ -998,6 +1036,56 @@ export default function Goals() {
 
       {/* ------------------ MODALES ------------------ */}
 
+      {/* Agregar dinero a una meta */}
+      <FloatingModal
+        open={addMoneyGoal !== null}
+        onClose={() => setAddMoneyGoal(null)}
+        title={addMoneyGoal ? `Add to ${addMoneyGoal.name}` : ""}
+      >
+        {addMoneyGoal && (
+          <div className="space-y-3">
+            <div className="relative">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-bold text-muted-foreground">{symbol}</span>
+              <Input
+                type="number"
+                inputMode="decimal"
+                step="any"
+                autoFocus
+                placeholder="0.00"
+                value={addAmount}
+                onChange={(e) => setAddAmount(e.target.value)}
+                className="rounded-2xl pl-10 text-lg font-bold"
+              />
+            </div>
+            <div className="flex gap-1.5">
+              {[50, 100, 500, 1000].map((q) => (
+                <button
+                  key={q}
+                  type="button"
+                  onClick={() => setAddAmount(String((parseFloat(addAmount) || 0) + q))}
+                  className="flex-1 py-1.5 rounded-xl bg-muted text-xs font-bold active:scale-95 transition-transform"
+                >
+                  +{q}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground text-center">
+              {symbol} {addMoneyGoal.currentAmount.toLocaleString()} → {symbol} {(addMoneyGoal.currentAmount + (parseFloat(addAmount) || 0)).toLocaleString()}
+            </p>
+            <Button
+              onClick={() => {
+                const n = parseFloat(addAmount);
+                if (!addMoneyGoal || Number.isNaN(n) || n <= 0) return;
+                addToGoal.mutate({ id: addMoneyGoal.id, newAmount: addMoneyGoal.currentAmount + n });
+              }}
+              className="w-full bg-[#A8FF3E] text-black hover:bg-[#9bfe32] border-0 rounded-2xl"
+            >
+              Add {symbol} {addAmount || "0"}
+            </Button>
+          </div>
+        )}
+      </FloatingModal>
+
       <FloatingModal open={goalModal !== null} onClose={() => setGoalModal(null)} title={goalModal === "create" ? "New Goal" : "Edit Goal"}>
         <GoalForm form={goalForm} onSubmit={onGoalSubmit} isPending={createGoal.isPending || updateGoal.isPending} submitLabel={goalModal === "create" ? "Create" : "Save"} />
       </FloatingModal>
@@ -1010,7 +1098,7 @@ export default function Goals() {
         <HabitDetail
           habit={detailHabit}
           onClose={() => setDetailId(null)}
-          onToggleDay={(date) => toggleLog.mutate({ id: detailHabit.id, date })}
+          onToggleDay={(date) => { if (detailHabit.id < 0) return; toggleLog.mutate({ id: detailHabit.id, date }); }}
           onEdit={() => { setDetailId(null); openEditHabit(detailHabit); }}
           onDelete={() => deleteHabit.mutate(detailHabit.id)}
         />

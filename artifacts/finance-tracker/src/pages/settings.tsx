@@ -96,16 +96,11 @@ export default function Settings() {
     setShowAvatarPicker(false);
   };
 
-  // Scroll a la sección indicada por ?section= (viene del dropdown de perfil)
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const section = params.get("section");
-    if (!section) return;
-    const t = setTimeout(() => {
-      document.getElementById(`section-${section}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 150);
-    return () => clearTimeout(t);
-  }, []);
+  // Sección activa (?section= del dropdown de perfil) — muestra SOLO esa sección
+  const [activeSection, setActiveSection] = useState<string | null>(() => {
+    try { return new URLSearchParams(window.location.search).get("section"); } catch { return null; }
+  });
+  const showSec = (s: string) => !activeSection || activeSection === s;
 
   const handleEraseAll = async () => {
     setErasing(true);
@@ -299,8 +294,19 @@ export default function Settings() {
         "space-y-6 animate-in fade-in duration-500 max-w-lg transition-all",
         isGhostShieldActive && "pointer-events-none select-none"
       )}>
+        {/* Barra de regreso cuando se ve una sola sección */}
+        {activeSection && (
+          <button
+            onClick={() => setActiveSection(null)}
+            className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors px-1"
+          >
+            <ChevronRight className="h-4 w-4 rotate-180" />
+            All Settings
+          </button>
+        )}
+
         {/* Profile header */}
-        <div id="section-profile" className="flex flex-col items-center justify-center py-4 gap-2 w-full">
+        <div id="section-profile" className={cn("flex flex-col items-center justify-center py-4 gap-2 w-full", !showSec("profile") && "hidden")}>
           <div className="relative" onClick={() => setShowAvatarPicker(true)}>
             <div className="w-20 h-20 rounded-full overflow-hidden bg-[#A8FF3E]">
               {avatar ? (
@@ -338,7 +344,7 @@ export default function Settings() {
         </div>
 
         {/* Preferences */}
-        <div id="section-preferences" className="space-y-2">
+        <div id="section-preferences" className={cn("space-y-2", !showSec("preferences") && "hidden")}>
           <SectionTitle title="Preferences" />
           <Section>
             <SettingItem
@@ -379,7 +385,7 @@ export default function Settings() {
         </div>
 
         {/* Data */}
-        <div id="section-data" className="space-y-2">
+        <div id="section-data" className={cn("space-y-2", !showSec("data") && "hidden")}>
           <SectionTitle title="Data" />
           <Section>
             <Link href="/export">
@@ -419,7 +425,7 @@ export default function Settings() {
         </div>
 
         {/* Security */}
-        <div id="section-security" className="space-y-2">
+        <div id="section-security" className={cn("space-y-2", !showSec("security") && "hidden")}>
           <SectionTitle title="Security" />
           <Section>
             <SettingItem
@@ -445,7 +451,7 @@ export default function Settings() {
         </div>
 
         {/* Account - ESTA ES LA SECCIÓN QUE ME COMÍ */}
-        <div id="section-account" className="space-y-2">
+        <div id="section-account" className={cn("space-y-2", !showSec("account") && "hidden")}>
           <SectionTitle title="Account" />
           <Section>
             <AlertDialog>
