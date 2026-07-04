@@ -162,7 +162,12 @@ function ProfileMenu() {
         }}
       >
         {avatar === "male" || avatar === "female" ? (
-          <img src={`/${avatar}.png`} alt="avatar" className="w-full h-full object-cover" />
+          <img
+            src={`/${avatar}.png`}
+            alt="avatar"
+            className="w-full h-full object-cover"
+            style={{ filter: location.startsWith("/insights") ? "grayscale(100%)" : undefined }}
+          />
         ) : (
           <span className="text-sm font-bold text-[#7DD900]">{initial}</span>
         )}

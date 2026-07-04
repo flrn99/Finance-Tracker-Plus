@@ -934,7 +934,7 @@ export default function Goals() {
 
   return (
     <div className="space-y-4 animate-in fade-in duration-500">
-      <h2 className="text-2xl font-bold tracking-tight pr-14">Goals</h2>
+      <h2 className="text-2xl font-bold tracking-tight pr-14 min-h-10 flex items-center">Goals</h2>
 
       {isLoading ? (
         <div className="space-y-2">
