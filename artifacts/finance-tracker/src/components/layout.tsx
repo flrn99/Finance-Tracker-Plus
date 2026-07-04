@@ -154,7 +154,12 @@ function ProfileMenu() {
           Scrollea junto con el contenido, como el título. */}
       <button
         onClick={() => setOpen((v) => !v)}
-        className="absolute top-0 right-0 z-30 w-10 h-10 rounded-full flex items-center justify-center active:scale-90 transition-transform overflow-hidden"
+        className={cn(
+          "absolute z-30 w-10 h-10 rounded-full flex items-center justify-center active:scale-90 transition-transform overflow-hidden",
+          // En insights el panel azul tiene esquinas y padding grandes:
+          // más inset para quedar DENTRO del recuadro, alineado con su contenido
+          location.startsWith("/insights") ? "top-6 right-6" : "top-3 right-3"
+        )}
         style={{
           background: "hsl(var(--card))",
           border: "1px solid hsl(var(--foreground) / 0.08)",
