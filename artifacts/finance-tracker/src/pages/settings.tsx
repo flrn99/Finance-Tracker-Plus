@@ -92,8 +92,20 @@ export default function Settings() {
   const selectAvatar = (a: "male" | "female") => {
     setAvatar(a);
     try { localStorage.setItem("ff-avatar", a); } catch {}
+    try { window.dispatchEvent(new Event("ff-avatar-changed")); } catch {}
     setShowAvatarPicker(false);
   };
+
+  // Scroll a la sección indicada por ?section= (viene del dropdown de perfil)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const section = params.get("section");
+    if (!section) return;
+    const t = setTimeout(() => {
+      document.getElementById(`section-${section}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 150);
+    return () => clearTimeout(t);
+  }, []);
 
   const handleEraseAll = async () => {
     setErasing(true);
@@ -288,7 +300,7 @@ export default function Settings() {
         isGhostShieldActive && "pointer-events-none select-none"
       )}>
         {/* Profile header */}
-        <div className="flex flex-col items-center justify-center py-4 gap-2 w-full">
+        <div id="section-profile" className="flex flex-col items-center justify-center py-4 gap-2 w-full">
           <div className="relative" onClick={() => setShowAvatarPicker(true)}>
             <div className="w-20 h-20 rounded-full overflow-hidden bg-[#A8FF3E]">
               {avatar ? (
@@ -326,7 +338,7 @@ export default function Settings() {
         </div>
 
         {/* Preferences */}
-        <div className="space-y-2">
+        <div id="section-preferences" className="space-y-2">
           <SectionTitle title="Preferences" />
           <Section>
             <SettingItem
@@ -367,7 +379,7 @@ export default function Settings() {
         </div>
 
         {/* Data */}
-        <div className="space-y-2">
+        <div id="section-data" className="space-y-2">
           <SectionTitle title="Data" />
           <Section>
             <Link href="/export">
@@ -407,7 +419,7 @@ export default function Settings() {
         </div>
 
         {/* Security */}
-        <div className="space-y-2">
+        <div id="section-security" className="space-y-2">
           <SectionTitle title="Security" />
           <Section>
             <SettingItem
@@ -433,7 +445,7 @@ export default function Settings() {
         </div>
 
         {/* Account - ESTA ES LA SECCIÓN QUE ME COMÍ */}
-        <div className="space-y-2">
+        <div id="section-account" className="space-y-2">
           <SectionTitle title="Account" />
           <Section>
             <AlertDialog>

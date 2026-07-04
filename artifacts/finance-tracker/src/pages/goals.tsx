@@ -6,6 +6,13 @@ import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Form,
   FormControl,
   FormField,
@@ -29,36 +36,23 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
-  Plus,
-  X,
-  Check,
-  Pencil,
-  Trash2,
-  Flame,
-  ChevronLeft,
-  ChevronRight,
-  Target,
-  PiggyBank,
-  Wallet,
-  Ban,
-  Coffee,
-  ShoppingBag,
-  Utensils,
-  Candy,
+  Plus, X, Check, Pencil, Trash2, Flame, ChevronLeft, ChevronRight,
+  Target, PiggyBank, Wallet, Ban, Coffee, ShoppingBag, Utensils, Candy,
+  Dumbbell, Cigarette, Beer, Car, Gamepad2, Shirt, Smartphone, Plane,
+  Home, Gift, BookOpen, Music,
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
 /* API                                                                 */
 /* ------------------------------------------------------------------ */
 
-// Si prefieres, reemplaza esta constante por tu export de "@/lib/api-config"
-const API_BASE = `${import.meta.env.VITE_API_URL ?? "https://finance-tracker-api-087e.onrender.com"}/api`;
+import { getApiUrl } from "@/lib/api-config";
 
 async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
 
-  const res = await fetch(`${API_BASE}${path}`, {
+  const res = await fetch(getApiUrl(`/api${path}`), {
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -67,7 +61,11 @@ async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
     },
   });
 
-  if (!res.ok) throw new Error(`API ${res.status}`);
+  if (!res.ok) {
+    let detail = "";
+    try { detail = (await res.json())?.error ?? ""; } catch {}
+    throw new Error(`${res.status}${detail ? `: ${detail}` : ""}`);
+  }
   if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
 }
@@ -88,12 +86,12 @@ interface Habit {
   icon: string | null;
   color: string | null;
   createdAt: string;
-  logs: string[]; // ["YYYY-MM-DD", ...]
+  logs: string[];
   streak: number;
 }
 
 /* ------------------------------------------------------------------ */
-/* Helpers                                                             */
+/* Icons & colors                                                      */
 /* ------------------------------------------------------------------ */
 
 const ICONS: Record<string, React.ComponentType<{ className?: string; style?: React.CSSProperties }>> = {
@@ -105,14 +103,48 @@ const ICONS: Record<string, React.ComponentType<{ className?: string; style?: Re
   shoppingbag: ShoppingBag,
   utensils: Utensils,
   candy: Candy,
+  dumbbell: Dumbbell,
+  cigarette: Cigarette,
+  beer: Beer,
+  car: Car,
+  gamepad: Gamepad2,
+  shirt: Shirt,
+  smartphone: Smartphone,
+  plane: Plane,
+  home: Home,
+  gift: Gift,
+  book: BookOpen,
+  music: Music,
 };
 
 const ICON_KEYS = Object.keys(ICONS);
 
-const PRESET_COLORS = [
-  "#A8FF3E", "#22c55e", "#14b8a6", "#0ea5e9", "#6366f1",
-  "#a855f7", "#ec4899", "#f43f5e", "#f97316", "#eab308",
+const COLOR_OPTIONS: { hex: string; name: string }[] = [
+  { hex: "#A8FF3E", name: "Flow Green" },
+  { hex: "#84cc16", name: "Toxic Lime" },
+  { hex: "#22c55e", name: "Matcha Rush" },
+  { hex: "#10b981", name: "Emerald City" },
+  { hex: "#14b8a6", name: "Caribbean Wave" },
+  { hex: "#06b6d4", name: "Electric Lagoon" },
+  { hex: "#0ea5e9", name: "Miami Sky" },
+  { hex: "#3b82f6", name: "Deep Ocean" },
+  { hex: "#6366f1", name: "Midnight Neon" },
+  { hex: "#7c3aed", name: "Galaxy Violet" },
+  { hex: "#8b5cf6", name: "Purple Haze" },
+  { hex: "#a855f7", name: "Cosmic Grape" },
+  { hex: "#d946ef", name: "Cyber Magenta" },
+  { hex: "#ec4899", name: "Neon Flamingo" },
+  { hex: "#f43f5e", name: "Punk Rose" },
+  { hex: "#ef4444", name: "Lava Burst" },
+  { hex: "#f97316", name: "Sunset Blaze" },
+  { hex: "#f59e0b", name: "Liquid Gold" },
+  { hex: "#eab308", name: "Electric Banana" },
+  { hex: "#64748b", name: "Moon Dust" },
 ];
+
+/* ------------------------------------------------------------------ */
+/* Date helpers                                                        */
+/* ------------------------------------------------------------------ */
 
 function toKey(d: Date): string {
   const y = d.getFullYear();
@@ -125,7 +157,6 @@ function todayKey(): string {
   return toKey(new Date());
 }
 
-/** Semanas (columnas de 7 días, lunes arriba) terminando en la semana actual */
 function buildWeeks(numWeeks: number): string[][] {
   const today = new Date();
   const dow = (today.getDay() + 6) % 7; // 0 = lunes
@@ -146,25 +177,31 @@ function buildWeeks(numWeeks: number): string[][] {
   return weeks;
 }
 
+/** Racha en cliente — misma lógica que el backend, para optimistic updates */
+function clientStreak(dates: Set<string>): number {
+  const cursor = new Date();
+  if (!dates.has(toKey(cursor))) cursor.setDate(cursor.getDate() - 1);
+  let streak = 0;
+  while (dates.has(toKey(cursor))) {
+    streak++;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  return streak;
+}
+
 function HabitIcon({ icon, className, style }: { icon: string | null; className?: string; style?: React.CSSProperties }) {
   const Comp = (icon && ICONS[icon]) || Target;
   return <Comp className={className} style={style} />;
 }
 
 /* ------------------------------------------------------------------ */
-/* Modal flotante (mismo patrón que categories)                        */
+/* Modal flotante                                                      */
 /* ------------------------------------------------------------------ */
 
 function FloatingModal({
-  open,
-  onClose,
-  title,
-  children,
+  open, onClose, title, children,
 }: {
-  open: boolean;
-  onClose: () => void;
-  title: string;
-  children: React.ReactNode;
+  open: boolean; onClose: () => void; title: string; children: React.ReactNode;
 }) {
   if (!open) return null;
   return (
@@ -186,7 +223,7 @@ function FloatingModal({
         style={{ willChange: "transform, opacity", transform: "translate3d(0,0,0)" }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-5 pt-5 pb-4">
+        <div className="flex items-center justify-between px-5 pt-5 pb-3">
           <p className="font-bold text-base">{title}</p>
           <button onClick={onClose} className="w-7 h-7 rounded-full bg-muted flex items-center justify-center">
             <X className="h-3.5 w-3.5" />
@@ -199,30 +236,32 @@ function FloatingModal({
 }
 
 /* ------------------------------------------------------------------ */
-/* Pickers de color e ícono                                            */
+/* Pickers                                                             */
 /* ------------------------------------------------------------------ */
 
-function ColorPicker({ value, onChange }: { value: string; onChange: (c: string) => void }) {
+function ColorSelect({ value, onChange }: { value: string; onChange: (c: string) => void }) {
   return (
-    <div className="flex flex-wrap gap-2">
-      {PRESET_COLORS.map((c) => (
-        <button
-          key={c}
-          type="button"
-          onClick={() => onChange(c)}
-          className="w-8 h-8 rounded-full flex items-center justify-center transition-transform active:scale-90"
-          style={{ backgroundColor: c }}
-        >
-          {value === c && <Check className="h-4 w-4 text-black" />}
-        </button>
-      ))}
-    </div>
+    <Select value={value} onValueChange={onChange}>
+      <SelectTrigger className="rounded-2xl">
+        <SelectValue placeholder="Pick a color" />
+      </SelectTrigger>
+      <SelectContent className="max-h-64">
+        {COLOR_OPTIONS.map((c) => (
+          <SelectItem key={c.hex} value={c.hex}>
+            <span className="flex items-center gap-2">
+              <span className="w-4 h-4 rounded-full shrink-0" style={{ backgroundColor: c.hex }} />
+              {c.name}
+            </span>
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }
 
 function IconPicker({ value, onChange, color }: { value: string; onChange: (i: string) => void; color: string }) {
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="grid grid-cols-6 gap-1.5">
       {ICON_KEYS.map((key) => {
         const Comp = ICONS[key];
         const active = value === key;
@@ -232,12 +271,12 @@ function IconPicker({ value, onChange, color }: { value: string; onChange: (i: s
             type="button"
             onClick={() => onChange(key)}
             className={cn(
-              "w-10 h-10 rounded-2xl flex items-center justify-center transition-all active:scale-90",
+              "aspect-square rounded-xl flex items-center justify-center transition-all active:scale-90",
               active ? "" : "bg-muted"
             )}
-            style={active ? { backgroundColor: `${color}30` } : undefined}
+            style={active ? { backgroundColor: `${color}30`, boxShadow: `0 0 0 1.5px ${color}` } : undefined}
           >
-            <Comp className="h-5 w-5" style={{ color: active ? color : undefined }} />
+            <Comp className="h-4 w-4" style={{ color: active ? color : undefined }} />
           </button>
         );
       })}
@@ -266,10 +305,7 @@ const habitSchema = z.object({
 type HabitFormValues = z.infer<typeof habitSchema>;
 
 function GoalForm({
-  form,
-  onSubmit,
-  isPending,
-  submitLabel,
+  form, onSubmit, isPending, submitLabel,
 }: {
   form: ReturnType<typeof useForm<GoalFormValues>>;
   onSubmit: (data: GoalFormValues) => void;
@@ -323,21 +359,21 @@ function GoalForm({
         </div>
         <FormField
           control={form.control}
-          name="icon"
+          name="color"
           render={({ field }) => (
             <FormItem>
-              <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Icon</FormLabel>
-              <IconPicker value={field.value} onChange={field.onChange} color={color} />
+              <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Color</FormLabel>
+              <ColorSelect value={field.value} onChange={field.onChange} />
             </FormItem>
           )}
         />
         <FormField
           control={form.control}
-          name="color"
+          name="icon"
           render={({ field }) => (
             <FormItem>
-              <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Color</FormLabel>
-              <ColorPicker value={field.value} onChange={field.onChange} />
+              <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Icon</FormLabel>
+              <IconPicker value={field.value} onChange={field.onChange} color={color} />
             </FormItem>
           )}
         />
@@ -350,10 +386,7 @@ function GoalForm({
 }
 
 function HabitForm({
-  form,
-  onSubmit,
-  isPending,
-  submitLabel,
+  form, onSubmit, isPending, submitLabel,
 }: {
   form: ReturnType<typeof useForm<HabitFormValues>>;
   onSubmit: (data: HabitFormValues) => void;
@@ -379,21 +412,21 @@ function HabitForm({
         />
         <FormField
           control={form.control}
-          name="icon"
+          name="color"
           render={({ field }) => (
             <FormItem>
-              <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Icon</FormLabel>
-              <IconPicker value={field.value} onChange={field.onChange} color={color} />
+              <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Color</FormLabel>
+              <ColorSelect value={field.value} onChange={field.onChange} />
             </FormItem>
           )}
         />
         <FormField
           control={form.control}
-          name="color"
+          name="icon"
           render={({ field }) => (
             <FormItem>
-              <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Color</FormLabel>
-              <ColorPicker value={field.value} onChange={field.onChange} />
+              <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Icon</FormLabel>
+              <IconPicker value={field.value} onChange={field.onChange} color={color} />
             </FormItem>
           )}
         />
@@ -406,19 +439,13 @@ function HabitForm({
 }
 
 /* ------------------------------------------------------------------ */
-/* Heatmap (estilo HabitKit)                                           */
+/* Heatmap                                                             */
 /* ------------------------------------------------------------------ */
 
 function Heatmap({
-  weeks,
-  logged,
-  color,
-  cellRadius = 3,
+  weeks, logged, color, cellRadius = 2, compact = false,
 }: {
-  weeks: string[][];
-  logged: Set<string>;
-  color: string;
-  cellRadius?: number;
+  weeks: string[][]; logged: Set<string>; color: string; cellRadius?: number; compact?: boolean;
 }) {
   const today = todayKey();
   return (
@@ -426,10 +453,11 @@ function Heatmap({
       className="w-full"
       style={{
         display: "grid",
-        gridTemplateRows: "repeat(7, 1fr)",
+        // Filas de altura fija — compact usa celdas de 6px para que la card sea bajita
+        gridTemplateRows: compact ? "repeat(7, 6px)" : "repeat(7, 1fr)",
         gridAutoFlow: "column",
         gridAutoColumns: "1fr",
-        gap: "3px",
+        gap: "2px",
       }}
     >
       {weeks.map((week, wi) =>
@@ -439,16 +467,12 @@ function Heatmap({
           return (
             <div
               key={`${wi}-${di}`}
-              className="aspect-square"
+              className={compact ? undefined : "aspect-square"}
               style={{
                 gridColumn: wi + 1,
                 gridRow: di + 1,
                 borderRadius: `${cellRadius}px`,
-                backgroundColor: isFuture
-                  ? "transparent"
-                  : isDone
-                    ? color
-                    : `${color}26`,
+                backgroundColor: isFuture ? "transparent" : isDone ? color : `${color}22`,
               }}
             />
           );
@@ -459,26 +483,20 @@ function Heatmap({
 }
 
 /* ------------------------------------------------------------------ */
-/* Modal de detalle de hábito                                          */
+/* Detalle de hábito                                                   */
 /* ------------------------------------------------------------------ */
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const DOW = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 function HabitDetail({
-  habit,
-  onClose,
-  onToggleDay,
-  onEdit,
-  onDelete,
-  togglingDate,
+  habit, onClose, onToggleDay, onEdit, onDelete,
 }: {
   habit: Habit;
   onClose: () => void;
   onToggleDay: (date: string) => void;
   onEdit: () => void;
   onDelete: () => void;
-  togglingDate: string | null;
 }) {
   const now = new Date();
   const [month, setMonth] = useState({ y: now.getFullYear(), m: now.getMonth() });
@@ -487,7 +505,6 @@ function HabitDetail({
   const weeks = useMemo(() => buildWeeks(26), []);
   const today = todayKey();
 
-  // Grid del mes: lunes primero
   const monthDays = useMemo(() => {
     const first = new Date(month.y, month.m, 1);
     const startOffset = (first.getDay() + 6) % 7;
@@ -496,55 +513,41 @@ function HabitDetail({
     const cells: { key: string; day: number; inMonth: boolean }[] = [];
     const cursor = new Date(start);
     for (let i = 0; i < 42; i++) {
-      cells.push({
-        key: toKey(cursor),
-        day: cursor.getDate(),
-        inMonth: cursor.getMonth() === month.m,
-      });
+      cells.push({ key: toKey(cursor), day: cursor.getDate(), inMonth: cursor.getMonth() === month.m });
       cursor.setDate(cursor.getDate() + 1);
     }
     return cells;
   }, [month]);
 
-  const prevMonth = () =>
-    setMonth((p) => (p.m === 0 ? { y: p.y - 1, m: 11 } : { y: p.y, m: p.m - 1 }));
-  const nextMonth = () =>
-    setMonth((p) => (p.m === 11 ? { y: p.y + 1, m: 0 } : { y: p.y, m: p.m + 1 }));
+  const prevMonth = () => setMonth((p) => (p.m === 0 ? { y: p.y - 1, m: 11 } : { y: p.y, m: p.m - 1 }));
+  const nextMonth = () => setMonth((p) => (p.m === 11 ? { y: p.y + 1, m: 0 } : { y: p.y, m: p.m + 1 }));
 
   return (
     <FloatingModal open onClose={onClose} title="">
-      <div className="-mt-8 space-y-4">
-        {/* Header */}
-        <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${color}25` }}>
-            <HabitIcon icon={habit.icon} className="h-5 w-5" style={{ color }} />
+      <div className="-mt-8 space-y-3">
+        <div className="flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${color}25` }}>
+            <HabitIcon icon={habit.icon} className="h-4 w-4" style={{ color }} />
           </div>
-          <div className="min-w-0">
-            <p className="font-bold text-lg leading-tight uppercase tracking-wide truncate">{habit.name}</p>
-          </div>
+          <p className="font-bold text-base leading-tight uppercase tracking-wide truncate">{habit.name}</p>
         </div>
 
-        {/* Heatmap 6 meses */}
         <Heatmap weeks={weeks} logged={logged} color={color} cellRadius={2} />
 
-        {/* Streak + acciones */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted">
-            <Flame className="h-4 w-4" style={{ color }} />
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-muted">
+            <Flame className="h-3.5 w-3.5" style={{ color }} />
             <span className="text-sm font-bold">{habit.streak}</span>
-            <span className="text-xs text-muted-foreground">day streak</span>
+            <span className="text-[11px] text-muted-foreground">streak</span>
           </div>
           <div className="flex items-center gap-1">
-            <button
-              onClick={onEdit}
-              className="h-9 w-9 flex items-center justify-center rounded-2xl bg-muted text-muted-foreground hover:text-foreground transition-all"
-            >
-              <Pencil className="h-4 w-4" />
+            <button onClick={onEdit} className="h-8 w-8 flex items-center justify-center rounded-xl bg-muted text-muted-foreground hover:text-foreground transition-all">
+              <Pencil className="h-3.5 w-3.5" />
             </button>
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <button className="h-9 w-9 flex items-center justify-center rounded-2xl bg-muted text-muted-foreground hover:text-destructive transition-all">
-                  <Trash2 className="h-4 w-4" />
+                <button className="h-8 w-8 flex items-center justify-center rounded-xl bg-muted text-muted-foreground hover:text-destructive transition-all">
+                  <Trash2 className="h-3.5 w-3.5" />
                 </button>
               </AlertDialogTrigger>
               <AlertDialogContent>
@@ -556,10 +559,7 @@ function HabitDetail({
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={onDelete}
-                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90 border-0"
-                  >
+                  <AlertDialogAction onClick={onDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90 border-0">
                     Delete
                   </AlertDialogAction>
                 </AlertDialogFooter>
@@ -570,7 +570,6 @@ function HabitDetail({
 
         <div className="h-px bg-border" />
 
-        {/* Calendario mensual — tap para marcar/desmarcar */}
         <div>
           <div className="grid grid-cols-7 gap-1 mb-1">
             {DOW.map((d) => (
@@ -582,17 +581,15 @@ function HabitDetail({
               const isFuture = cell.key > today;
               const isDone = logged.has(cell.key);
               const isToday = cell.key === today;
-              const busy = togglingDate === cell.key;
               return (
                 <button
                   key={cell.key}
-                  disabled={isFuture || busy}
+                  disabled={isFuture}
                   onClick={() => onToggleDay(cell.key)}
                   className={cn(
-                    "aspect-square rounded-xl text-xs font-semibold flex items-center justify-center transition-all active:scale-90",
+                    "aspect-square rounded-lg text-xs font-semibold flex items-center justify-center transition-all active:scale-90",
                     !cell.inMonth && "opacity-30",
-                    isFuture && "opacity-20",
-                    busy && "opacity-50"
+                    isFuture && "opacity-20"
                   )}
                   style={{
                     backgroundColor: isDone ? color : "hsl(var(--muted) / 0.5)",
@@ -605,13 +602,13 @@ function HabitDetail({
               );
             })}
           </div>
-          <div className="flex items-center justify-between mt-3">
+          <div className="flex items-center justify-between mt-2.5">
             <p className="text-sm font-bold">{MONTHS[month.m]} {month.y}</p>
             <div className="flex items-center gap-1.5">
-              <button onClick={prevMonth} className="h-8 w-8 flex items-center justify-center rounded-2xl bg-muted">
+              <button onClick={prevMonth} className="h-7 w-7 flex items-center justify-center rounded-xl bg-muted">
                 <ChevronLeft className="h-4 w-4" />
               </button>
-              <button onClick={nextMonth} className="h-8 w-8 flex items-center justify-center rounded-2xl bg-muted">
+              <button onClick={nextMonth} className="h-7 w-7 flex items-center justify-center rounded-xl bg-muted">
                 <ChevronRight className="h-4 w-4" />
               </button>
             </div>
@@ -630,75 +627,171 @@ export default function Goals() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const [goalModal, setGoalModal] = useState<"create" | number | null>(null); // number = editar ese id
+  const [goalModal, setGoalModal] = useState<"create" | number | null>(null);
   const [habitModal, setHabitModal] = useState<"create" | number | null>(null);
   const [detailId, setDetailId] = useState<number | null>(null);
-  const [togglingDate, setTogglingDate] = useState<string | null>(null);
 
-  /* ---------- queries ---------- */
-
-  const goalsQuery = useQuery({
-    queryKey: ["goals"],
-    queryFn: () => api<Goal[]>("/goals"),
-  });
-
-  const habitsQuery = useQuery({
-    queryKey: ["habits"],
-    queryFn: () => api<Habit[]>("/habits"),
-  });
+  const goalsQuery = useQuery({ queryKey: ["goals"], queryFn: () => api<Goal[]>("/goals") });
+  const habitsQuery = useQuery({ queryKey: ["habits"], queryFn: () => api<Habit[]>("/habits") });
 
   const invalidateGoals = () => queryClient.invalidateQueries({ queryKey: ["goals"] });
   const invalidateHabits = () => queryClient.invalidateQueries({ queryKey: ["habits"] });
 
   /* ---------- mutations: goals ---------- */
 
+  // Montos como string: los acepta cualquier versión del backend
+  const goalPayload = (data: GoalFormValues) =>
+    JSON.stringify({ ...data, targetAmount: String(data.targetAmount), currentAmount: String(data.currentAmount) });
+
   const createGoal = useMutation({
-    mutationFn: (data: GoalFormValues) => api("/goals", { method: "POST", body: JSON.stringify(data) }),
-    onSuccess: () => { toast({ title: "Goal created" }); invalidateGoals(); setGoalModal(null); },
-    onError: () => toast({ title: "Failed to create goal", variant: "destructive" }),
+    mutationFn: (data: GoalFormValues) => api("/goals", { method: "POST", body: goalPayload(data) }),
+    // ⚡ Optimista: el modal se cierra ya y la card aparece de inmediato
+    onMutate: async (data) => {
+      setGoalModal(null);
+      await queryClient.cancelQueries({ queryKey: ["goals"] });
+      const prev = queryClient.getQueryData<Goal[]>(["goals"]);
+      const temp: Goal = {
+        id: -Date.now(),
+        name: data.name,
+        targetAmount: data.targetAmount,
+        currentAmount: data.currentAmount,
+        icon: data.icon,
+        color: data.color,
+        createdAt: new Date().toISOString(),
+      };
+      queryClient.setQueryData<Goal[]>(["goals"], (old) => [temp, ...(old ?? [])]);
+      return { prev };
+    },
+    onError: (e, _d, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(["goals"], ctx.prev);
+      toast({ title: "Failed to create goal", description: String(e), variant: "destructive" });
+    },
+    onSettled: () => invalidateGoals(),
   });
 
   const updateGoal = useMutation({
     mutationFn: ({ id, data }: { id: number; data: GoalFormValues }) =>
-      api(`/goals/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
-    onSuccess: () => { toast({ title: "Goal updated" }); invalidateGoals(); setGoalModal(null); },
-    onError: () => toast({ title: "Failed to update goal", variant: "destructive" }),
+      api(`/goals/${id}`, { method: "PATCH", body: goalPayload(data) }),
+    // ⚡ Optimista: cambios visibles al instante
+    onMutate: async ({ id, data }) => {
+      setGoalModal(null);
+      await queryClient.cancelQueries({ queryKey: ["goals"] });
+      const prev = queryClient.getQueryData<Goal[]>(["goals"]);
+      queryClient.setQueryData<Goal[]>(["goals"], (old) =>
+        (old ?? []).map((g) => (g.id === id ? { ...g, ...data } : g))
+      );
+      return { prev };
+    },
+    onError: (e, _v, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(["goals"], ctx.prev);
+      toast({ title: "Failed to update goal", description: String(e), variant: "destructive" });
+    },
+    onSettled: () => invalidateGoals(),
   });
 
   const deleteGoal = useMutation({
     mutationFn: (id: number) => api(`/goals/${id}`, { method: "DELETE" }),
-    onSuccess: () => { toast({ title: "Goal deleted" }); invalidateGoals(); },
-    onError: () => toast({ title: "Failed to delete goal", variant: "destructive" }),
+    // Optimista: desaparece de inmediato
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: ["goals"] });
+      const prev = queryClient.getQueryData<Goal[]>(["goals"]);
+      queryClient.setQueryData<Goal[]>(["goals"], (old) => (old ?? []).filter((g) => g.id !== id));
+      return { prev };
+    },
+    onError: (_e, _id, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(["goals"], ctx.prev);
+      toast({ title: "Failed to delete goal", variant: "destructive" });
+    },
+    onSettled: () => invalidateGoals(),
   });
 
   /* ---------- mutations: habits ---------- */
 
   const createHabit = useMutation({
     mutationFn: (data: HabitFormValues) => api("/habits", { method: "POST", body: JSON.stringify(data) }),
-    onSuccess: () => { toast({ title: "Habit created" }); invalidateHabits(); setHabitModal(null); },
-    onError: () => toast({ title: "Failed to create habit", variant: "destructive" }),
+    // ⚡ Optimista: el modal se cierra ya y la card aparece de inmediato
+    onMutate: async (data) => {
+      setHabitModal(null);
+      await queryClient.cancelQueries({ queryKey: ["habits"] });
+      const prev = queryClient.getQueryData<Habit[]>(["habits"]);
+      const temp: Habit = {
+        id: -Date.now(),
+        name: data.name,
+        icon: data.icon,
+        color: data.color,
+        createdAt: new Date().toISOString(),
+        logs: [],
+        streak: 0,
+      };
+      queryClient.setQueryData<Habit[]>(["habits"], (old) => [temp, ...(old ?? [])]);
+      return { prev };
+    },
+    onError: (e, _d, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(["habits"], ctx.prev);
+      toast({ title: "Failed to create habit", description: String(e), variant: "destructive" });
+    },
+    onSettled: () => invalidateHabits(),
   });
 
   const updateHabit = useMutation({
     mutationFn: ({ id, data }: { id: number; data: HabitFormValues }) =>
       api(`/habits/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
-    onSuccess: () => { toast({ title: "Habit updated" }); invalidateHabits(); setHabitModal(null); },
-    onError: () => toast({ title: "Failed to update habit", variant: "destructive" }),
+    // ⚡ Optimista
+    onMutate: async ({ id, data }) => {
+      setHabitModal(null);
+      await queryClient.cancelQueries({ queryKey: ["habits"] });
+      const prev = queryClient.getQueryData<Habit[]>(["habits"]);
+      queryClient.setQueryData<Habit[]>(["habits"], (old) =>
+        (old ?? []).map((h) => (h.id === id ? { ...h, ...data } : h))
+      );
+      return { prev };
+    },
+    onError: (e, _v, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(["habits"], ctx.prev);
+      toast({ title: "Failed to update habit", description: String(e), variant: "destructive" });
+    },
+    onSettled: () => invalidateHabits(),
   });
 
   const deleteHabit = useMutation({
     mutationFn: (id: number) => api(`/habits/${id}`, { method: "DELETE" }),
-    onSuccess: () => { toast({ title: "Habit deleted" }); invalidateHabits(); setDetailId(null); },
-    onError: () => toast({ title: "Failed to delete habit", variant: "destructive" }),
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: ["habits"] });
+      const prev = queryClient.getQueryData<Habit[]>(["habits"]);
+      queryClient.setQueryData<Habit[]>(["habits"], (old) => (old ?? []).filter((h) => h.id !== id));
+      setDetailId(null);
+      return { prev };
+    },
+    onError: (_e, _id, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(["habits"], ctx.prev);
+      toast({ title: "Failed to delete habit", variant: "destructive" });
+    },
+    onSettled: () => invalidateHabits(),
   });
 
+  // ⚡ Toggle OPTIMISTA: el cuadrito se marca al instante, el server sincroniza atrás
   const toggleLog = useMutation({
     mutationFn: ({ id, date }: { id: number; date: string }) =>
       api(`/habits/${id}/logs/${date}`, { method: "PUT" }),
-    onMutate: ({ date }) => setTogglingDate(date),
-    onSettled: () => setTogglingDate(null),
-    onSuccess: () => invalidateHabits(),
-    onError: () => toast({ title: "Failed to update day", variant: "destructive" }),
+    onMutate: async ({ id, date }) => {
+      await queryClient.cancelQueries({ queryKey: ["habits"] });
+      const prev = queryClient.getQueryData<Habit[]>(["habits"]);
+      queryClient.setQueryData<Habit[]>(["habits"], (old) =>
+        (old ?? []).map((h) => {
+          if (h.id !== id) return h;
+          const set = new Set(h.logs);
+          if (set.has(date)) set.delete(date);
+          else set.add(date);
+          return { ...h, logs: Array.from(set), streak: clientStreak(set) };
+        })
+      );
+      return { prev };
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(["habits"], ctx.prev);
+      toast({ title: "Failed to update day", variant: "destructive" });
+    },
+    onSettled: () => invalidateHabits(),
   });
 
   /* ---------- forms ---------- */
@@ -720,11 +813,8 @@ export default function Goals() {
 
   const openEditGoal = (g: Goal) => {
     goalForm.reset({
-      name: g.name,
-      targetAmount: g.targetAmount,
-      currentAmount: g.currentAmount,
-      icon: g.icon ?? "piggybank",
-      color: g.color ?? "#A8FF3E",
+      name: g.name, targetAmount: g.targetAmount, currentAmount: g.currentAmount,
+      icon: g.icon ?? "piggybank", color: g.color ?? "#A8FF3E",
     });
     setGoalModal(g.id);
   };
@@ -753,95 +843,81 @@ export default function Goals() {
 
   const goals = goalsQuery.data ?? [];
   const habits = habitsQuery.data ?? [];
-  const heatmapWeeks = useMemo(() => buildWeeks(18), []);
+  const heatmapWeeks = useMemo(() => buildWeeks(20), []);
   const today = todayKey();
   const detailHabit = detailId !== null ? habits.find((h) => h.id === detailId) ?? null : null;
-
   const isLoading = goalsQuery.isLoading || habitsQuery.isLoading;
 
   /* ---------- render ---------- */
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-4">
-        <h2 className="text-2xl font-bold tracking-tight">Goals</h2>
-      </div>
+    <div className="space-y-4 animate-in fade-in duration-500">
+      <h2 className="text-2xl font-bold tracking-tight">Goals</h2>
 
       {isLoading ? (
-        <div className="space-y-3">
-          <Skeleton className="h-24 rounded-2xl" />
-          <Skeleton className="h-40 rounded-2xl" />
-          <Skeleton className="h-40 rounded-2xl" />
+        <div className="space-y-2">
+          <Skeleton className="h-16 rounded-2xl" />
+          <Skeleton className="h-28 rounded-2xl" />
+          <Skeleton className="h-28 rounded-2xl" />
         </div>
       ) : (
         <>
-          {/* ------------------ SAVINGS GOALS ------------------ */}
+          {/* ------------------ SAVINGS ------------------ */}
           <div>
-            <div className="flex items-center justify-between mb-2 px-1">
+            <div className="flex items-center justify-between mb-1.5 px-1">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-[#A8FF3E]" />
                 <p className="text-xs font-bold uppercase tracking-widest text-[#7DD900]">Savings</p>
                 <span className="text-xs text-muted-foreground">({goals.length})</span>
               </div>
-              <button
-                onClick={openCreateGoal}
-                className="h-7 w-7 flex items-center justify-center rounded-full bg-[#A8FF3E] text-black active:scale-90 transition-transform"
-              >
-                <Plus className="h-4 w-4" />
+              <button onClick={openCreateGoal} className="h-6 w-6 flex items-center justify-center rounded-full bg-[#A8FF3E] text-black active:scale-90 transition-transform">
+                <Plus className="h-3.5 w-3.5" />
               </button>
             </div>
 
             {goals.length === 0 ? (
-              <div className="bg-card rounded-2xl shadow-sm flex flex-col items-center justify-center py-10 text-muted-foreground gap-2">
-                <PiggyBank className="h-8 w-8 opacity-30" />
+              <div className="bg-card rounded-2xl shadow-sm flex flex-col items-center justify-center py-8 text-muted-foreground gap-1.5">
+                <PiggyBank className="h-7 w-7 opacity-30" />
                 <p className="text-sm">No savings goals yet.</p>
               </div>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 {goals.map((g) => {
                   const color = g.color ?? "#A8FF3E";
                   const pct = g.targetAmount > 0 ? Math.min(100, (g.currentAmount / g.targetAmount) * 100) : 0;
                   return (
-                    <div key={g.id} className="bg-card rounded-2xl shadow-sm p-4 space-y-3">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${color}25` }}>
-                            <HabitIcon icon={g.icon} className="h-5 w-5" style={{ color }} />
+                    <div key={g.id} className="bg-card rounded-2xl shadow-sm px-3 py-2.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${color}25` }}>
+                            <HabitIcon icon={g.icon} className="h-4 w-4" style={{ color }} />
                           </div>
                           <div className="min-w-0">
                             <p className="text-sm font-bold leading-tight truncate">{g.name}</p>
-                            <p className="text-xs text-muted-foreground">
+                            <p className="text-[11px] text-muted-foreground leading-tight">
                               {g.currentAmount.toLocaleString()} / {g.targetAmount.toLocaleString()}
                             </p>
                           </div>
                         </div>
                         <div className="flex items-center gap-0.5 shrink-0">
-                          <button
-                            onClick={() => openEditGoal(g)}
-                            className="h-7 w-7 flex items-center justify-center rounded-2xl text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
-                          >
+                          <span className="text-xs font-bold mr-1" style={{ color }}>{Math.round(pct)}%</span>
+                          <button onClick={() => openEditGoal(g)} className="h-6 w-6 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-all">
                             <Pencil className="h-3 w-3" />
                           </button>
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
-                              <button className="h-7 w-7 flex items-center justify-center rounded-2xl text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all">
+                              <button className="h-6 w-6 flex items-center justify-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all">
                                 <Trash2 className="h-3 w-3" />
                               </button>
                             </AlertDialogTrigger>
                             <AlertDialogContent>
                               <AlertDialogHeader>
                                 <AlertDialogTitle>Delete Goal</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Delete "{g.name}"? This cannot be undone.
-                                </AlertDialogDescription>
+                                <AlertDialogDescription>Delete "{g.name}"? This cannot be undone.</AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
                                 <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={() => deleteGoal.mutate(g.id)}
-                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90 border-0"
-                                >
+                                <AlertDialogAction onClick={() => deleteGoal.mutate(g.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90 border-0">
                                   Delete
                                 </AlertDialogAction>
                               </AlertDialogFooter>
@@ -849,18 +925,8 @@ export default function Goals() {
                           </AlertDialog>
                         </div>
                       </div>
-
-                      {/* Barra de progreso */}
-                      <div className="flex items-center gap-3">
-                        <div className="flex-1 h-2.5 rounded-full bg-muted overflow-hidden">
-                          <div
-                            className="h-full rounded-full transition-all duration-500"
-                            style={{ width: `${pct}%`, backgroundColor: color }}
-                          />
-                        </div>
-                        <span className="text-xs font-bold shrink-0" style={{ color }}>
-                          {Math.round(pct)}%
-                        </span>
+                      <div className="mt-2 h-1.5 rounded-full bg-muted overflow-hidden">
+                        <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: color }} />
                       </div>
                     </div>
                   );
@@ -871,71 +937,55 @@ export default function Goals() {
 
           {/* ------------------ HABITS ------------------ */}
           <div>
-            <div className="flex items-center justify-between mb-2 px-1">
+            <div className="flex items-center justify-between mb-1.5 px-1">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-[#A8FF3E]" />
                 <p className="text-xs font-bold uppercase tracking-widest text-[#7DD900]">Habits</p>
                 <span className="text-xs text-muted-foreground">({habits.length})</span>
               </div>
-              <button
-                onClick={openCreateHabit}
-                className="h-7 w-7 flex items-center justify-center rounded-full bg-[#A8FF3E] text-black active:scale-90 transition-transform"
-              >
-                <Plus className="h-4 w-4" />
+              <button onClick={openCreateHabit} className="h-6 w-6 flex items-center justify-center rounded-full bg-[#A8FF3E] text-black active:scale-90 transition-transform">
+                <Plus className="h-3.5 w-3.5" />
               </button>
             </div>
 
             {habits.length === 0 ? (
-              <div className="bg-card rounded-2xl shadow-sm flex flex-col items-center justify-center py-10 text-muted-foreground gap-2">
-                <Target className="h-8 w-8 opacity-30" />
+              <div className="bg-card rounded-2xl shadow-sm flex flex-col items-center justify-center py-8 text-muted-foreground gap-1.5">
+                <Target className="h-7 w-7 opacity-30" />
                 <p className="text-sm">No habits yet. Create one to start a streak.</p>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-1.5">
                 {habits.map((h) => {
                   const color = h.color ?? "#A8FF3E";
                   const logged = new Set(h.logs);
                   const doneToday = logged.has(today);
                   return (
-                    <div key={h.id} className="bg-card rounded-2xl shadow-sm p-4 space-y-3">
-                      {/* Fila superior — tap abre detalle, check marca hoy */}
-                      <div className="flex items-center justify-between gap-3">
-                        <button
-                          onClick={() => setDetailId(h.id)}
-                          className="flex items-center gap-3 min-w-0 flex-1 text-left"
-                        >
-                          <div className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${color}25` }}>
-                            <HabitIcon icon={h.icon} className="h-5 w-5" style={{ color }} />
+                    <div key={h.id} className="bg-card rounded-2xl shadow-sm px-3 py-2.5 space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <button onClick={() => setDetailId(h.id)} className="flex items-center gap-2.5 min-w-0 flex-1 text-left">
+                          <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${color}25` }}>
+                            <HabitIcon icon={h.icon} className="h-4 w-4" style={{ color }} />
                           </div>
-                          <div className="min-w-0">
-                            <p className="text-sm font-bold uppercase tracking-wide leading-tight truncate">{h.name}</p>
+                          <div className="min-w-0 flex items-center gap-2">
+                            <p className="text-xs font-bold uppercase tracking-wide leading-tight truncate">{h.name}</p>
                             {h.streak > 0 && (
-                              <div className="flex items-center gap-1 mt-0.5">
+                              <span className="flex items-center gap-0.5 shrink-0">
                                 <Flame className="h-3 w-3" style={{ color }} />
-                                <span className="text-xs text-muted-foreground font-semibold">{h.streak}</span>
-                              </div>
+                                <span className="text-[11px] text-muted-foreground font-semibold">{h.streak}</span>
+                              </span>
                             )}
                           </div>
                         </button>
                         <button
                           onClick={() => toggleLog.mutate({ id: h.id, date: today })}
-                          disabled={toggleLog.isPending}
-                          className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 transition-all active:scale-90"
-                          style={{
-                            backgroundColor: doneToday ? color : `${color}20`,
-                          }}
+                          className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-all active:scale-90"
+                          style={{ backgroundColor: doneToday ? color : `${color}20` }}
                         >
-                          <Check
-                            className="h-5 w-5"
-                            style={{ color: doneToday ? "#000" : color }}
-                            strokeWidth={3}
-                          />
+                          <Check className="h-4 w-4" style={{ color: doneToday ? "#000" : color }} strokeWidth={3} />
                         </button>
                       </div>
-
-                      {/* Heatmap */}
                       <button onClick={() => setDetailId(h.id)} className="w-full">
-                        <Heatmap weeks={heatmapWeeks} logged={logged} color={color} />
+                        <Heatmap weeks={heatmapWeeks} logged={logged} color={color} compact />
                       </button>
                     </div>
                   );
@@ -948,30 +998,12 @@ export default function Goals() {
 
       {/* ------------------ MODALES ------------------ */}
 
-      <FloatingModal
-        open={goalModal !== null}
-        onClose={() => setGoalModal(null)}
-        title={goalModal === "create" ? "New Goal" : "Edit Goal"}
-      >
-        <GoalForm
-          form={goalForm}
-          onSubmit={onGoalSubmit}
-          isPending={createGoal.isPending || updateGoal.isPending}
-          submitLabel={goalModal === "create" ? "Create" : "Save"}
-        />
+      <FloatingModal open={goalModal !== null} onClose={() => setGoalModal(null)} title={goalModal === "create" ? "New Goal" : "Edit Goal"}>
+        <GoalForm form={goalForm} onSubmit={onGoalSubmit} isPending={createGoal.isPending || updateGoal.isPending} submitLabel={goalModal === "create" ? "Create" : "Save"} />
       </FloatingModal>
 
-      <FloatingModal
-        open={habitModal !== null}
-        onClose={() => setHabitModal(null)}
-        title={habitModal === "create" ? "New Habit" : "Edit Habit"}
-      >
-        <HabitForm
-          form={habitForm}
-          onSubmit={onHabitSubmit}
-          isPending={createHabit.isPending || updateHabit.isPending}
-          submitLabel={habitModal === "create" ? "Create" : "Save"}
-        />
+      <FloatingModal open={habitModal !== null} onClose={() => setHabitModal(null)} title={habitModal === "create" ? "New Habit" : "Edit Habit"}>
+        <HabitForm form={habitForm} onSubmit={onHabitSubmit} isPending={createHabit.isPending || updateHabit.isPending} submitLabel={habitModal === "create" ? "Create" : "Save"} />
       </FloatingModal>
 
       {detailHabit && (
@@ -981,7 +1013,6 @@ export default function Goals() {
           onToggleDay={(date) => toggleLog.mutate({ id: detailHabit.id, date })}
           onEdit={() => { setDetailId(null); openEditHabit(detailHabit); }}
           onDelete={() => deleteHabit.mutate(detailHabit.id)}
-          togglingDate={togglingDate}
         />
       )}
     </div>

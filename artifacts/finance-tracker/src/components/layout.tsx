@@ -7,8 +7,12 @@ import {
   Target,
   Plus,
   DollarSign,
-  Settings,
   Sparkles,
+  User,
+  SlidersHorizontal,
+  Database,
+  Shield,
+  UserCog,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -25,8 +29,101 @@ const navItems = [
   { href: "/insights", label: "Insights", icon: Sparkles },
   { href: "/goals", label: "Goals", icon: Target },
   { href: "/categories", label: "Categories", icon: Tags },
-  { href: "/settings", label: "Settings", icon: Settings },
 ];
+
+const profileMenuItems = [
+  { label: "Profile", icon: User, section: "profile" },
+  { label: "Preferences", icon: SlidersHorizontal, section: "preferences" },
+  { label: "Data", icon: Database, section: "data" },
+  { label: "Security", icon: Shield, section: "security" },
+  { label: "Account", icon: UserCog, section: "account" },
+];
+
+function ProfileMenu() {
+  const { user } = useAuth();
+  const [, navigate] = useLocation();
+  const [open, setOpen] = useState(false);
+  const [avatar, setAvatar] = useState<string | null>(() => {
+    try { return localStorage.getItem("ff-avatar"); } catch { return null; }
+  });
+
+  // Se actualiza al instante cuando cambias el avatar en settings
+  useEffect(() => {
+    const sync = () => {
+      try { setAvatar(localStorage.getItem("ff-avatar")); } catch {}
+    };
+    window.addEventListener("ff-avatar-changed", sync);
+    return () => window.removeEventListener("ff-avatar-changed", sync);
+  }, []);
+
+  const initial = (user?.email?.[0] ?? "?").toUpperCase();
+
+  const go = (section: string) => {
+    setOpen(false);
+    navigate(`/settings?section=${section}`);
+  };
+
+  return (
+    <>
+      {/* Avatar button — flotante arriba a la derecha en todas las páginas */}
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="fixed z-40 w-10 h-10 rounded-full flex items-center justify-center active:scale-90 transition-transform overflow-hidden"
+        style={{
+          top: "calc(env(safe-area-inset-top) + 10px)",
+          right: "16px",
+          backdropFilter: "blur(24px) saturate(1.8)",
+          WebkitBackdropFilter: "blur(24px) saturate(1.8)",
+          background: "hsl(var(--card) / 0.7)",
+          border: "1px solid hsl(var(--foreground) / 0.08)",
+          boxShadow: "0 2px 12px rgba(0,0,0,0.12), inset 0 1px 0 hsl(var(--foreground) / 0.06)",
+        }}
+      >
+        {avatar === "male" || avatar === "female" ? (
+          <img src={`/${avatar}.png`} alt="avatar" className="w-full h-full object-cover" />
+        ) : (
+          <span className="text-sm font-bold text-[#7DD900]">{initial}</span>
+        )}
+      </button>
+
+      {/* Dropdown */}
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div
+            className="fixed z-50 w-48 rounded-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200"
+            style={{
+              top: "calc(env(safe-area-inset-top) + 56px)",
+              right: "16px",
+              backdropFilter: "blur(24px) saturate(1.8)",
+              WebkitBackdropFilter: "blur(24px) saturate(1.8)",
+              background: "hsl(var(--card) / 0.92)",
+              border: "1px solid hsl(var(--foreground) / 0.08)",
+              boxShadow: "0 8px 32px rgba(0,0,0,0.25)",
+            }}
+          >
+            {profileMenuItems.map((item, i) => {
+              const Icon = item.icon;
+              return (
+                <button
+                  key={item.section}
+                  onClick={() => go(item.section)}
+                  className={cn(
+                    "w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-foreground hover:bg-muted/60 transition-colors text-left",
+                    i > 0 && "border-t border-border/50"
+                  )}
+                >
+                  <Icon className="h-4 w-4 text-muted-foreground" />
+                  {item.label}
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </>
+  );
+}
 
 export default function Layout({ children }: LayoutProps) {
   const [location] = useLocation();
@@ -59,19 +156,15 @@ export default function Layout({ children }: LayoutProps) {
       const delta = current - lastScrollY.current;
 
       if (current < 40) {
-        // Cerca del top — siempre expandido
         setScrolled(false);
       } else if (delta > 2) {
-        // Scrolleando hacia abajo — encoger
         setScrolled(true);
       } else if (delta < -2) {
-        // Scrolleando hacia arriba — expandir
         setScrolled(false);
       }
 
       lastScrollY.current = current;
 
-      // Si se para — expandir después de 800ms
       if (scrollTimeout.current) clearTimeout(scrollTimeout.current);
       scrollTimeout.current = setTimeout(() => {
         setScrolled(false);
@@ -155,6 +248,9 @@ export default function Layout({ children }: LayoutProps) {
           </div>
         </div>
       </main>
+
+      {/* Avatar de perfil — visible en todas las páginas */}
+      <ProfileMenu />
 
       {/* Mobile bottom navigation — liquid glass floating pill */}
       <nav
