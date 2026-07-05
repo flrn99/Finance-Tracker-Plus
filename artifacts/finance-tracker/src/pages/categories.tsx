@@ -21,48 +21,27 @@ import { cn } from "@/lib/utils";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 const PRESET_COLORS = [
-  "#ef4444", "#f97316", "#f59e0b", "#eab308", "#84cc16",
-  "#22c55e", "#10b981", "#14b8a6", "#06b6d4", "#0ea5e9",
-  "#3b82f6", "#6366f1", "#8b5cf6", "#a855f7", "#d946ef",
-  "#ec4899", "#f43f5e", "#64748b", "#0f172a", "#7c3aed",
+  "#ec4899", "#ef4444", "#f97316", "#f59e0b", "#84cc16",
+  "#22c55e", "#14b8a6", "#0ea5e9", "#6366f1", "#a855f7",
 ];
 
 const COLOR_NAMES: Record<string, string> = {
-  "#ef4444": "Cherry Bomb",
-  "#f97316": "Tangerine Dream",
-  "#f59e0b": "Golden Hour",
-  "#eab308": "Lemon Zest",
-  "#84cc16": "Electric Lime",
-  "#22c55e": "Jungle Green",
-  "#10b981": "Mint Condition",
-  "#14b8a6": "Tropical Teal",
-  "#06b6d4": "Cyber Cyan",
-  "#0ea5e9": "Sky High",
-  "#3b82f6": "Cobalt Blast",
-  "#6366f1": "Cosmic Indigo",
-  "#8b5cf6": "Ultraviolet",
-  "#a855f7": "Grape Soda",
-  "#d946ef": "Neon Orchid",
-  "#ec4899": "Bubblegum Pop",
-  "#f43f5e": "Wild Rose",
-  "#64748b": "Storm Cloud",
-  "#0f172a": "Midnight Void",
-  "#7c3aed": "Royal Velvet",
+  "#ec4899": "Pink",
+  "#ef4444": "Red",
+  "#f97316": "Orange",
+  "#f59e0b": "Amber",
+  "#84cc16": "Lime",
+  "#22c55e": "Green",
+  "#14b8a6": "Teal",
+  "#0ea5e9": "Sky",
+  "#6366f1": "Indigo",
+  "#a855f7": "Grape",
 };
 
 function colorLabel(hex: string): string {
   return COLOR_NAMES[hex.toLowerCase()] ?? hex;
 }
 
-/** Texto oscuro sobre colores claros, texto claro sobre colores oscuros */
-function isLightColor(hex: string): boolean {
-  const c = hex.replace("#", "");
-  if (c.length < 6) return false;
-  const r = parseInt(c.slice(0, 2), 16);
-  const g = parseInt(c.slice(2, 4), 16);
-  const b = parseInt(c.slice(4, 6), 16);
-  return 0.299 * r + 0.587 * g + 0.114 * b > 150;
-}
 
 const categorySchema = z.object({
   name: z.string().min(2, "Name is required"),
@@ -129,11 +108,33 @@ function CategoryForm({
   submitLabel: string;
 }) {
   const selectedColor = form.watch("color");
-  const [colorOpen, setColorOpen] = useState(false);
+  const watchedName = form.watch("name");
+  const watchedType = form.watch("type");
 
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
+
+        {/* 🔮 Preview en vivo — asi se vera tu categoria */}
+        <div className="rounded-2xl overflow-hidden border border-border">
+          <div className="relative w-full h-11" style={{ backgroundColor: selectedColor }}>
+            <div className="absolute -top-5 -right-3 w-14 h-14 rounded-full pointer-events-none" style={{ background: "rgba(255,255,255,0.28)" }} />
+          </div>
+          <div className="px-3 py-2 flex items-center justify-between gap-2 bg-card">
+            <p className={cn("text-sm font-bold leading-tight", watchedName ? "text-foreground" : "text-muted-foreground/50")}>
+              {watchedName || "Category name"}
+            </p>
+            <span
+              className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md shrink-0"
+              style={{
+                background: watchedType === "income" ? "rgba(29,185,84,0.14)" : "rgba(255,59,59,0.12)",
+                color: watchedType === "income" ? "#15803D" : "#B91C1C",
+              }}
+            >
+              {watchedType === "income" ? "Income" : "Expense"}
+            </span>
+          </div>
+        </div>
 
         {/* Name + Type in one row */}
         <FormField
@@ -202,7 +203,7 @@ function CategoryForm({
           }}
         />
 
-        {/* Color — compact swatch picker */}
+        {/* Color — pills tintados en orden tonal */}
         <FormField
           control={form.control}
           name="color"
@@ -210,33 +211,26 @@ function CategoryForm({
             <FormItem>
               <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Color</FormLabel>
               <FormControl>
-                <div>
-                  <button
-                    type="button"
-                    onClick={() => setColorOpen(o => !o)}
-                    className="flex items-center gap-2.5 w-full px-3 py-2.5 rounded-2xl bg-muted border-0 text-sm font-medium"
-                  >
-                    <span className="w-5 h-5 rounded-full shrink-0 border-2 border-white shadow" style={{ backgroundColor: selectedColor }} />
-                    <span className="flex-1 text-left text-foreground">{colorLabel(selectedColor)}</span>
-                    <span className="text-muted-foreground text-xs">{colorOpen ? "▲" : "▼"}</span>
-                  </button>
-                  {colorOpen && (
-                    <div className="mt-2 p-3 bg-muted rounded-2xl">
-                      <div className="grid grid-cols-10 gap-1.5">
-                        {PRESET_COLORS.map((color) => (
-                          <button
-                            key={color}
-                            type="button"
-                            onClick={() => { field.onChange(color); setColorOpen(false); }}
-                            className="w-6 h-6 rounded-full flex items-center justify-center transition-transform active:scale-90 focus:outline-none"
-                            style={{ backgroundColor: color }}
-                          >
-                            {selectedColor === color && <Check className="h-3 w-3 text-white drop-shadow" />}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                <div className="grid grid-cols-2 gap-1.5">
+                  {PRESET_COLORS.map((color) => {
+                    const active = field.value === color;
+                    return (
+                      <button
+                        key={color}
+                        type="button"
+                        onClick={() => field.onChange(color)}
+                        className="flex items-center justify-between px-3 py-2 rounded-xl text-sm font-bold transition-all active:scale-[0.96]"
+                        style={{
+                          background: `${color}1F`,
+                          color,
+                          boxShadow: active ? `inset 0 0 0 1.5px ${color}` : "none",
+                        }}
+                      >
+                        {colorLabel(color)}
+                        {active && <Check className="h-3.5 w-3.5" />}
+                      </button>
+                    );
+                  })}
                 </div>
               </FormControl>
               <FormMessage />
@@ -271,12 +265,12 @@ export default function Categories() {
 
   const createForm = useForm<CategoryFormValues>({
     resolver: zodResolver(categorySchema),
-    defaultValues: { name: "", type: "expense" as const, color: "#8b5cf6", icon: "tag" }
+    defaultValues: { name: "", type: "expense" as const, color: "#a855f7", icon: "tag" }
   });
 
   const editForm = useForm<CategoryFormValues>({
     resolver: zodResolver(categorySchema),
-    defaultValues: { name: "", type: "expense" as const, color: "#8b5cf6", icon: "tag" }
+    defaultValues: { name: "", type: "expense" as const, color: "#a855f7", icon: "tag" }
   });
 
   const invalidate = () =>
@@ -288,7 +282,7 @@ export default function Categories() {
         toast({ title: "Category created" });
         invalidate();
         setIsCreateOpen(false);
-        createForm.reset({ name: "", type: "expense", color: "#8b5cf6", icon: "tag" });
+        createForm.reset({ name: "", type: "expense", color: "#a855f7", icon: "tag" });
       },
       onError: () => toast({ title: "Failed to create category", variant: "destructive" })
     });
@@ -393,7 +387,6 @@ export default function Categories() {
                 {/* Cards grid */}
                 <div className="grid grid-cols-2 gap-2">
                   {filtered.map((cat) => {
-                    const light = isLightColor(cat.color);
                     return (
                       <div
                         key={cat.id}
@@ -403,7 +396,7 @@ export default function Categories() {
                         {/* Chip de color puro — el color es el heroe */}
                         <button
                           onClick={() => openEdit(cat)}
-                          className="relative w-full h-16 block active:scale-[0.98] transition-transform"
+                          className="relative w-full h-12 block active:scale-[0.98] transition-transform"
                           style={{ backgroundColor: cat.color }}
                         >
                           {/* Brillo tipo laca */}
@@ -411,23 +404,11 @@ export default function Categories() {
                             className="absolute -top-6 -right-4 w-20 h-20 rounded-full pointer-events-none"
                             style={{ background: "rgba(255,255,255,0.28)" }}
                           />
-                          {/* Codigo hex como ficha Pantone */}
-                          <span
-                            className="absolute bottom-1.5 left-3 text-[9px] font-bold tracking-widest uppercase"
-                            style={{ color: light ? "rgba(0,0,0,0.45)" : "rgba(255,255,255,0.65)", fontFeatureSettings: "'tnum' on" }}
-                          >
-                            {cat.color.toUpperCase()}
-                          </span>
                         </button>
 
                         {/* Base del swatch */}
                         <div className="px-3 py-2.5 flex items-center justify-between gap-1.5">
-                          <div className="min-w-0">
-                            <p className="text-sm font-bold text-foreground leading-tight truncate">{cat.name}</p>
-                            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground truncate">
-                              {colorLabel(cat.color)}
-                            </p>
-                          </div>
+                          <p className="min-w-0 flex-1 text-sm font-bold text-foreground leading-tight">{cat.name}</p>
                           <div className="flex items-center shrink-0">
                             <button
                               onClick={() => openEdit(cat)}
