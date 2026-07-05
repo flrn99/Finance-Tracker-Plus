@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 
-const FLOW = "#A8FF3E";
+const ACCENT = "#0EA5E9";
 
 interface EditableTx {
   date: string;
@@ -50,7 +50,7 @@ function InsightsModal({ insights, onClose }: { insights: string; onClose: () =>
       >
 
         <div className="px-5 py-3 border-b border-border flex items-center gap-3 shrink-0">
-          <div className="w-8 h-8 rounded-2xl flex items-center justify-center" style={{ background: FLOW }}>
+          <div className="w-8 h-8 rounded-2xl flex items-center justify-center" style={{ background: ACCENT }}>
           <Sparkles className="h-4 w-4 text-black" />
           </div>
           <div className="flex-1">
@@ -322,24 +322,24 @@ Keep it concise, friendly and actionable. Use emojis to make it engaging.`;
         className="relative overflow-hidden rounded-3xl px-5 pt-5 pb-5"
         style={{
           background: "#0A0A0A",
-          boxShadow: "0 0 0 1px rgba(168,255,62,0.22), 0 12px 40px rgba(0,0,0,0.25)",
+          boxShadow: "0 0 0 1px rgba(14,165,233,0.22), 0 12px 40px rgba(0,0,0,0.25)",
         }}
       >
         {/* Aurora verde — arriba derecha, detrás del avatar */}
         <div
           className="absolute -top-20 -right-14 w-56 h-56 rounded-full pointer-events-none"
-          style={{ background: `radial-gradient(circle, ${FLOW} 0%, transparent 65%)`, opacity: 0.14 }}
+          style={{ background: `radial-gradient(circle, ${ACCENT} 0%, transparent 65%)`, opacity: 0.14 }}
         />
         {/* Aurora tenue — abajo izquierda */}
         <div
           className="absolute -bottom-14 -left-12 w-40 h-40 rounded-full pointer-events-none"
-          style={{ background: "radial-gradient(circle, #4d7a0f 0%, transparent 70%)", opacity: 0.25 }}
+          style={{ background: "radial-gradient(circle, #075985 0%, transparent 70%)", opacity: 0.25 }}
         />
         {/* Grid fino */}
         <div
           className="absolute inset-0 pointer-events-none"
           style={{
-            backgroundImage: `radial-gradient(rgba(168,255,62,0.10) 1px, transparent 1px)`,
+            backgroundImage: `radial-gradient(rgba(14,165,233,0.10) 1px, transparent 1px)`,
             backgroundSize: "22px 22px",
           }}
         />
@@ -348,17 +348,17 @@ Keep it concise, friendly and actionable. Use emojis to make it engaging.`;
           {/* Badge */}
           <div
             className="inline-flex items-center gap-1.5 mb-3 px-2.5 py-1 rounded-lg"
-            style={{ border: `1px solid rgba(168,255,62,0.4)`, background: "rgba(168,255,62,0.08)" }}
+            style={{ border: `1px solid rgba(14,165,233,0.4)`, background: "rgba(14,165,233,0.08)" }}
           >
-            <Sparkles className="h-3 w-3" style={{ color: FLOW }} />
-            <span className="text-[10px] font-bold tracking-widest uppercase" style={{ color: FLOW }}>
+            <Sparkles className="h-3 w-3" style={{ color: ACCENT }} />
+            <span className="text-[10px] font-bold tracking-widest uppercase" style={{ color: ACCENT }}>
               AI Powered
             </span>
           </div>
 
           {/* Título */}
           <h2 className="text-2xl font-serif font-bold text-white leading-tight">
-            Financial <span style={{ color: FLOW }}>Insights</span>
+            Financial <span style={{ color: ACCENT }}>Insights</span>
           </h2>
           <p className="text-xs font-light mt-1 mb-4" style={{ color: "rgba(255,255,255,0.4)" }}>
             Understand your money. Make smarter decisions.
@@ -371,7 +371,7 @@ Keep it concise, friendly and actionable. Use emojis to make it engaging.`;
               onClick={analyzeFinances}
               disabled={isAnalyzing}
               className="rounded-2xl p-3.5 text-left flex flex-col gap-2 active:scale-[0.97] transition-transform disabled:opacity-70 border-0"
-              style={{ background: FLOW }}
+              style={{ background: ACCENT }}
             >
               <div className="flex items-center justify-between">
                 {isAnalyzing
@@ -394,13 +394,13 @@ Keep it concise, friendly and actionable. Use emojis to make it engaging.`;
               className="rounded-2xl p-3.5 text-left flex flex-col gap-2 active:scale-[0.97] transition-transform disabled:opacity-70 relative overflow-hidden"
               style={{
                 background: "rgba(255,255,255,0.04)",
-                border: "1px solid rgba(168,255,62,0.3)",
+                border: "1px solid rgba(14,165,233,0.3)",
               }}
             >
               <div className="flex items-center justify-between">
                 {isImporting
-                  ? <Loader2 className="h-5 w-5 animate-spin" style={{ color: FLOW }} />
-                  : <Upload className="h-5 w-5" style={{ color: FLOW }} />}
+                  ? <Loader2 className="h-5 w-5 animate-spin" style={{ color: ACCENT }} />
+                  : <Upload className="h-5 w-5" style={{ color: ACCENT }} />}
                 <ArrowRight className="h-3.5 w-3.5" style={{ color: "rgba(255,255,255,0.3)" }} />
               </div>
               <div>
@@ -410,10 +410,10 @@ Keep it concise, friendly and actionable. Use emojis to make it engaging.`;
                 </p>
               </div>
               {isImporting && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5" style={{ background: "rgba(168,255,62,0.15)" }}>
+                <div className="absolute bottom-0 left-0 right-0 h-0.5" style={{ background: "rgba(14,165,233,0.15)" }}>
                   <div
                     className="h-full transition-all duration-300"
-                    style={{ width: `${importProgress}%`, background: FLOW }}
+                    style={{ width: `${importProgress}%`, background: ACCENT }}
                   />
                 </div>
               )}
@@ -470,7 +470,7 @@ Keep it concise, friendly and actionable. Use emojis to make it engaging.`;
 
       {/* Last analysis card */}
       {lastAnalysis ? (
-        <div className="bg-card rounded-2xl p-4" style={{ border: `2px solid rgba(168,255,62,0.45)` }}>
+        <div className="bg-card rounded-2xl p-4" style={{ border: `2px solid rgba(14,165,233,0.45)` }}>
           <div className="flex items-center gap-3 mb-3">
             <div className="w-9 h-9 rounded-2xl bg-black flex items-center justify-center shrink-0 dark:bg-white">
               <Sparkles className="h-4 w-4 text-white dark:text-black" />
@@ -494,7 +494,7 @@ Keep it concise, friendly and actionable. Use emojis to make it engaging.`;
                 <span className="text-sm font-bold text-foreground">{lastAnalysis.score}<span className="text-muted-foreground font-normal">/10</span></span>
               </div>
               <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
-                <div className="h-full rounded-full transition-all duration-700" style={{ width: `${scorePercent}%`, background: FLOW }} />
+                <div className="h-full rounded-full transition-all duration-700" style={{ width: `${scorePercent}%`, background: ACCENT }} />
               </div>
             </div>
           ) : (
