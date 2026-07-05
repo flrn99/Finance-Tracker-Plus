@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Capacitor } from "@capacitor/core";
 import { FilePicker } from "@capawesome/capacitor-file-picker";
-import { Sparkles, Upload, Loader2, AlertCircle, X, TrendingDown, ArrowRight } from "lucide-react";
+import { Sparkles, Upload, Loader2, AlertCircle, X, TrendingDown } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useCurrency, CURRENCY_INFO } from "@/lib/currency-context";
 import { getApiUrl } from "@/lib/api-config";
@@ -317,7 +317,7 @@ Keep it concise, friendly and actionable. Use emojis to make it engaging.`;
   return (
     <div className="space-y-3 animate-in fade-in duration-500">
 
-      {/* Hero — Flow ink & acid green */}
+      {/* Hero — health score gauge */}
       <div
         className="relative overflow-hidden rounded-3xl px-5 pt-5 pb-5"
         style={{
@@ -325,29 +325,20 @@ Keep it concise, friendly and actionable. Use emojis to make it engaging.`;
           boxShadow: "0 0 0 1px rgba(14,165,233,0.22), 0 12px 40px rgba(0,0,0,0.25)",
         }}
       >
-        {/* Aurora verde — arriba derecha, detrás del avatar */}
+        {/* Glow celeste detras del gauge */}
         <div
-          className="absolute -top-20 -right-14 w-56 h-56 rounded-full pointer-events-none"
-          style={{ background: `radial-gradient(circle, ${ACCENT} 0%, transparent 65%)`, opacity: 0.14 }}
+          className="absolute -top-16 -left-16 w-56 h-56 rounded-full pointer-events-none"
+          style={{ background: `radial-gradient(circle, ${ACCENT} 0%, transparent 65%)`, opacity: 0.16 }}
         />
-        {/* Aurora tenue — abajo izquierda */}
         <div
-          className="absolute -bottom-14 -left-12 w-40 h-40 rounded-full pointer-events-none"
-          style={{ background: "radial-gradient(circle, #075985 0%, transparent 70%)", opacity: 0.25 }}
-        />
-        {/* Grid fino */}
-        <div
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            backgroundImage: `radial-gradient(rgba(14,165,233,0.10) 1px, transparent 1px)`,
-            backgroundSize: "22px 22px",
-          }}
+          className="absolute -bottom-16 -right-12 w-44 h-44 rounded-full pointer-events-none"
+          style={{ background: "radial-gradient(circle, #075985 0%, transparent 70%)", opacity: 0.3 }}
         />
 
         <div className="relative">
           {/* Badge */}
           <div
-            className="inline-flex items-center gap-1.5 mb-3 px-2.5 py-1 rounded-lg"
+            className="inline-flex items-center gap-1.5 mb-4 px-2.5 py-1 rounded-lg"
             style={{ border: `1px solid rgba(14,165,233,0.4)`, background: "rgba(14,165,233,0.08)" }}
           >
             <Sparkles className="h-3 w-3" style={{ color: ACCENT }} />
@@ -356,65 +347,92 @@ Keep it concise, friendly and actionable. Use emojis to make it engaging.`;
             </span>
           </div>
 
-          {/* Título */}
-          <h2 className="text-2xl font-serif font-bold text-white leading-tight">
-            Financial <span style={{ color: ACCENT }}>Insights</span>
-          </h2>
-          <p className="text-xs font-light mt-1 mb-4" style={{ color: "rgba(255,255,255,0.4)" }}>
-            Understand your money. Make smarter decisions.
-          </p>
+          {/* Score gauge + contexto */}
+          <div className="flex items-center gap-4 mb-4">
+            {/* Gauge SVG */}
+            <div className="relative shrink-0" style={{ width: 96, height: 96 }}>
+              <svg width="96" height="96" viewBox="0 0 96 96" style={{ transform: "rotate(-90deg)" }}>
+                <defs>
+                  <linearGradient id="scoreGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#7dd3fc" />
+                    <stop offset="100%" stopColor={ACCENT} />
+                  </linearGradient>
+                </defs>
+                <circle
+                  cx="48" cy="48" r="40" fill="none" strokeWidth="7"
+                  stroke="rgba(14,165,233,0.15)"
+                  strokeDasharray={scoreNum ? undefined : "3 7"}
+                  strokeLinecap="round"
+                />
+                {scoreNum && (
+                  <circle
+                    cx="48" cy="48" r="40" fill="none" strokeWidth="7"
+                    stroke="url(#scoreGrad)"
+                    strokeLinecap="round"
+                    strokeDasharray={`${(scorePercent / 100) * 251.3} 251.3`}
+                    style={{ filter: "drop-shadow(0 0 6px rgba(14,165,233,0.5))" }}
+                  />
+                )}
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                {scoreNum ? (
+                  <>
+                    <span className="font-serif font-bold text-white text-2xl leading-none">{lastAnalysis?.score}</span>
+                    <span className="text-[10px] font-semibold mt-0.5" style={{ color: "rgba(255,255,255,0.35)" }}>/10</span>
+                  </>
+                ) : (
+                  <Sparkles className="h-6 w-6" style={{ color: "rgba(14,165,233,0.6)" }} />
+                )}
+              </div>
+            </div>
 
-          {/* Acciones — cards táctiles */}
-          <div className="grid grid-cols-2 gap-2">
-            {/* Analyze — la card entera es el botón */}
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: "rgba(14,165,233,0.7)" }}>
+                Financial health score
+              </p>
+              <h2 className="text-xl font-serif font-bold text-white leading-tight">
+                Financial <span style={{ color: ACCENT }}>Insights</span>
+              </h2>
+              <p className="text-xs font-light mt-1" style={{ color: "rgba(255,255,255,0.4)" }}>
+                {lastAnalysis
+                  ? `Last analysis · ${lastAnalysis.date}`
+                  : "Run your first analysis to get your score"}
+              </p>
+            </div>
+          </div>
+
+          {/* Acciones */}
+          <div className="flex gap-2">
             <button
               onClick={analyzeFinances}
               disabled={isAnalyzing}
-              className="rounded-2xl p-3.5 text-left flex flex-col gap-2 active:scale-[0.97] transition-transform disabled:opacity-70 border-0"
-              style={{ background: ACCENT }}
+              className="flex-[1.4] rounded-2xl py-3 px-3 flex items-center justify-center gap-2 text-sm font-bold active:scale-[0.97] transition-transform disabled:opacity-70 border-0 min-w-0"
+              style={{ background: ACCENT, color: "#000" }}
             >
-              <div className="flex items-center justify-between">
-                {isAnalyzing
-                  ? <Loader2 className="h-5 w-5 text-black animate-spin" />
-                  : <Sparkles className="h-5 w-5 text-black" />}
-                <ArrowRight className="h-3.5 w-3.5 text-black/50" />
-              </div>
-              <div>
-                <p className="text-sm font-bold text-black leading-tight">Analyze</p>
-                <p className="text-[11px] text-black/60 leading-snug mt-0.5">
-                  {isAnalyzing ? analyzePhase : "Health score & tips by Gemini"}
-                </p>
-              </div>
+              {isAnalyzing ? (
+                <><Loader2 className="h-4 w-4 animate-spin shrink-0" /><span className="truncate text-xs">{analyzePhase}</span></>
+              ) : (
+                <><Sparkles className="h-4 w-4 shrink-0" /><span>{lastAnalysis ? "Refresh analysis" : "Analyze"}</span></>
+              )}
             </button>
-
-            {/* Import PDF — glass sobre el panel */}
             <button
               onClick={handleUpload}
               disabled={isImporting}
-              className="rounded-2xl p-3.5 text-left flex flex-col gap-2 active:scale-[0.97] transition-transform disabled:opacity-70 relative overflow-hidden"
+              className="flex-1 rounded-2xl py-3 px-3 flex items-center justify-center gap-2 text-sm font-bold active:scale-[0.97] transition-transform disabled:opacity-70 relative overflow-hidden min-w-0"
               style={{
                 background: "rgba(255,255,255,0.04)",
-                border: "1px solid rgba(14,165,233,0.3)",
+                border: "1px solid rgba(14,165,233,0.35)",
+                color: ACCENT,
               }}
             >
-              <div className="flex items-center justify-between">
-                {isImporting
-                  ? <Loader2 className="h-5 w-5 animate-spin" style={{ color: ACCENT }} />
-                  : <Upload className="h-5 w-5" style={{ color: ACCENT }} />}
-                <ArrowRight className="h-3.5 w-3.5" style={{ color: "rgba(255,255,255,0.3)" }} />
-              </div>
-              <div>
-                <p className="text-sm font-bold text-white leading-tight">Import PDF</p>
-                <p className="text-[11px] leading-snug mt-0.5" style={{ color: "rgba(255,255,255,0.4)" }}>
-                  {isImporting ? `Reading… ${importProgress}%` : "Bank statement → transactions"}
-                </p>
-              </div>
+              {isImporting ? (
+                <><Loader2 className="h-4 w-4 animate-spin shrink-0" /><span className="text-xs">{importProgress}%</span></>
+              ) : (
+                <><Upload className="h-4 w-4 shrink-0" /><span>Import PDF</span></>
+              )}
               {isImporting && (
                 <div className="absolute bottom-0 left-0 right-0 h-0.5" style={{ background: "rgba(14,165,233,0.15)" }}>
-                  <div
-                    className="h-full transition-all duration-300"
-                    style={{ width: `${importProgress}%`, background: ACCENT }}
-                  />
+                  <div className="h-full transition-all duration-300" style={{ width: `${importProgress}%`, background: ACCENT }} />
                 </div>
               )}
             </button>
@@ -467,51 +485,6 @@ Keep it concise, friendly and actionable. Use emojis to make it engaging.`;
           </div>
         )}
       </div>
-
-      {/* Last analysis card */}
-      {lastAnalysis ? (
-        <div className="bg-card rounded-2xl p-4" style={{ border: `2px solid rgba(14,165,233,0.45)` }}>
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-9 h-9 rounded-2xl bg-black flex items-center justify-center shrink-0 dark:bg-white">
-              <Sparkles className="h-4 w-4 text-white dark:text-black" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-bold text-foreground">Last AI Analysis</p>
-              <p className="text-xs font-light text-muted-foreground">{lastAnalysis.date} · Powered by Gemini</p>
-            </div>
-            <button
-              onClick={analyzeFinances}
-              disabled={isAnalyzing}
-              className="shrink-0 text-xs font-bold text-white bg-black px-3 py-1.5 rounded-2xl border-0 disabled:opacity-60 dark:bg-white dark:text-black"
-            >
-              Refresh
-            </button>
-          </div>
-          {scoreNum ? (
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <p className="text-xs text-muted-foreground font-semibold uppercase tracking-widest">Financial health score</p>
-                <span className="text-sm font-bold text-foreground">{lastAnalysis.score}<span className="text-muted-foreground font-normal">/10</span></span>
-              </div>
-              <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
-                <div className="h-full rounded-full transition-all duration-700" style={{ width: `${scorePercent}%`, background: ACCENT }} />
-              </div>
-            </div>
-          ) : (
-            <p className="text-xs font-light text-muted-foreground">Tap Refresh to see your latest financial health score.</p>
-          )}
-        </div>
-      ) : (
-        <div className="bg-card border border-card-border rounded-2xl p-4 flex items-start gap-3">
-          <div className="w-9 h-9 rounded-2xl bg-muted flex items-center justify-center shrink-0">
-            <Sparkles className="h-4 w-4 text-muted-foreground/50" />
-          </div>
-          <div>
-            <p className="text-xs font-semibold text-muted-foreground">No analysis yet</p>
-            <p className="text-xs font-light text-muted-foreground/60 mt-0.5 leading-relaxed">Run your first AI analysis and your financial health score will appear here.</p>
-          </div>
-        </div>
-      )}
 
       {/* Error */}
       {error && (
