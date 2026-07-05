@@ -54,6 +54,16 @@ function colorLabel(hex: string): string {
   return COLOR_NAMES[hex.toLowerCase()] ?? hex;
 }
 
+/** Texto oscuro sobre colores claros, texto claro sobre colores oscuros */
+function isLightColor(hex: string): boolean {
+  const c = hex.replace("#", "");
+  if (c.length < 6) return false;
+  const r = parseInt(c.slice(0, 2), 16);
+  const g = parseInt(c.slice(2, 4), 16);
+  const b = parseInt(c.slice(4, 6), 16);
+  return 0.299 * r + 0.587 * g + 0.114 * b > 150;
+}
+
 const categorySchema = z.object({
   name: z.string().min(2, "Name is required"),
   type: z.enum(["income", "expense"]),
@@ -354,13 +364,9 @@ export default function Categories() {
 
       {/* List — grouped by type */}
       {isLoading ? (
-        <div className="bg-card rounded-2xl shadow-sm overflow-hidden divide-y divide-border">
+        <div className="grid grid-cols-2 gap-2">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="flex items-center gap-4 px-4 py-3.5">
-              <Skeleton className="w-10 h-10 rounded-2xl shrink-0" />
-              <Skeleton className="h-4 w-32" />
-              <Skeleton className="h-5 w-16 rounded-full ml-auto" />
-            </div>
+            <Skeleton key={i} className="h-28 rounded-3xl" />
           ))}
         </div>
       ) : !categories?.length ? (
@@ -380,66 +386,84 @@ export default function Categories() {
                 {/* Section header */}
                 <div className="flex items-center gap-2 mb-2 px-1">
                   <div className="w-2 h-2 rounded-full" style={{ backgroundColor: sectionColor }} />
-                  <p className="text-xs font-bold uppercase tracking-widest" style={{ color: sectionColor }}>{sectionLabel}</p>
+                  <p className="text-xs font-bold uppercase tracking-widest text-foreground">{sectionLabel}</p>
                   <span className="text-xs text-muted-foreground">({filtered.length})</span>
                 </div>
 
                 {/* Cards grid */}
                 <div className="grid grid-cols-2 gap-2">
-                  {filtered.map((cat) => (
-                    <div
-                      key={cat.id}
-                      className="bg-card rounded-2xl shadow-sm p-3 flex flex-col gap-2"
-                    >
-                      {/* Top row: color bubble + actions */}
-                      <div className="flex items-start justify-between">
-                        <div
-                          className="w-9 h-9 rounded-2xl flex items-center justify-center shrink-0"
-                          style={{ backgroundColor: `${cat.color}20` }}
+                  {filtered.map((cat) => {
+                    const light = isLightColor(cat.color);
+                    return (
+                      <div
+                        key={cat.id}
+                        className="rounded-3xl overflow-hidden bg-card"
+                        style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}
+                      >
+                        {/* Chip de color puro — el color es el heroe */}
+                        <button
+                          onClick={() => openEdit(cat)}
+                          className="relative w-full h-16 block active:scale-[0.98] transition-transform"
+                          style={{ backgroundColor: cat.color }}
                         >
-                          <Tag className="h-4 w-4" style={{ color: cat.color }} />
-                        </div>
-                        <div className="flex items-center gap-0.5">
-                          <button
-                            onClick={() => openEdit(cat)}
-                            className="h-7 w-7 flex items-center justify-center rounded-2xl text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
+                          {/* Brillo tipo laca */}
+                          <div
+                            className="absolute -top-6 -right-4 w-20 h-20 rounded-full pointer-events-none"
+                            style={{ background: "rgba(255,255,255,0.28)" }}
+                          />
+                          {/* Codigo hex como ficha Pantone */}
+                          <span
+                            className="absolute bottom-1.5 left-3 text-[9px] font-bold tracking-widest uppercase"
+                            style={{ color: light ? "rgba(0,0,0,0.45)" : "rgba(255,255,255,0.65)", fontFeatureSettings: "'tnum' on" }}
                           >
-                            <Pencil className="h-3 w-3" />
-                          </button>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <button className="h-7 w-7 flex items-center justify-center rounded-2xl text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all">
-                                <Trash2 className="h-3 w-3" />
-                              </button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Delete Category</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Delete "{cat.name}"? This cannot be undone, and will fail if any transactions use this category.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={() => handleDelete(cat.id)}
-                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90 border-0"
-                                >
-                                  Delete
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
+                            {cat.color.toUpperCase()}
+                          </span>
+                        </button>
+
+                        {/* Base del swatch */}
+                        <div className="px-3 py-2.5 flex items-center justify-between gap-1.5">
+                          <div className="min-w-0">
+                            <p className="text-sm font-bold text-foreground leading-tight truncate">{cat.name}</p>
+                            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground truncate">
+                              {colorLabel(cat.color)}
+                            </p>
+                          </div>
+                          <div className="flex items-center shrink-0">
+                            <button
+                              onClick={() => openEdit(cat)}
+                              className="h-7 w-7 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </button>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <button className="h-7 w-7 flex items-center justify-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all">
+                                  <Trash2 className="h-3 w-3" />
+                                </button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Delete Category</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Delete "{cat.name}"? This cannot be undone, and will fail if any transactions use this category.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() => handleDelete(cat.id)}
+                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90 border-0"
+                                  >
+                                    Delete
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </div>
                         </div>
                       </div>
-
-                      {/* Name */}
-                      <p className="text-sm font-bold text-foreground leading-tight truncate">{cat.name}</p>
-
-                      {/* Color accent bar */}
-                      <div className="h-1 rounded-full" style={{ backgroundColor: cat.color }} />
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             );

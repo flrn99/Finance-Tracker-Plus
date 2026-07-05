@@ -27,6 +27,7 @@ export default function BiometricLock() {
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [shake, setShake] = useState(false);
   const didAutoTrigger = useRef(false);
+  const [logoOk, setLogoOk] = useState(true);
 
   // Auto-trigger biometric on mount
   useEffect(() => {
@@ -110,7 +111,7 @@ export default function BiometricLock() {
           className="ff-blob absolute rounded-full"
           style={{
             width: "72vmin", height: "72vmin", top: "-18%", left: "-18%",
-            background: "#A8FF3E", opacity: 0.5, filter: "blur(70px)",
+            background: "#A8FF3E", opacity: 0.8, filter: "blur(60px)",
             animation: "ff-drift-1 16s ease-in-out infinite alternate",
           }}
         />
@@ -118,7 +119,7 @@ export default function BiometricLock() {
           className="ff-blob absolute rounded-full"
           style={{
             width: "60vmin", height: "60vmin", top: "22%", right: "-22%",
-            background: "#67E8F9", opacity: 0.45, filter: "blur(70px)",
+            background: "#22D3EE", opacity: 0.7, filter: "blur(60px)",
             animation: "ff-drift-2 20s ease-in-out infinite alternate",
           }}
         />
@@ -126,7 +127,7 @@ export default function BiometricLock() {
           className="ff-blob absolute rounded-full"
           style={{
             width: "58vmin", height: "58vmin", bottom: "-16%", left: "2%",
-            background: "#C4B5FD", opacity: 0.45, filter: "blur(75px)",
+            background: "#A78BFA", opacity: 0.7, filter: "blur(65px)",
             animation: "ff-drift-3 18s ease-in-out infinite alternate",
           }}
         />
@@ -134,7 +135,7 @@ export default function BiometricLock() {
           className="ff-blob absolute rounded-full"
           style={{
             width: "46vmin", height: "46vmin", bottom: "8%", right: "6%",
-            background: "#6EE7B7", opacity: 0.4, filter: "blur(65px)",
+            background: "#34D399", opacity: 0.65, filter: "blur(60px)",
             animation: "ff-drift-4 22s ease-in-out infinite alternate",
           }}
         />
@@ -142,20 +143,15 @@ export default function BiometricLock() {
 
       {/* 💳 Card flotante limpia */}
       <div
-        className="relative w-full max-w-sm rounded-[2rem] bg-card px-6 pt-8 pb-6 flex flex-col items-center animate-in fade-in zoom-in-95 duration-500"
+        className="relative w-full max-w-[310px] rounded-[2rem] bg-card px-5 pt-7 pb-6 flex flex-col items-center animate-in fade-in zoom-in-95 duration-500"
         style={{
           boxShadow: "0 24px 80px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.06)",
           border: "1px solid hsl(var(--foreground) / 0.05)",
+          marginBottom: "10vh",
         }}
       >
-        {/* Marca */}
-        <div className="flex items-center gap-1.5 mb-6">
-          <span className="w-2.5 h-2.5 rounded-full" style={{ background: "#A8FF3E" }} />
-          <span className="font-serif font-bold text-sm tracking-tight text-foreground">Flow!</span>
-        </div>
-
         {/* Icon & Title */}
-        <div className="mb-7 flex flex-col items-center gap-4">
+        <div className="mb-6 flex flex-col items-center gap-3.5">
           <div
             className="w-20 h-20 rounded-full flex items-center justify-center shadow-[inset_0_1px_2px_rgba(255,255,255,0.1),0_8px_24px_rgba(0,0,0,0.05)]"
             style={{
@@ -171,7 +167,7 @@ export default function BiometricLock() {
             }
           </div>
           <div className="text-center space-y-1.5">
-            <p className="text-2xl font-serif font-bold tracking-tight text-foreground">
+            <p className="text-2xl font-bold tracking-tight text-foreground">
               {mode === "biometric" ? "Verify Identity" : "Enter PIN"}
             </p>
             <p className="text-sm font-medium text-muted-foreground">
@@ -184,7 +180,7 @@ export default function BiometricLock() {
         </div>
 
         {/* Dynamic Content based on Mode */}
-        <div className="w-full relative min-h-[300px] flex flex-col items-center justify-start">
+        <div className="w-full relative min-h-[280px] flex flex-col items-center justify-start">
 
           {mode === "biometric" ? (
             <div className="flex flex-col items-center gap-5 w-full animate-in fade-in zoom-in-95 duration-300">
@@ -271,6 +267,23 @@ export default function BiometricLock() {
                   Use biometrics instead
                 </button>
               )}
+            </div>
+          )}
+        </div>
+
+        {/* Logo — abajo, centrado */}
+        <div className="mt-5 flex items-center justify-center">
+          {logoOk ? (
+            <img
+              src="/logo.png"
+              alt="Flow!"
+              className="h-6 object-contain opacity-90"
+              onError={() => setLogoOk(false)}
+            />
+          ) : (
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full" style={{ background: "#A8FF3E" }} />
+              <span className="font-serif font-bold text-sm tracking-tight text-foreground">Flow!</span>
             </div>
           )}
         </div>
