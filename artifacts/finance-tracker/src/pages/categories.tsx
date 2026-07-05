@@ -20,20 +20,31 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
-const PRESET_COLORS = [
-  "#ec4899", "#ef4444", "#f97316", "#f59e0b", "#84cc16",
-  "#22c55e", "#14b8a6", "#0ea5e9", "#6366f1", "#a855f7",
+// Cálidos para gastos, fríos para ingresos — 8 y 8, en orden tonal ascendente
+const EXPENSE_COLORS = [
+  "#d946ef", "#ec4899", "#f43f5e", "#ef4444",
+  "#ea580c", "#f97316", "#f59e0b", "#eab308",
+];
+const INCOME_COLORS = [
+  "#84cc16", "#22c55e", "#14b8a6", "#06b6d4",
+  "#0ea5e9", "#3b82f6", "#6366f1", "#a855f7",
 ];
 
 const COLOR_NAMES: Record<string, string> = {
+  "#d946ef": "Fuchsia",
   "#ec4899": "Pink",
+  "#f43f5e": "Cherry",
   "#ef4444": "Red",
+  "#ea580c": "Vermilion",
   "#f97316": "Orange",
   "#f59e0b": "Amber",
+  "#eab308": "Yellow",
   "#84cc16": "Lime",
   "#22c55e": "Green",
   "#14b8a6": "Teal",
+  "#06b6d4": "Turquoise",
   "#0ea5e9": "Sky",
+  "#3b82f6": "Blue",
   "#6366f1": "Indigo",
   "#a855f7": "Grape",
 };
@@ -66,6 +77,8 @@ function FloatingModal({ open, onClose, title, children }: { open: boolean; onCl
         top: 0, left: 0, right: 0, bottom: 0,
         height: '100dvh',
         width: '100vw',
+        paddingTop: 'calc(env(safe-area-inset-top) + 12px)',
+        paddingBottom: 'calc(env(safe-area-inset-bottom) + 12px)',
       }}
       onClick={onClose}
     >
@@ -78,13 +91,13 @@ function FloatingModal({ open, onClose, title, children }: { open: boolean; onCl
         }}
       />
       <div
-        className="relative w-full max-w-xs bg-card rounded-2xl shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-200"
+        className="relative w-full max-w-xs bg-card rounded-2xl shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-200 max-h-full overflow-y-auto"
         style={{ willChange: 'transform, opacity', transform: 'translate3d(0,0,0)' }}
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-5 pt-5 pb-4">
+        <div className="flex items-center justify-between px-5 pt-4 pb-3">
           <p className="font-bold text-base">{title}</p>
-          <button onClick={onClose} className="w-7 h-7 rounded-full bg-muted flex items-center justify-center">
+          <button onClick={onClose} className="w-7 h-7 rounded-lg bg-muted flex items-center justify-center">
             <X className="h-3.5 w-3.5" />
           </button>
         </div>
@@ -108,44 +121,43 @@ function CategoryForm({
   submitLabel: string;
 }) {
   const selectedColor = form.watch("color");
-  const watchedName = form.watch("name");
   const watchedType = form.watch("type");
+  const palette = watchedType === "income" ? INCOME_COLORS : EXPENSE_COLORS;
 
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
 
-        {/* 🔮 Preview en vivo — asi se vera tu categoria */}
-        <div className="rounded-2xl overflow-hidden border border-border">
-          <div className="relative w-full h-11" style={{ backgroundColor: selectedColor }}>
-            <div className="absolute -top-5 -right-3 w-14 h-14 rounded-full pointer-events-none" style={{ background: "rgba(255,255,255,0.28)" }} />
-          </div>
-          <div className="px-3 py-2 flex items-center justify-between gap-2 bg-card">
-            <p className={cn("text-sm font-bold leading-tight", watchedName ? "text-foreground" : "text-muted-foreground/50")}>
-              {watchedName || "Category name"}
-            </p>
-            <span
-              className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md shrink-0"
-              style={{
-                background: watchedType === "income" ? "rgba(29,185,84,0.14)" : "rgba(255,59,59,0.12)",
-                color: watchedType === "income" ? "#15803D" : "#B91C1C",
-              }}
-            >
-              {watchedType === "income" ? "Income" : "Expense"}
-            </span>
-          </div>
-        </div>
-
-        {/* Name + Type in one row */}
+        {/* 🔮 Preview vivo — el nombre se escribe directamente aqui */}
         <FormField
           control={form.control}
           name="name"
           render={({ field }) => (
             <FormItem>
-              <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Name</FormLabel>
-              <FormControl>
-                <Input placeholder="e.g. Subscriptions" className="rounded-2xl" {...field} />
-              </FormControl>
+              <div className="rounded-2xl overflow-hidden border border-border">
+                <div className="relative w-full h-9" style={{ backgroundColor: selectedColor }}>
+                  <div className="absolute -top-5 -right-3 w-14 h-14 rounded-full pointer-events-none" style={{ background: "rgba(255,255,255,0.28)" }} />
+                </div>
+                <div className="px-3 py-1 flex items-center justify-between gap-2 bg-card">
+                  <FormControl>
+                    <input
+                      placeholder="Category name"
+                      autoComplete="off"
+                      className="min-w-0 flex-1 bg-transparent border-0 outline-none text-sm font-bold text-foreground placeholder:text-muted-foreground/40 py-1.5"
+                      {...field}
+                    />
+                  </FormControl>
+                  <span
+                    className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md shrink-0"
+                    style={{
+                      background: watchedType === "income" ? "rgba(29,185,84,0.14)" : "rgba(255,59,59,0.12)",
+                      color: watchedType === "income" ? "#15803D" : "#B91C1C",
+                    }}
+                  >
+                    {watchedType === "income" ? "Income" : "Expense"}
+                  </span>
+                </div>
+              </div>
               <FormMessage />
             </FormItem>
           )}
@@ -182,7 +194,10 @@ function CategoryForm({
                   />
                   <button
                     type="button"
-                    onClick={() => field.onChange("expense")}
+                    onClick={() => {
+                      field.onChange("expense");
+                      if (!EXPENSE_COLORS.includes(form.getValues("color"))) form.setValue("color", EXPENSE_COLORS[0]);
+                    }}
                     className={cn("relative z-10 flex-1 flex items-center justify-center gap-1.5 py-2 text-sm font-semibold transition-colors duration-300 rounded-full", !isIncome ? "text-white" : "text-foreground/50")}
                   >
                     <TrendingDown className="h-4 w-4" />
@@ -190,7 +205,10 @@ function CategoryForm({
                   </button>
                   <button
                     type="button"
-                    onClick={() => field.onChange("income")}
+                    onClick={() => {
+                      field.onChange("income");
+                      if (!INCOME_COLORS.includes(form.getValues("color"))) form.setValue("color", INCOME_COLORS[0]);
+                    }}
                     className={cn("relative z-10 flex-1 flex items-center justify-center gap-1.5 py-2 text-sm font-semibold transition-colors duration-300 rounded-full", isIncome ? "text-white" : "text-foreground/50")}
                   >
                     <TrendingUp className="h-4 w-4" />
@@ -203,7 +221,7 @@ function CategoryForm({
           }}
         />
 
-        {/* Color — pills tintados en orden tonal */}
+        {/* Color — pills tintados segun el tipo */}
         <FormField
           control={form.control}
           name="color"
@@ -212,7 +230,7 @@ function CategoryForm({
               <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Color</FormLabel>
               <FormControl>
                 <div className="grid grid-cols-2 gap-1.5">
-                  {PRESET_COLORS.map((color) => {
+                  {palette.map((color) => {
                     const active = field.value === color;
                     return (
                       <button
@@ -265,12 +283,12 @@ export default function Categories() {
 
   const createForm = useForm<CategoryFormValues>({
     resolver: zodResolver(categorySchema),
-    defaultValues: { name: "", type: "expense" as const, color: "#a855f7", icon: "tag" }
+    defaultValues: { name: "", type: "expense" as const, color: "#ef4444", icon: "tag" }
   });
 
   const editForm = useForm<CategoryFormValues>({
     resolver: zodResolver(categorySchema),
-    defaultValues: { name: "", type: "expense" as const, color: "#a855f7", icon: "tag" }
+    defaultValues: { name: "", type: "expense" as const, color: "#ef4444", icon: "tag" }
   });
 
   const invalidate = () =>
@@ -282,7 +300,7 @@ export default function Categories() {
         toast({ title: "Category created" });
         invalidate();
         setIsCreateOpen(false);
-        createForm.reset({ name: "", type: "expense", color: "#a855f7", icon: "tag" });
+        createForm.reset({ name: "", type: "expense", color: "#ef4444", icon: "tag" });
       },
       onError: () => toast({ title: "Failed to create category", variant: "destructive" })
     });
@@ -390,24 +408,23 @@ export default function Categories() {
                     return (
                       <div
                         key={cat.id}
-                        className="rounded-3xl overflow-hidden bg-card"
+                        className="rounded-2xl overflow-hidden bg-card flex items-stretch"
                         style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}
                       >
-                        {/* Chip de color puro — el color es el heroe */}
+                        {/* Lomo de color — compacto, tap para editar */}
                         <button
                           onClick={() => openEdit(cat)}
-                          className="relative w-full h-12 block active:scale-[0.98] transition-transform"
+                          className="relative w-8 shrink-0 active:opacity-80 transition-opacity overflow-hidden"
                           style={{ backgroundColor: cat.color }}
                         >
-                          {/* Brillo tipo laca */}
                           <div
-                            className="absolute -top-6 -right-4 w-20 h-20 rounded-full pointer-events-none"
-                            style={{ background: "rgba(255,255,255,0.28)" }}
+                            className="absolute -top-3 -right-3 w-9 h-9 rounded-full pointer-events-none"
+                            style={{ background: "rgba(255,255,255,0.3)" }}
                           />
                         </button>
 
-                        {/* Base del swatch */}
-                        <div className="px-3 py-2.5 flex items-center justify-between gap-1.5">
+                        {/* Contenido */}
+                        <div className="flex-1 min-w-0 px-2.5 py-2 flex items-center justify-between gap-1">
                           <p className="min-w-0 flex-1 text-sm font-bold text-foreground leading-tight">{cat.name}</p>
                           <div className="flex items-center shrink-0">
                             <button
