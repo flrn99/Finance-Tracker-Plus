@@ -317,97 +317,73 @@ Keep it concise, friendly and actionable. Use emojis to make it engaging.`;
   return (
     <div className="space-y-3 animate-in fade-in duration-500">
 
-      {/* Hero — health score gauge */}
+      {/* Hero — sky pastel, sistema de cards de Flow */}
       <div
         className="relative overflow-hidden rounded-3xl px-5 pt-5 pb-5"
-        style={{
-          background: "#0A0A0A",
-          boxShadow: "0 0 0 1px rgba(14,165,233,0.22), 0 12px 40px rgba(0,0,0,0.25)",
-        }}
+        style={{ background: "linear-gradient(145deg, #E3F4FF 0%, #BFE7FD 55%, #A5DCFB 100%)" }}
       >
-        {/* Glow celeste detras del gauge */}
-        <div
-          className="absolute -top-16 -left-16 w-56 h-56 rounded-full pointer-events-none"
-          style={{ background: `radial-gradient(circle, ${ACCENT} 0%, transparent 65%)`, opacity: 0.16 }}
-        />
-        <div
-          className="absolute -bottom-16 -right-12 w-44 h-44 rounded-full pointer-events-none"
-          style={{ background: "radial-gradient(circle, #075985 0%, transparent 70%)", opacity: 0.3 }}
-        />
+        {/* Blobs decorativos suaves */}
+        <div className="absolute -top-16 -right-12 w-52 h-52 rounded-full pointer-events-none" style={{ background: "rgba(255,255,255,0.4)" }} />
+        <div className="absolute -bottom-16 -left-10 w-44 h-44 rounded-full pointer-events-none" style={{ background: "rgba(14,165,233,0.12)" }} />
 
         <div className="relative">
           {/* Badge */}
           <div
-            className="inline-flex items-center gap-1.5 mb-4 px-2.5 py-1 rounded-lg"
-            style={{ border: `1px solid rgba(14,165,233,0.4)`, background: "rgba(14,165,233,0.08)" }}
+            className="inline-flex items-center gap-1.5 mb-3 px-2.5 py-1 rounded-lg"
+            style={{ background: "rgba(255,255,255,0.6)" }}
           >
             <Sparkles className="h-3 w-3" style={{ color: ACCENT }} />
-            <span className="text-[10px] font-bold tracking-widest uppercase" style={{ color: ACCENT }}>
+            <span className="text-[10px] font-bold tracking-widest uppercase" style={{ color: "#0369A1" }}>
               AI Powered
             </span>
           </div>
 
-          {/* Score gauge + contexto */}
-          <div className="flex items-center gap-4 mb-4">
-            {/* Gauge SVG */}
-            <div className="relative shrink-0" style={{ width: 96, height: 96 }}>
-              <svg width="96" height="96" viewBox="0 0 96 96" style={{ transform: "rotate(-90deg)" }}>
-                <defs>
-                  <linearGradient id="scoreGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="#7dd3fc" />
-                    <stop offset="100%" stopColor={ACCENT} />
-                  </linearGradient>
-                </defs>
-                <circle
-                  cx="48" cy="48" r="40" fill="none" strokeWidth="7"
-                  stroke="rgba(14,165,233,0.15)"
-                  strokeDasharray={scoreNum ? undefined : "3 7"}
-                  strokeLinecap="round"
-                />
-                {scoreNum && (
-                  <circle
-                    cx="48" cy="48" r="40" fill="none" strokeWidth="7"
-                    stroke="url(#scoreGrad)"
-                    strokeLinecap="round"
-                    strokeDasharray={`${(scorePercent / 100) * 251.3} 251.3`}
-                    style={{ filter: "drop-shadow(0 0 6px rgba(14,165,233,0.5))" }}
-                  />
-                )}
-              </svg>
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                {scoreNum ? (
-                  <>
-                    <span className="font-serif font-bold text-white text-2xl leading-none">{lastAnalysis?.score}</span>
-                    <span className="text-[10px] font-semibold mt-0.5" style={{ color: "rgba(255,255,255,0.35)" }}>/10</span>
-                  </>
-                ) : (
-                  <Sparkles className="h-6 w-6" style={{ color: "rgba(14,165,233,0.6)" }} />
-                )}
-              </div>
-            </div>
+          {/* Titulo */}
+          <h2 className="text-2xl font-serif font-bold leading-tight" style={{ color: "#082F49" }}>
+            Financial <span style={{ color: "#0284C7" }}>Insights</span>
+          </h2>
+          <p className="text-xs mt-1" style={{ color: "rgba(12,74,110,0.6)" }}>
+            Understand your money. Make smarter decisions.
+          </p>
 
-            <div className="min-w-0">
-              <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: "rgba(14,165,233,0.7)" }}>
-                Financial health score
-              </p>
-              <h2 className="text-xl font-serif font-bold text-white leading-tight">
-                Financial <span style={{ color: ACCENT }}>Insights</span>
-              </h2>
-              <p className="text-xs font-light mt-1" style={{ color: "rgba(255,255,255,0.4)" }}>
-                {lastAnalysis
-                  ? `Last analysis · ${lastAnalysis.date}`
-                  : "Run your first analysis to get your score"}
+          {/* Health score — numero grande + medidor segmentado */}
+          <div className="mt-4">
+            <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: "#0369A1" }}>
+              Financial health score
+            </p>
+            <div className="flex items-end gap-3">
+              <p className="font-serif font-bold leading-none" style={{ color: "#082F49", fontSize: "2.6rem" }}>
+                {scoreNum ? lastAnalysis?.score : "—"}
+                <span className="text-base font-bold ml-1" style={{ color: "rgba(8,47,73,0.4)" }}>/10</span>
               </p>
             </div>
+            {/* Medidor de 10 segmentos — ADN heatmap de Flow */}
+            <div className="flex gap-1 mt-2.5">
+              {Array.from({ length: 10 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="flex-1 h-2.5 rounded-full transition-all duration-500"
+                  style={{
+                    background: scoreNum && i < Math.round(scoreNum)
+                      ? ACCENT
+                      : "rgba(8,47,73,0.10)",
+                    transitionDelay: `${i * 40}ms`,
+                  }}
+                />
+              ))}
+            </div>
+            <p className="text-[11px] mt-2" style={{ color: "rgba(12,74,110,0.55)" }}>
+              {lastAnalysis ? `Last analysis · ${lastAnalysis.date} · Gemini` : "Run your first analysis to get your score"}
+            </p>
           </div>
 
           {/* Acciones */}
-          <div className="flex gap-2">
+          <div className="flex gap-2 mt-4">
             <button
               onClick={analyzeFinances}
               disabled={isAnalyzing}
               className="flex-[1.4] rounded-2xl py-3 px-3 flex items-center justify-center gap-2 text-sm font-bold active:scale-[0.97] transition-transform disabled:opacity-70 border-0 min-w-0"
-              style={{ background: ACCENT, color: "#000" }}
+              style={{ background: "#082F49", color: "#fff" }}
             >
               {isAnalyzing ? (
                 <><Loader2 className="h-4 w-4 animate-spin shrink-0" /><span className="truncate text-xs">{analyzePhase}</span></>
@@ -419,11 +395,7 @@ Keep it concise, friendly and actionable. Use emojis to make it engaging.`;
               onClick={handleUpload}
               disabled={isImporting}
               className="flex-1 rounded-2xl py-3 px-3 flex items-center justify-center gap-2 text-sm font-bold active:scale-[0.97] transition-transform disabled:opacity-70 relative overflow-hidden min-w-0"
-              style={{
-                background: "rgba(255,255,255,0.04)",
-                border: "1px solid rgba(14,165,233,0.35)",
-                color: ACCENT,
-              }}
+              style={{ background: "rgba(255,255,255,0.65)", color: "#0369A1" }}
             >
               {isImporting ? (
                 <><Loader2 className="h-4 w-4 animate-spin shrink-0" /><span className="text-xs">{importProgress}%</span></>
@@ -431,7 +403,7 @@ Keep it concise, friendly and actionable. Use emojis to make it engaging.`;
                 <><Upload className="h-4 w-4 shrink-0" /><span>Import PDF</span></>
               )}
               {isImporting && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5" style={{ background: "rgba(14,165,233,0.15)" }}>
+                <div className="absolute bottom-0 left-0 right-0 h-0.5" style={{ background: "rgba(14,165,233,0.2)" }}>
                   <div className="h-full transition-all duration-300" style={{ width: `${importProgress}%`, background: ACCENT }} />
                 </div>
               )}
