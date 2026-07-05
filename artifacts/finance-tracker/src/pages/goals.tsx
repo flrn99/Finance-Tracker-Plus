@@ -528,7 +528,7 @@ function Heatmap({
                 gridColumn: wi + 1,
                 gridRow: di + 1,
                 borderRadius: `${cellRadius}px`,
-                backgroundColor: isFuture ? "transparent" : isDone ? color : `${color}22`,
+                backgroundColor: isFuture ? "transparent" : isDone ? color : `${color}26`,
               }}
             />
           );
@@ -930,11 +930,38 @@ export default function Goals() {
   const detailHabit = detailId !== null ? habits.find((h) => h.id === detailId) ?? null : null;
   const isLoading = goalsQuery.isLoading || habitsQuery.isLoading;
 
+  // Resumen para las cards pastel de zona
+  const totalSaved = goals.reduce((s, g) => s + g.currentAmount, 0);
+  const totalTarget = goals.reduce((s, g) => s + g.targetAmount, 0);
+  const activeStreaks = habits.filter((h) => h.streak > 0).length;
+  const bestStreak = habits.reduce((m, h) => Math.max(m, h.streak), 0);
+
   /* ---------- render ---------- */
 
   return (
     <div className="space-y-4 animate-in fade-in duration-500">
       <h2 className="text-2xl font-bold tracking-tight pr-14 min-h-10 flex items-center">Goals</h2>
+
+      {/* Resumen — pasteles de zona (verde=ahorro, ambar=rachas) */}
+      {!isLoading && (goals.length > 0 || habits.length > 0) && (
+        <div className="grid grid-cols-2 gap-2">
+          <div className="rounded-3xl px-4 py-3.5 relative overflow-hidden" style={{ background: "linear-gradient(145deg, #F0FFD6 0%, #D6F9A4 100%)" }}>
+            <div className="absolute -top-8 -right-8 w-20 h-20 rounded-full pointer-events-none" style={{ background: "rgba(255,255,255,0.45)" }} />
+            <p className="text-[10px] font-bold uppercase tracking-widest relative" style={{ color: "#4D7C0F" }}>Total saved</p>
+            <p className="font-serif font-bold text-xl mt-1 relative leading-tight" style={{ color: "#1A2E05" }}>{symbol} {fmtMoney(totalSaved)}</p>
+            <p className="text-[11px] relative" style={{ color: "rgba(26,46,5,0.55)" }}>of {symbol} {fmtMoney(totalTarget)}</p>
+          </div>
+          <div className="rounded-3xl px-4 py-3.5 relative overflow-hidden" style={{ background: "linear-gradient(145deg, #FFF6DA 0%, #FFE7A8 100%)" }}>
+            <div className="absolute -top-8 -right-8 w-20 h-20 rounded-full pointer-events-none" style={{ background: "rgba(255,255,255,0.5)" }} />
+            <p className="text-[10px] font-bold uppercase tracking-widest relative" style={{ color: "#B45309" }}>Active streaks</p>
+            <div className="flex items-center gap-1.5 mt-1 relative">
+              <Flame className="h-5 w-5" style={{ color: "#F59E0B" }} />
+              <p className="font-serif font-bold text-xl leading-tight" style={{ color: "#451A03" }}>{activeStreaks}</p>
+            </div>
+            <p className="text-[11px] relative" style={{ color: "rgba(69,26,3,0.55)" }}>{bestStreak > 0 ? `best ${bestStreak} days` : "start one today"}</p>
+          </div>
+        </div>
+      )}
 
       {isLoading ? (
         <div className="space-y-2">
@@ -969,7 +996,7 @@ export default function Goals() {
                   const color = g.color ?? "#A8FF3E";
                   const pct = g.targetAmount > 0 ? Math.min(100, (g.currentAmount / g.targetAmount) * 100) : 0;
                   return (
-                    <div key={g.id} className="bg-card rounded-2xl shadow-sm px-3 py-2.5">
+                    <div key={g.id} className="rounded-2xl px-3.5 py-3" style={{ background: `${color}14` }}>
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2.5 min-w-0">
                           <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${color}25` }}>
@@ -1016,7 +1043,7 @@ export default function Goals() {
                           </AlertDialog>
                         </div>
                       </div>
-                      <div className="mt-2 h-1.5 rounded-full bg-muted overflow-hidden">
+                      <div className="mt-2 h-2 rounded-full overflow-hidden" style={{ background: `${color}22` }}>
                         <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: color }} />
                       </div>
                     </div>
@@ -1052,7 +1079,7 @@ export default function Goals() {
                   const logged = new Set(h.logs);
                   const doneToday = logged.has(today);
                   return (
-                    <div key={h.id} className="bg-card rounded-2xl shadow-sm px-3 py-2.5 space-y-2">
+                    <div key={h.id} className="rounded-2xl px-3.5 py-3 space-y-2" style={{ background: `${color}10` }}>
                       <div className="flex items-center justify-between gap-2">
                         <button onClick={() => setDetailId(h.id)} className="flex items-center gap-2.5 min-w-0 flex-1 text-left">
                           <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${color}25` }}>
@@ -1071,7 +1098,7 @@ export default function Goals() {
                         <button
                           onClick={() => { if (h.id < 0) return; toggleLog.mutate({ id: h.id, date: today }); }}
                           className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-all active:scale-90"
-                          style={{ backgroundColor: doneToday ? color : `${color}20` }}
+                          style={{ backgroundColor: doneToday ? color : `${color}30` }}
                         >
                           <Check className="h-4 w-4" style={{ color: doneToday ? "#000" : color }} strokeWidth={3} />
                         </button>

@@ -95,14 +95,20 @@ export default function QuickEntry() {
   const isIncome = type === "income";
 
   return (
-    <div
-      className={cn(
-        "rounded-2xl p-4 transition-colors duration-300 border-0",
-        isIncome ? "bg-[#1DB954]/30 dark:bg-[#39D96B]/25" : "bg-[#FF3B3B]/30 dark:bg-[#FF3B3B]/25"
-      )}
-    >
+    <div className="relative overflow-hidden rounded-3xl p-4 border-0">
+      {/* Fondos pastel — cross-fade segun modo */}
+      <div
+        className="absolute inset-0 transition-opacity duration-300 pointer-events-none"
+        style={{ background: "linear-gradient(145deg, #FFE9EC 0%, #FFD0D6 100%)", opacity: isIncome ? 0 : 1 }}
+      />
+      <div
+        className="absolute inset-0 transition-opacity duration-300 pointer-events-none"
+        style={{ background: "linear-gradient(145deg, #E3FBE9 0%, #C2F4CF 100%)", opacity: isIncome ? 1 : 0 }}
+      />
+      <div className="absolute -top-12 -right-12 w-40 h-40 rounded-full pointer-events-none" style={{ background: "rgba(255,255,255,0.4)" }} />
+      <div className="relative">
       <div className="flex items-center justify-between mb-3 gap-2">
-        <h3 className="font-serif font-semibold text-lg text-foreground shrink-0">New Entry</h3>
+        <h3 className="font-serif font-semibold text-lg shrink-0" style={{ color: "#1C1917" }}>New Entry</h3>
         <div
           className="relative flex items-center p-1 rounded-full shrink-0 overflow-hidden"
           style={{
@@ -134,7 +140,7 @@ export default function QuickEntry() {
             }}
             className={cn(
               "relative z-10 flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold transition-colors duration-300 whitespace-nowrap rounded-full",
-              !isIncome ? "text-white" : "text-foreground/50 hover:text-foreground/70"
+              !isIncome ? "text-white" : "text-black/45 hover:text-black/70"
             )}
           >
             <TrendingDown className="h-3.5 w-3.5 shrink-0" />
@@ -149,7 +155,7 @@ export default function QuickEntry() {
             }}
             className={cn(
               "relative z-10 flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold transition-colors duration-300 whitespace-nowrap rounded-full",
-              isIncome ? "text-white" : "text-foreground/50 hover:text-foreground/70"
+              isIncome ? "text-white" : "text-black/45 hover:text-black/70"
             )}
           >
             <TrendingUp className="h-3.5 w-3.5 shrink-0" />
@@ -174,7 +180,7 @@ export default function QuickEntry() {
                       onChange={field.onChange}
                       onBlur={field.onBlur}
                       placeholder="0.00"
-                      className="text-base font-semibold bg-background"
+                      className="text-base font-semibold bg-white/70 border-0 rounded-2xl text-neutral-900 placeholder:text-neutral-500"
                     />
                   </FormControl>
                   <FormMessage className="text-xs" />
@@ -191,7 +197,7 @@ export default function QuickEntry() {
                     value={field.value?.toString() ?? ""}
                   >
                     <FormControl>
-                      <SelectTrigger data-testid="select-quick-category" className="bg-background w-full min-w-0 [&>span]:truncate [&>span]:block [&>span]:text-left">
+                      <SelectTrigger data-testid="select-quick-category" className="bg-white/70 border-0 rounded-2xl text-neutral-900 w-full min-w-0 [&>span]:truncate [&>span]:block [&>span]:text-left">
                         <SelectValue placeholder="Category" />
                       </SelectTrigger>
                     </FormControl>
@@ -236,7 +242,7 @@ export default function QuickEntry() {
                   <Input
                     data-testid="input-quick-description"
                     placeholder="What was this for?"
-                    className="bg-background"
+                    className="bg-white/70 border-0 rounded-2xl text-neutral-900 placeholder:text-neutral-500"
                     {...field}
                   />
                 </FormControl>
@@ -268,16 +274,10 @@ export default function QuickEntry() {
               type="submit"
               data-testid="button-quick-save"
               disabled={createTx.isPending || saved}
-              className={cn(
-                "shrink-0 gap-1.5 transition-all h-10 px-5 border-0 text-black dark:text-white font-semibold",
-              )}
+              className="shrink-0 gap-1.5 transition-all h-10 px-5 border-0 text-white font-bold rounded-2xl"
               style={{
-                backdropFilter: "blur(24px) saturate(1.6)",
-                WebkitBackdropFilter: "blur(24px) saturate(1.6)",
-                background: saved || isIncome
-                  ? "linear-gradient(135deg, rgba(29,185,84,0.55), rgba(29,185,84,0.3))"
-                  : "linear-gradient(135deg, rgba(255,59,59,0.55), rgba(255,59,59,0.3))",
-                boxShadow: "inset 0 1px 1px rgba(255,255,255,0.4), inset 0 -1px 1px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.06)",
+                background: saved ? "#16A34A" : isIncome ? "#166534" : "#9F1239",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
               }}
             >
               {saved ? (
@@ -289,6 +289,7 @@ export default function QuickEntry() {
           </div>
         </form>
       </Form>
+      </div>
     </div>
   );
 }

@@ -125,12 +125,11 @@ export default function Dashboard() {
       {/* ── Summary Cards — original glass, intactas ──────────────── */}
       <div className="space-y-3">
         {/* Balance */}
-        <div className="relative overflow-hidden rounded-2xl px-5 py-4" style={{
-          backdropFilter: "blur(24px) saturate(1.6)",
-          WebkitBackdropFilter: "blur(24px) saturate(1.6)",
-          background: "linear-gradient(135deg, rgba(124,58,255,0.35), rgba(124,58,255,0.12))",
-          boxShadow: "inset 0 1px 1px rgba(255,255,255,0.4), inset 0 -1px 1px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.06)",
+        <div className="relative overflow-hidden rounded-3xl px-5 py-4" style={{
+          background: "linear-gradient(145deg, #F1EDFF 0%, #DCD3FE 100%)",
+          boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
         }}>
+          <div className="absolute -top-10 -right-10 w-36 h-36 rounded-full pointer-events-none" style={{ background: "rgba(255,255,255,0.45)" }} />
           <div className="relative flex items-start justify-between">
             <div>
               <div className="flex items-center gap-1.5 mb-2">
@@ -139,7 +138,7 @@ export default function Dashboard() {
               </div>
               {isLoadingSummary
                 ? <Skeleton className="h-9 w-36" />
-                : <p key={`balance-${filterMode}`} className="text-3xl font-bold animate-in fade-in slide-in-from-bottom-1 duration-300" style={{ color: "#7C3AFF" }}>{formatAmount(summary?.balance || 0)}</p>
+                : <p key={`balance-${filterMode}`} className="text-3xl font-serif font-bold animate-in fade-in slide-in-from-bottom-1 duration-300" style={{ color: "#5B21B6" }}>{formatAmount(summary?.balance || 0)}</p>
               }
               <p className="text-xs font-semibold mt-1" style={{ color: "#6D28D9" }}>{periodLabel}</p>
             </div>
@@ -162,43 +161,39 @@ export default function Dashboard() {
 
         {/* Expenses + Income */}
         <div className="grid grid-cols-2 gap-3">
-          <div className="relative overflow-hidden rounded-2xl px-4 py-4" style={{
-            backdropFilter: "blur(24px) saturate(1.6)",
-            WebkitBackdropFilter: "blur(24px) saturate(1.6)",
-            background: "linear-gradient(135deg, rgba(255,59,59,0.35), rgba(255,59,59,0.12))",
-            boxShadow: "inset 0 1px 1px rgba(255,255,255,0.4), inset 0 -1px 1px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.06)",
+          <div className="relative overflow-hidden rounded-3xl px-4 py-4" style={{
+            background: "linear-gradient(145deg, #FFE9EC 0%, #FFD0D6 100%)",
+            boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
           }}>
             <div className="relative">
               <div className="flex items-center justify-between mb-3">
                 <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: "#B91C1C" }}>Expenses</p>
-                <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ background: "rgba(255,59,59,0.15)" }}>
+                <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ background: "rgba(255,255,255,0.55)" }}>
                   <ArrowDownIcon className="h-3.5 w-3.5" style={{ color: "#FF3B3B" }} />
                 </div>
               </div>
               {isLoadingSummary
                 ? <Skeleton className="h-7 w-20" />
-                : <p key={`expenses-${filterMode}`} className="text-xl font-bold truncate animate-in fade-in slide-in-from-bottom-1 duration-300" style={{ color: "#FF3B3B" }}>{formatAmount(summary?.totalExpenses || 0)}</p>
+                : <p key={`expenses-${filterMode}`} className="text-xl font-bold truncate animate-in fade-in slide-in-from-bottom-1 duration-300" style={{ color: "#E11D48" }}>{formatAmount(summary?.totalExpenses || 0)}</p>
               }
               <p className="text-[10px] font-semibold mt-1" style={{ color: "#B91C1C" }}>{periodLabel}</p>
             </div>
           </div>
 
-          <div className="relative overflow-hidden rounded-2xl px-4 py-4" style={{
-            backdropFilter: "blur(24px) saturate(1.6)",
-            WebkitBackdropFilter: "blur(24px) saturate(1.6)",
-            background: "linear-gradient(135deg, rgba(29,185,84,0.35), rgba(29,185,84,0.12))",
-            boxShadow: "inset 0 1px 1px rgba(255,255,255,0.4), inset 0 -1px 1px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.06)",
+          <div className="relative overflow-hidden rounded-3xl px-4 py-4" style={{
+            background: "linear-gradient(145deg, #E3FBE9 0%, #C2F4CF 100%)",
+            boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
           }}>
             <div className="relative">
               <div className="flex items-center justify-between mb-3">
                 <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: "#15803D" }}>Income</p>
-                <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ background: "rgba(29,185,84,0.15)" }}>
+                <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ background: "rgba(255,255,255,0.55)" }}>
                   <ArrowUpIcon className="h-3.5 w-3.5" style={{ color: "#1DB954" }} />
                 </div>
               </div>
               {isLoadingSummary
                 ? <Skeleton className="h-7 w-20" />
-                : <p key={`income-${filterMode}`} className="text-xl font-bold truncate animate-in fade-in slide-in-from-bottom-1 duration-300" style={{ color: "#1DB954" }}>{formatAmount(summary?.totalIncome || 0)}</p>
+                : <p key={`income-${filterMode}`} className="text-xl font-bold truncate animate-in fade-in slide-in-from-bottom-1 duration-300" style={{ color: "#16A34A" }}>{formatAmount(summary?.totalIncome || 0)}</p>
               }
               <p className="text-[10px] font-semibold mt-1" style={{ color: "#15803D" }}>{periodLabel}</p>
             </div>
@@ -207,7 +202,7 @@ export default function Dashboard() {
       </div>
 
       {/* ── Chart + Top 3 ─────────────────────────────────────────── */}
-      <div className="bg-card rounded-2xl shadow-sm overflow-hidden">
+      <div className="bg-card rounded-3xl shadow-sm overflow-hidden">
         <div className="flex items-center justify-between gap-2 px-5 pt-5 pb-2">
           <div>
             <p className="text-sm font-bold text-foreground">

@@ -87,28 +87,82 @@ export default function BiometricLock() {
   ];
 
   return (
-    // 💎 Fondo premium con sutil viñeta para centrar la atención
-    <div 
-      className="fixed inset-0 z-[999] flex flex-col items-center justify-center px-6 animate-in fade-in duration-300"
-      style={{ 
-        paddingTop: "env(safe-area-inset-top)", 
-        paddingBottom: "calc(env(safe-area-inset-bottom) + 1rem)", 
-        background: "radial-gradient(circle at center, hsl(var(--background)), hsl(var(--background)/0.95))",
-        backgroundColor: "hsl(var(--background))"
+    <div
+      className="fixed inset-0 z-[999] flex flex-col items-center justify-center px-5 animate-in fade-in duration-500 overflow-hidden"
+      style={{
+        paddingTop: "env(safe-area-inset-top)",
+        paddingBottom: "calc(env(safe-area-inset-bottom) + 1rem)",
+        backgroundColor: "hsl(var(--background))",
       }}
     >
-      {/* Container Principal */}
-      <div className="w-full max-w-sm flex flex-col items-center">
-        
+      {/* 🌈 Aurora mesh — blobs difuminados a la deriva */}
+      <style>{`
+        @keyframes ff-drift-1 { from { transform: translate(0,0) scale(1); } to { transform: translate(9vmin,7vmin) scale(1.12); } }
+        @keyframes ff-drift-2 { from { transform: translate(0,0) scale(1.05); } to { transform: translate(-8vmin,5vmin) scale(0.95); } }
+        @keyframes ff-drift-3 { from { transform: translate(0,0) scale(0.95); } to { transform: translate(6vmin,-8vmin) scale(1.1); } }
+        @keyframes ff-drift-4 { from { transform: translate(0,0) scale(1.08); } to { transform: translate(-6vmin,-5vmin) scale(1); } }
+        @media (prefers-reduced-motion: reduce) {
+          .ff-blob { animation: none !important; }
+        }
+      `}</style>
+      <div aria-hidden className="absolute inset-0 pointer-events-none">
+        <div
+          className="ff-blob absolute rounded-full"
+          style={{
+            width: "72vmin", height: "72vmin", top: "-18%", left: "-18%",
+            background: "#A8FF3E", opacity: 0.5, filter: "blur(70px)",
+            animation: "ff-drift-1 16s ease-in-out infinite alternate",
+          }}
+        />
+        <div
+          className="ff-blob absolute rounded-full"
+          style={{
+            width: "60vmin", height: "60vmin", top: "22%", right: "-22%",
+            background: "#67E8F9", opacity: 0.45, filter: "blur(70px)",
+            animation: "ff-drift-2 20s ease-in-out infinite alternate",
+          }}
+        />
+        <div
+          className="ff-blob absolute rounded-full"
+          style={{
+            width: "58vmin", height: "58vmin", bottom: "-16%", left: "2%",
+            background: "#C4B5FD", opacity: 0.45, filter: "blur(75px)",
+            animation: "ff-drift-3 18s ease-in-out infinite alternate",
+          }}
+        />
+        <div
+          className="ff-blob absolute rounded-full"
+          style={{
+            width: "46vmin", height: "46vmin", bottom: "8%", right: "6%",
+            background: "#6EE7B7", opacity: 0.4, filter: "blur(65px)",
+            animation: "ff-drift-4 22s ease-in-out infinite alternate",
+          }}
+        />
+      </div>
+
+      {/* 💳 Card flotante limpia */}
+      <div
+        className="relative w-full max-w-sm rounded-[2rem] bg-card px-6 pt-8 pb-6 flex flex-col items-center animate-in fade-in zoom-in-95 duration-500"
+        style={{
+          boxShadow: "0 24px 80px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.06)",
+          border: "1px solid hsl(var(--foreground) / 0.05)",
+        }}
+      >
+        {/* Marca */}
+        <div className="flex items-center gap-1.5 mb-6">
+          <span className="w-2.5 h-2.5 rounded-full" style={{ background: "#A8FF3E" }} />
+          <span className="font-serif font-bold text-sm tracking-tight text-foreground">Flow!</span>
+        </div>
+
         {/* Icon & Title */}
-        <div className="mb-8 flex flex-col items-center gap-4">
+        <div className="mb-7 flex flex-col items-center gap-4">
           <div
             className="w-20 h-20 rounded-full flex items-center justify-center shadow-[inset_0_1px_2px_rgba(255,255,255,0.1),0_8px_24px_rgba(0,0,0,0.05)]"
             style={{
               background: mode === "biometric"
                 ? "linear-gradient(135deg, rgba(124,58,255,0.15), rgba(124,58,255,0.05))"
-                : "linear-gradient(135deg, rgba(168,255,62,0.15), rgba(168,255,62,0.05))",
-              border: "1px solid rgba(255,255,255,0.05)"
+                : "linear-gradient(135deg, rgba(168,255,62,0.18), rgba(168,255,62,0.05))",
+              border: "1px solid rgba(255,255,255,0.05)",
             }}
           >
             {mode === "biometric"
@@ -117,7 +171,7 @@ export default function BiometricLock() {
             }
           </div>
           <div className="text-center space-y-1.5">
-            <p className="text-2xl font-bold tracking-tight text-foreground">
+            <p className="text-2xl font-serif font-bold tracking-tight text-foreground">
               {mode === "biometric" ? "Verify Identity" : "Enter PIN"}
             </p>
             <p className="text-sm font-medium text-muted-foreground">
@@ -130,10 +184,10 @@ export default function BiometricLock() {
         </div>
 
         {/* Dynamic Content based on Mode */}
-        <div className="w-full relative min-h-[320px] flex flex-col items-center justify-start pt-2">
-          
+        <div className="w-full relative min-h-[300px] flex flex-col items-center justify-start">
+
           {mode === "biometric" ? (
-            <div className="flex flex-col items-center gap-6 w-full animate-in fade-in zoom-in-95 duration-300">
+            <div className="flex flex-col items-center gap-5 w-full animate-in fade-in zoom-in-95 duration-300">
               {error && (
                 <div className="flex items-center gap-2.5 bg-destructive/10 text-destructive rounded-[20px] px-4 py-3.5 w-full">
                   <ShieldAlert className="h-4 w-4 shrink-0" />
@@ -145,21 +199,21 @@ export default function BiometricLock() {
                 onClick={handleBiometric}
                 disabled={isAuthenticating}
                 className="w-full py-4 rounded-2xl font-bold text-black active:scale-[0.98] transition-all disabled:opacity-60 flex items-center justify-center mt-2"
-                style={{ background: "#A8FF3E", boxShadow: "0 4px 14px rgba(168,255,62,0.2), inset 0 1px 1px rgba(255,255,255,0.4)" }}
+                style={{ background: "#A8FF3E", boxShadow: "0 4px 14px rgba(168,255,62,0.3), inset 0 1px 1px rgba(255,255,255,0.4)" }}
               >
                 {isAuthenticating ? "Verifying…" : "Try Again"}
               </button>
 
               <button
                 onClick={() => { setMode("pin"); setError(""); }}
-                className="mt-2 h-10 px-6 rounded-full flex items-center justify-center text-sm font-semibold text-foreground/70 hover:text-foreground hover:bg-muted transition-colors active:scale-95"
+                className="mt-1 h-10 px-6 rounded-full flex items-center justify-center text-sm font-semibold text-foreground/70 hover:text-foreground hover:bg-muted transition-colors active:scale-95"
               >
                 Use PIN instead
               </button>
             </div>
           ) : (
             <div className="flex flex-col items-center gap-5 w-full animate-in fade-in slide-in-from-bottom-4 duration-300">
-              
+
               {/* 💎 PIN dots idénticos a los de settings.tsx */}
               <div className={cn("flex gap-3 py-2 justify-center items-center h-4", shake && "animate-shake")}>
                 {Array.from({ length: 6 }).map((_, i) => (
@@ -181,7 +235,7 @@ export default function BiometricLock() {
               )}
 
               {/* 💎 TECLADO LIGERO (IDÉNTICO AL MODAL DE CONFIGURACIÓN) */}
-              <div className="grid grid-cols-3 gap-4 w-full max-w-[220px] mx-auto pb-1 mt-2">
+              <div className="grid grid-cols-3 gap-4 w-full max-w-[220px] mx-auto pb-1 mt-1">
                 {DIGITS.flat().map((digit, i) => {
                   if (digit === "") return <div key={i} />;
                   if (digit === "del") return (
