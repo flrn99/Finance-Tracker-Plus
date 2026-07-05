@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Capacitor } from "@capacitor/core";
 import { FilePicker } from "@capawesome/capacitor-file-picker";
-import { Sparkles, Upload, FileText, Loader2, AlertCircle, X, TrendingDown } from "lucide-react";
+import { Sparkles, Upload, Loader2, AlertCircle, X, TrendingDown, ArrowRight } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useCurrency, CURRENCY_INFO } from "@/lib/currency-context";
 import { getApiUrl } from "@/lib/api-config";
@@ -11,6 +11,8 @@ import ImportReview from "@/components/import-review";
 import { useToast } from "@/hooks/use-toast";
 
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+
+const FLOW = "#A8FF3E";
 
 interface EditableTx {
   date: string;
@@ -48,14 +50,14 @@ function InsightsModal({ insights, onClose }: { insights: string; onClose: () =>
       >
 
         <div className="px-5 py-3 border-b border-border flex items-center gap-3 shrink-0">
-          <div className="w-8 h-8 rounded-2xl bg-black flex items-center justify-center">
-          <Sparkles className="h-4 w-4 text-white" />
+          <div className="w-8 h-8 rounded-2xl flex items-center justify-center" style={{ background: FLOW }}>
+          <Sparkles className="h-4 w-4 text-black" />
           </div>
           <div className="flex-1">
             <p className="font-bold text-sm">Your Financial Report</p>
             <p className="text-xs font-light text-muted-foreground">Powered by Gemini</p>
           </div>
-          <button onClick={onClose} className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
+          <button onClick={onClose} className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -315,82 +317,107 @@ Keep it concise, friendly and actionable. Use emojis to make it engaging.`;
   return (
     <div className="space-y-3 animate-in fade-in duration-500">
 
-      {/* Hero — B3 dark tech cyan */}
+      {/* Hero — Flow ink & acid green */}
       <div
-        className="relative overflow-hidden rounded-2xl px-5 pt-4 pb-4"
-        style={{ background: "#080C14", boxShadow: "0 0 0 1px rgba(14,165,233,0.35), 0 0 30px rgba(14,165,233,0.12), inset 0 0 40px rgba(14,165,233,0.04)" }}
+        className="relative overflow-hidden rounded-3xl px-5 pt-5 pb-5"
+        style={{
+          background: "#0A0A0A",
+          boxShadow: "0 0 0 1px rgba(168,255,62,0.22), 0 12px 40px rgba(0,0,0,0.25)",
+        }}
       >
-        {/* Dot grid */}
-        <div className="absolute inset-0 pointer-events-none" style={{ backgroundImage: "radial-gradient(rgba(14,165,233,0.15) 1px, transparent 1px)", backgroundSize: "20px 20px" }} />
-        {/* Cyan glow top right */}
-        <div className="absolute -top-16 -right-10 w-48 h-48 rounded-full pointer-events-none" style={{ background: "radial-gradient(circle, #0ea5e9 0%, transparent 65%)", opacity: 0.2 }} />
-        {/* Cyan glow bottom left */}
-        <div className="absolute -bottom-10 -left-10 w-32 h-32 rounded-full pointer-events-none" style={{ background: "radial-gradient(circle, #0284c7 0%, transparent 70%)", opacity: 0.15 }} />
+        {/* Aurora verde — arriba derecha, detrás del avatar */}
+        <div
+          className="absolute -top-20 -right-14 w-56 h-56 rounded-full pointer-events-none"
+          style={{ background: `radial-gradient(circle, ${FLOW} 0%, transparent 65%)`, opacity: 0.14 }}
+        />
+        {/* Aurora tenue — abajo izquierda */}
+        <div
+          className="absolute -bottom-14 -left-12 w-40 h-40 rounded-full pointer-events-none"
+          style={{ background: "radial-gradient(circle, #4d7a0f 0%, transparent 70%)", opacity: 0.25 }}
+        />
+        {/* Grid fino */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            backgroundImage: `radial-gradient(rgba(168,255,62,0.10) 1px, transparent 1px)`,
+            backgroundSize: "22px 22px",
+          }}
+        />
 
         <div className="relative">
           {/* Badge */}
-          <div className="inline-flex items-center gap-1.5 mb-2 px-2.5 py-1 rounded-full" style={{ border: "1px solid rgba(14,165,233,0.45)", background: "rgba(14,165,233,0.12)" }}>
-            <Sparkles className="h-3 w-3" style={{ color: "#0ea5e9" }} />
-            <span className="text-[10px] font-bold tracking-widest uppercase" style={{ color: "#0ea5e9" }}>AI Powered</span>
+          <div
+            className="inline-flex items-center gap-1.5 mb-3 px-2.5 py-1 rounded-lg"
+            style={{ border: `1px solid rgba(168,255,62,0.4)`, background: "rgba(168,255,62,0.08)" }}
+          >
+            <Sparkles className="h-3 w-3" style={{ color: FLOW }} />
+            <span className="text-[10px] font-bold tracking-widest uppercase" style={{ color: FLOW }}>
+              AI Powered
+            </span>
           </div>
 
-          <h2 className="text-lg font-serif font-bold text-white leading-tight mb-0.5">Financial Insights</h2>
-          <p className="text-xs font-light mb-3" style={{ color: "rgba(255,255,255,0.35)" }}>Understand your money. Make smarter decisions.</p>
+          {/* Título */}
+          <h2 className="text-2xl font-serif font-bold text-white leading-tight">
+            Financial <span style={{ color: FLOW }}>Insights</span>
+          </h2>
+          <p className="text-xs font-light mt-1 mb-4" style={{ color: "rgba(255,255,255,0.4)" }}>
+            Understand your money. Make smarter decisions.
+          </p>
 
-          <div className="space-y-1.5">
-            {/* AI Analysis tile */}
-            <div className="rounded-2xl px-3 py-2 space-y-2" style={{ background: "rgba(14,165,233,0.08)", border: "1px solid rgba(14,165,233,0.25)" }}>
-              <div className="flex items-center gap-2">
-                <Sparkles className="h-3.5 w-3.5 shrink-0" style={{ color: "#0ea5e9" }} />
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <p className="text-xs font-bold text-white leading-none">AI Analysis</p>
-                    <span className="text-xs font-medium" style={{ color: "rgba(14,165,233,0.55)" }}>· Powered by Gemini</span>
-                  </div>
-                  <p className="text-xs font-light mt-0.5" style={{ color: "rgba(255,255,255,0.38)" }}>Health score, spending breakdown & personalized tips</p>
-                </div>
+          {/* Acciones — cards táctiles */}
+          <div className="grid grid-cols-2 gap-2">
+            {/* Analyze — la card entera es el botón */}
+            <button
+              onClick={analyzeFinances}
+              disabled={isAnalyzing}
+              className="rounded-2xl p-3.5 text-left flex flex-col gap-2 active:scale-[0.97] transition-transform disabled:opacity-70 border-0"
+              style={{ background: FLOW }}
+            >
+              <div className="flex items-center justify-between">
+                {isAnalyzing
+                  ? <Loader2 className="h-5 w-5 text-black animate-spin" />
+                  : <Sparkles className="h-5 w-5 text-black" />}
+                <ArrowRight className="h-3.5 w-3.5 text-black/50" />
               </div>
-              <button
-                onClick={analyzeFinances}
-                disabled={isAnalyzing}
-                className="w-full py-1.5 rounded-2xl text-xs font-bold flex items-center justify-center gap-1.5 disabled:opacity-60 active:scale-[0.98] transition-all border-0 min-h-[28px]"
-                style={{ background: "#0ea5e9", color: "#000" }}
-              >
-                {isAnalyzing ? (
-                  <><Loader2 className="h-3 w-3 animate-spin shrink-0" /><span className="truncate">{analyzePhase}</span></>
-                ) : (
-                  <><Sparkles className="h-3 w-3 shrink-0" /><span>Analyze</span></>
-                )}
-              </button>
-            </div>
+              <div>
+                <p className="text-sm font-bold text-black leading-tight">Analyze</p>
+                <p className="text-[11px] text-black/60 leading-snug mt-0.5">
+                  {isAnalyzing ? analyzePhase : "Health score & tips by Gemini"}
+                </p>
+              </div>
+            </button>
 
-            {/* Import PDF tile */}
-            <div className="rounded-2xl px-3 py-2 space-y-2" style={{ background: "rgba(14,165,233,0.04)", border: "1px solid rgba(14,165,233,0.15)" }}>
-              <div className="flex items-center gap-2">
-                <Upload className="h-3.5 w-3.5 shrink-0" style={{ color: "rgba(14,165,233,0.6)" }} />
-                <div>
-                  <p className="text-xs font-bold text-white leading-none">Import PDF</p>
-                  <p className="text-xs font-light mt-0.5" style={{ color: "rgba(255,255,255,0.38)" }}>Upload your bank statement & extract transactions</p>
-                </div>
+            {/* Import PDF — glass sobre el panel */}
+            <button
+              onClick={handleUpload}
+              disabled={isImporting}
+              className="rounded-2xl p-3.5 text-left flex flex-col gap-2 active:scale-[0.97] transition-transform disabled:opacity-70 relative overflow-hidden"
+              style={{
+                background: "rgba(255,255,255,0.04)",
+                border: "1px solid rgba(168,255,62,0.3)",
+              }}
+            >
+              <div className="flex items-center justify-between">
+                {isImporting
+                  ? <Loader2 className="h-5 w-5 animate-spin" style={{ color: FLOW }} />
+                  : <Upload className="h-5 w-5" style={{ color: FLOW }} />}
+                <ArrowRight className="h-3.5 w-3.5" style={{ color: "rgba(255,255,255,0.3)" }} />
               </div>
-              <button
-                onClick={handleUpload}
-                disabled={isImporting}
-                className="w-full py-1.5 rounded-2xl text-xs font-bold flex items-center justify-center gap-1.5 disabled:opacity-60 active:scale-[0.98] transition-all min-h-[28px]"
-                style={{ background: "rgba(14,165,233,0.12)", border: "1px solid rgba(14,165,233,0.3)", color: "#0ea5e9" }}
-              >
-                {isImporting ? (
-                  <><Loader2 className="h-3 w-3 animate-spin shrink-0" /><span>Reading... {importProgress}%</span></>
-                ) : (
-                  <><Upload className="h-3 w-3 shrink-0" /><span>Upload</span></>
-                )}
-              </button>
+              <div>
+                <p className="text-sm font-bold text-white leading-tight">Import PDF</p>
+                <p className="text-[11px] leading-snug mt-0.5" style={{ color: "rgba(255,255,255,0.4)" }}>
+                  {isImporting ? `Reading… ${importProgress}%` : "Bank statement → transactions"}
+                </p>
+              </div>
               {isImporting && (
-                <div className="w-full h-1 rounded-full overflow-hidden" style={{ background: "rgba(14,165,233,0.15)" }}>
-                  <div className="h-full rounded-full transition-all duration-300" style={{ width: `${importProgress}%`, background: "#0ea5e9" }} />
+                <div className="absolute bottom-0 left-0 right-0 h-0.5" style={{ background: "rgba(168,255,62,0.15)" }}>
+                  <div
+                    className="h-full transition-all duration-300"
+                    style={{ width: `${importProgress}%`, background: FLOW }}
+                  />
                 </div>
               )}
-            </div>
+            </button>
           </div>
         </div>
       </div>
@@ -443,7 +470,7 @@ Keep it concise, friendly and actionable. Use emojis to make it engaging.`;
 
       {/* Last analysis card */}
       {lastAnalysis ? (
-        <div className="bg-card border-2 border-[#0ea5e9]/40 rounded-2xl p-4">
+        <div className="bg-card rounded-2xl p-4" style={{ border: `2px solid rgba(168,255,62,0.45)` }}>
           <div className="flex items-center gap-3 mb-3">
             <div className="w-9 h-9 rounded-2xl bg-black flex items-center justify-center shrink-0 dark:bg-white">
               <Sparkles className="h-4 w-4 text-white dark:text-black" />
@@ -467,7 +494,7 @@ Keep it concise, friendly and actionable. Use emojis to make it engaging.`;
                 <span className="text-sm font-bold text-foreground">{lastAnalysis.score}<span className="text-muted-foreground font-normal">/10</span></span>
               </div>
               <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
-                <div className="h-full bg-[#0ea5e9] rounded-full transition-all duration-700" style={{ width: `${scorePercent}%` }} />
+                <div className="h-full rounded-full transition-all duration-700" style={{ width: `${scorePercent}%`, background: FLOW }} />
               </div>
             </div>
           ) : (
