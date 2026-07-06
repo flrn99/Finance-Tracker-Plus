@@ -402,8 +402,8 @@ export default function Categories() {
                   <span className="text-xs text-muted-foreground">({filtered.length})</span>
                 </div>
 
-                {/* Cards grid */}
-                <div className="grid grid-cols-2 gap-2">
+                {/* Lista — una columna, nombres completos con aire */}
+                <div className="space-y-1.5">
                   {filtered.map((cat) => {
                     return (
                       <div
@@ -424,15 +424,8 @@ export default function Categories() {
                         </button>
 
                         {/* Contenido */}
-                        <div className="flex-1 min-w-0 px-2.5 py-2 flex items-center gap-1.5">
-                          {/* Nombre — se desvanece si es largo, nunca choca con los botones */}
-                          <p
-                            className="min-w-0 flex-1 text-sm font-bold text-foreground leading-tight whitespace-nowrap overflow-hidden"
-                            style={{
-                              WebkitMaskImage: "linear-gradient(to right, black 82%, transparent 98%)",
-                              maskImage: "linear-gradient(to right, black 82%, transparent 98%)",
-                            }}
-                          >
+                        <div className="flex-1 min-w-0 px-3 py-2.5 flex items-center gap-2">
+                          <p className="min-w-0 flex-1 text-sm font-bold text-foreground leading-snug">
                             {cat.name}
                           </p>
                           {/* Divisor — eco del lomo: la card queda enmarcada por su color */}
