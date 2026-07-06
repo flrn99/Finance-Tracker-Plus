@@ -15,7 +15,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Check, X, TrendingDown, TrendingUp } from "lucide-react";
+import { Plus, Check, X, TrendingDown, TrendingUp, Pencil, Trash2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -439,24 +439,61 @@ export default function Categories() {
                 {/* Swatches Pantone — color arriba, grid de 2 */}
                 <div className="grid grid-cols-2 gap-2">
                   {filtered.map((cat) => (
-                    <button
+                    <div
                       key={cat.id}
-                      onClick={() => openEdit(cat)}
-                      className="rounded-2xl overflow-hidden bg-card text-left active:scale-[0.98] transition-transform flex flex-col"
+                      className="rounded-2xl overflow-hidden bg-card flex flex-col"
                       style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}
                     >
-                      {/* Bloque de color — sello Pantone, compacto */}
-                      <div className="relative w-full h-9 shrink-0" style={{ backgroundColor: cat.color }}>
+                      {/* Bloque de color — tap para editar */}
+                      <button
+                        onClick={() => openEdit(cat)}
+                        className="relative w-full h-9 shrink-0 active:opacity-80 transition-opacity"
+                        style={{ backgroundColor: cat.color }}
+                      >
                         <div
                           className="absolute -top-5 -right-3 w-14 h-14 rounded-full pointer-events-none"
                           style={{ background: "rgba(255,255,255,0.3)" }}
                         />
+                      </button>
+                      {/* Base: nombre | divisor tintado | acciones */}
+                      <div className="flex-1 pl-3 pr-1.5 py-2 flex items-center gap-2">
+                        <p className="min-w-0 flex-1 text-sm font-bold text-foreground leading-snug">{cat.name}</p>
+                        {/* Divisor — eco del color de la categoria */}
+                        <div className="w-px self-stretch my-1 shrink-0" style={{ background: `${cat.color}40` }} />
+                        <div className="flex items-center shrink-0">
+                          <button
+                            onClick={() => openEdit(cat)}
+                            className="h-7 w-7 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <button className="h-7 w-7 flex items-center justify-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all">
+                                <Trash2 className="h-3 w-3" />
+                              </button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete Category</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Delete "{cat.name}"? This cannot be undone, and will fail if any transactions use this category.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => handleDelete(cat.id)}
+                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90 border-0"
+                                >
+                                  Delete
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
                       </div>
-                      {/* Nombre — toda la base para el, envuelve si es largo */}
-                      <div className="flex-1 px-3 py-2.5 flex items-center">
-                        <p className="text-sm font-bold text-foreground leading-snug">{cat.name}</p>
-                      </div>
-                    </button>
+                    </div>
                   ))}
                   {/* Tile fantasma — crear con el tipo preseleccionado */}
                   <button
