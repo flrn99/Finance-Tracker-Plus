@@ -15,7 +15,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Check, X, TrendingDown, TrendingUp } from "lucide-react";
+import { Plus, Check, X, ChevronRight, TrendingDown, TrendingUp } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -436,25 +436,36 @@ export default function Categories() {
                   <span className="text-xs text-muted-foreground">({filtered.length})</span>
                 </div>
 
-                {/* Nube — los pills crecen al tamaño de su nombre */}
-                <div className="flex flex-wrap gap-1.5">
+                {/* Swatches horizontales — color a la izquierda, nombre con toda la fila */}
+                <div className="space-y-1.5">
                   {filtered.map((cat) => (
                     <button
                       key={cat.id}
                       onClick={() => openEdit(cat)}
-                      className="px-3.5 py-2 rounded-xl text-sm font-bold active:scale-95 transition-transform"
-                      style={{ background: `${cat.color}1C`, color: cat.color }}
+                      className="w-full flex items-stretch rounded-2xl overflow-hidden bg-card text-left active:scale-[0.99] transition-transform"
+                      style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}
                     >
-                      {cat.name}
+                      {/* Bloque de color — sello Pantone */}
+                      <div className="relative w-14 shrink-0" style={{ backgroundColor: cat.color }}>
+                        <div
+                          className="absolute -top-4 -right-3 w-12 h-12 rounded-full pointer-events-none"
+                          style={{ background: "rgba(255,255,255,0.3)" }}
+                        />
+                      </div>
+                      {/* Nombre — completo, sin cortes */}
+                      <div className="flex-1 min-w-0 px-3.5 py-3 flex items-center justify-between gap-2">
+                        <p className="min-w-0 text-sm font-bold text-foreground leading-snug">{cat.name}</p>
+                        <ChevronRight className="h-4 w-4 text-muted-foreground/40 shrink-0" />
+                      </div>
                     </button>
                   ))}
-                  {/* Ghost pill — crear con el tipo ya preseleccionado */}
+                  {/* Fila fantasma — crear con el tipo preseleccionado */}
                   <button
                     onClick={() => openCreate(type)}
-                    className="px-3.5 py-2 rounded-xl text-sm font-semibold text-muted-foreground border-[1.5px] border-dashed border-border flex items-center gap-1 active:scale-95 transition-transform hover:text-foreground hover:border-foreground/30"
+                    className="w-full flex items-center justify-center gap-1.5 rounded-2xl border-[1.5px] border-dashed border-border py-3 text-sm font-semibold text-muted-foreground hover:text-foreground hover:border-foreground/30 active:scale-[0.99] transition-all"
                   >
-                    <Plus className="h-3.5 w-3.5" />
-                    New
+                    <Plus className="h-4 w-4" />
+                    New {type === "expense" ? "expense" : "income"} category
                   </button>
                 </div>
               </div>
@@ -463,7 +474,5 @@ export default function Categories() {
         </div>
       )}
     </div>
-  );
-}    </div>
   );
 }
