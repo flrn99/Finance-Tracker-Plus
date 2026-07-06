@@ -436,7 +436,7 @@ export default function Categories() {
                   <span className="text-xs text-muted-foreground">({filtered.length})</span>
                 </div>
 
-                {/* Swatches Pantone — color arriba, grid de 2 */}
+                {/* Swatches Pantone — acciones glass sobre el color, base solo nombre */}
                 <div className="grid grid-cols-2 gap-2">
                   {filtered.map((cat) => (
                     <div
@@ -444,33 +444,32 @@ export default function Categories() {
                       className="rounded-2xl overflow-hidden bg-card flex flex-col"
                       style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}
                     >
-                      {/* Bloque de color — tap para editar */}
-                      <button
+                      {/* Bloque de color con acciones integradas */}
+                      <div
                         onClick={() => openEdit(cat)}
-                        className="relative w-full h-9 shrink-0 active:opacity-80 transition-opacity"
+                        className="relative w-full h-9 shrink-0 cursor-pointer"
                         style={{ backgroundColor: cat.color }}
                       >
                         <div
-                          className="absolute -top-5 -right-3 w-14 h-14 rounded-full pointer-events-none"
-                          style={{ background: "rgba(255,255,255,0.3)" }}
+                          className="absolute -top-5 -left-3 w-14 h-14 rounded-full pointer-events-none"
+                          style={{ background: "rgba(255,255,255,0.28)" }}
                         />
-                      </button>
-                      {/* Base: nombre | divisor tintado | acciones */}
-                      <div className="flex-1 pl-3 pr-1.5 py-2 flex items-center gap-2">
-                        <p className="min-w-0 flex-1 text-sm font-bold text-foreground leading-snug">{cat.name}</p>
-                        {/* Divisor — eco del color de la categoria */}
-                        <div className="w-px self-stretch my-1 shrink-0" style={{ background: `${cat.color}40` }} />
-                        <div className="flex items-center shrink-0">
+                        <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
                           <button
-                            onClick={() => openEdit(cat)}
-                            className="h-7 w-7 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
+                            onClick={(e) => { e.stopPropagation(); openEdit(cat); }}
+                            className="h-6 w-6 flex items-center justify-center rounded-lg active:scale-90 transition-transform"
+                            style={{ background: "rgba(0,0,0,0.18)" }}
                           >
-                            <Pencil className="h-3 w-3" />
+                            <Pencil className="h-3 w-3 text-white" />
                           </button>
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
-                              <button className="h-7 w-7 flex items-center justify-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all">
-                                <Trash2 className="h-3 w-3" />
+                              <button
+                                onClick={(e) => e.stopPropagation()}
+                                className="h-6 w-6 flex items-center justify-center rounded-lg active:scale-90 transition-transform"
+                                style={{ background: "rgba(0,0,0,0.18)" }}
+                              >
+                                <Trash2 className="h-3 w-3 text-white" />
                               </button>
                             </AlertDialogTrigger>
                             <AlertDialogContent>
@@ -493,16 +492,12 @@ export default function Categories() {
                           </AlertDialog>
                         </div>
                       </div>
+                      {/* Base — solo el nombre, limpio */}
+                      <div className="px-3 py-2 flex items-center">
+                        <p className="text-sm font-bold text-foreground leading-snug">{cat.name}</p>
+                      </div>
                     </div>
                   ))}
-                  {/* Tile fantasma — crear con el tipo preseleccionado */}
-                  <button
-                    onClick={() => openCreate(type)}
-                    className="rounded-2xl border-[1.5px] border-dashed border-border flex items-center justify-center gap-1.5 min-h-[74px] text-sm font-semibold text-muted-foreground hover:text-foreground hover:border-foreground/30 active:scale-[0.98] transition-all"
-                  >
-                    <Plus className="h-4 w-4" />
-                    New
-                  </button>
                 </div>
               </div>
             );
