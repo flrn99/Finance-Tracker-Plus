@@ -484,9 +484,20 @@ function TransactionList({ filteredTransactions, isLoading, formatAmount, onSele
                 />
                 <span className="text-[11px] font-bold text-muted-foreground tracking-wide uppercase">{monthLabel}</span>
               </div>
-              <span className="text-[11px] text-muted-foreground/60">
-                {txs.length} {txs.length === 1 ? "item" : "items"}
-              </span>
+              {(() => {
+                const net = txs.reduce((a, t) => a + (t.type === "income" ? t.amount : -t.amount), 0);
+                return (
+                  <span
+                    className="text-[11px] font-bold tabular-nums px-2 py-0.5 rounded-lg"
+                    style={{
+                      background: net >= 0 ? "rgba(29,185,84,0.14)" : "rgba(255,59,59,0.12)",
+                      color: net >= 0 ? "#15803D" : "#B91C1C",
+                    }}
+                  >
+                    {net >= 0 ? "+" : "−"}{formatAmount(Math.abs(net))}
+                  </span>
+                );
+              })()}
             </button>
 
             {/* Items del mes */}
@@ -500,39 +511,38 @@ function TransactionList({ filteredTransactions, isLoading, formatAmount, onSele
                     className="w-full text-left flex items-center gap-3 px-4 py-3.5 hover:bg-muted/30 transition-colors duration-150 animate-in fade-in slide-in-from-top-1 duration-200"
                     style={{ animationDelay: `${idx * 15}ms`, animationFillMode: "backwards" }}
                   >
-                    {/* Ícono categoría */}
+                    {/* Avatar de letra — el color de la categoria con personalidad */}
                     <div
-                      className="w-9 h-9 rounded-full flex items-center justify-center shrink-0"
-                      style={{ backgroundColor: `${tx.categoryColor}20`, border: `1.5px solid ${tx.categoryColor}40` }}
+                      className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                      style={{ backgroundColor: `${tx.categoryColor}1F` }}
                     >
-                      {tx.type === "income"
-                        ? <TrendingUp className="h-3.5 w-3.5" style={{ color: tx.categoryColor }} />
-                        : <TrendingDown className="h-3.5 w-3.5" style={{ color: tx.categoryColor }} />
-                      }
+                      <span className="text-sm font-black" style={{ color: tx.categoryColor }}>
+                        {(tx.categoryName?.[0] ?? "?").toUpperCase()}
+                      </span>
                     </div>
 
-                    {/* Monto héroe + descripción · categoría */}
+                    {/* Descripcion principal + categoria como sticker */}
                     <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-foreground leading-tight truncate mb-1">{tx.description}</p>
+                      <span
+                        className="inline-block px-1.5 py-0.5 rounded-md text-[10px] font-bold leading-none"
+                        style={{ background: `${tx.categoryColor}1A`, color: tx.categoryColor }}
+                      >
+                        {tx.categoryName}
+                      </span>
+                    </div>
+
+                    {/* Monto + fecha */}
+                    <div className="flex flex-col items-end gap-0.5 shrink-0">
                       <span className={cn(
-                        "text-base font-black tabular-nums leading-none block mb-1",
+                        "text-sm font-black tabular-nums leading-none",
                         tx.type === "income" ? "text-[#1DB954] dark:text-[#39D96B]" : "text-[#FF3B3B] dark:text-[#FF5C5C]"
                       )}>
                         {tx.type === "income" ? "+" : "−"}{formatAmount(tx.amount)}
                       </span>
-                      <div className="flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: tx.categoryColor }} />
-                        <span className="text-xs text-muted-foreground shrink-0 font-medium">{tx.categoryName}</span>
-                        <span className="text-muted-foreground/30 shrink-0 text-xs">—</span>
-                        <span className="text-xs text-muted-foreground/60 truncate">{tx.description}</span>
-                      </div>
-                    </div>
-
-                    {/* Fecha + editar alineados a la derecha */}
-                    <div className="flex flex-col items-end gap-1 shrink-0">
-                      <span className="text-xs text-muted-foreground tabular-nums">
+                      <span className="text-[11px] text-muted-foreground/70 tabular-nums">
                         {new Date(tx.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                       </span>
-                      <Pencil className="h-3.5 w-3.5 text-muted-foreground/30" />
                     </div>
                   </button>
                 ))}
@@ -596,96 +606,119 @@ export default function Transactions() {
     <div className="space-y-3 animate-in fade-in duration-500">
       <h2 className="text-2xl font-bold tracking-tight text-foreground pr-14 min-h-10 flex items-center">Transactions</h2>
 
-      {/* Filters */}
-      <div className="bg-card rounded-2xl shadow-sm p-3 space-y-2.5">
-        {/* Type + Category */}
-        <div className="grid grid-cols-2 gap-2">
-          <Select value={filterType} onValueChange={handleTypeChange}>
-            <SelectTrigger className="h-10 text-sm bg-muted/50 border-0 rounded-2xl px-3">
-              <SelectValue placeholder="Type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Types</SelectItem>
-              <SelectItem value="income">Income</SelectItem>
-              <SelectItem value="expense">Expense</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Select value={filterCategory} onValueChange={setFilterCategory}>
-            <SelectTrigger className="h-10 text-sm bg-muted/50 border-0 rounded-2xl px-3 [&>span]:truncate">
-              <SelectValue placeholder="Category" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Categories</SelectItem>
-              {filteredCategoryOptions.length === 0 ? (
-                <div className="py-2 px-1">
-                  <Link href="/categories" onClick={(e) => e.stopPropagation()}>
-                    <button type="button" className="w-full flex items-center gap-2 px-2 py-2 rounded-2xl text-sm text-primary hover:bg-primary/10 transition-colors">
-                      <FolderPlus className="h-4 w-4 shrink-0" />
-                      Add a category
-                    </button>
-                  </Link>
-                </div>
-              ) : (
-                filteredCategoryOptions.map((c) => (
-                  <SelectItem key={c.id} value={c.id.toString()}>
-                    <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: c.color }} />
-                      {c.name}
-                    </div>
-                  </SelectItem>
-                ))
+      {/* Hero — el flujo del mes ES el filtro */}
+      <div
+        className="relative overflow-hidden rounded-3xl px-4 pt-4 pb-4"
+        style={{ background: "linear-gradient(120deg, #E3FBE9 0%, #F4F5F1 52%, #FFE9EC 100%)" }}
+      >
+        <div className="absolute -top-10 -right-10 w-32 h-32 rounded-full pointer-events-none" style={{ background: "rgba(255,255,255,0.45)" }} />
+        <div className="relative">
+          {/* Fila 1: periodo + selector de mes + reset */}
+          <div className="flex items-center justify-between gap-2 mb-1">
+            <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "#57534E" }}>
+              Net · {filterMonth
+                ? new Date(Number(filterMonth.slice(0, 4)), Number(filterMonth.slice(5)) - 1).toLocaleDateString("en-US", { month: "long", year: "numeric" })
+                : "All time"}
+            </p>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <MonthSelect value={filterMonth} onChange={setFilterMonth} variant="neutral" placeholder="All time" className="w-[120px]" />
+              {hasFilters && (
+                <button
+                  onClick={resetFilters}
+                  className="h-8 w-8 rounded-xl bg-white/60 flex items-center justify-center shrink-0"
+                  title="Reset filters"
+                >
+                  <FilterX className="h-3.5 w-3.5 text-neutral-500" />
+                </button>
               )}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Month + Year */}
-        <div className="flex gap-2">
-          <MonthSelect
-            value={filterMonth}
-            onChange={setFilterMonth}
-            variant="neutral"
-            placeholder="Month"
-            className="flex-1"
-          />
-          {hasFilters && (
-            <button
-              onClick={resetFilters}
-              className="h-10 w-10 rounded-2xl bg-muted/50 flex items-center justify-center shrink-0"
-              title="Reset filters"
-            >
-              <FilterX className="h-3.5 w-3.5 text-muted-foreground" />
-            </button>
-          )}
-        </div>
-
-        {/* Summary strip */}
-        {(filterMonth !== "" || filterType !== "all") && monthlyTotal && (
-          <div className={cn("grid gap-2", filterType === "all" ? "grid-cols-3" : "grid-cols-1")}>
-            {(filterType === "all" || filterType === "income") && (
-              <div className="rounded-2xl px-3 py-2 flex flex-col items-center" style={{ background: "rgba(29,185,84,0.12)" }}>
-                <p className="text-[9px] font-semibold uppercase tracking-wide" style={{ color: "#15803D" }}>Income</p>
-                <p className="text-xs font-bold" style={{ color: "#1DB954" }}>{formatAmount(monthlyTotal.income)}</p>
-              </div>
-            )}
-            {(filterType === "all" || filterType === "expense") && (
-              <div className="rounded-2xl px-3 py-2 flex flex-col items-center" style={{ background: "rgba(255,59,59,0.12)" }}>
-                <p className="text-[9px] font-semibold uppercase tracking-wide" style={{ color: "#B91C1C" }}>Expenses</p>
-                <p className="text-xs font-bold" style={{ color: "#FF3B3B" }}>{formatAmount(monthlyTotal.expense)}</p>
-              </div>
-            )}
-            {filterType === "all" && (
-              <div className="rounded-2xl px-3 py-2 flex flex-col items-center" style={{ background: monthlyTotal.income - monthlyTotal.expense >= 0 ? "rgba(29,185,84,0.12)" : "rgba(255,59,59,0.12)" }}>
-                <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">Balance</p>
-                <p className="text-xs font-bold" style={{ color: monthlyTotal.income - monthlyTotal.expense >= 0 ? "#1DB954" : "#FF3B3B" }}>
-                  {formatAmount(monthlyTotal.income - monthlyTotal.expense)}
-                </p>
-              </div>
-            )}
+            </div>
           </div>
-        )}
+
+          {/* Net grande */}
+          <p
+            className="font-serif font-bold text-3xl leading-tight mb-2.5"
+            style={{ color: (monthlyTotal?.income ?? 0) - (monthlyTotal?.expense ?? 0) >= 0 ? "#166534" : "#9F1239" }}
+          >
+            {(monthlyTotal?.income ?? 0) - (monthlyTotal?.expense ?? 0) >= 0 ? "+" : "−"}
+            {formatAmount(Math.abs((monthlyTotal?.income ?? 0) - (monthlyTotal?.expense ?? 0)))}
+          </p>
+
+          {/* Barra de flujo — proporcion entrada/salida */}
+          {(() => {
+            const inc = monthlyTotal?.income ?? 0;
+            const exp = monthlyTotal?.expense ?? 0;
+            const total = inc + exp;
+            const incPct = total > 0 ? (inc / total) * 100 : 50;
+            return (
+              <div className="h-2.5 rounded-full overflow-hidden flex mb-2.5" style={{ background: "rgba(0,0,0,0.06)" }}>
+                {total > 0 && (
+                  <>
+                    <div className="h-full transition-all duration-700" style={{ width: `${incPct}%`, background: "#1DB954" }} />
+                    <div className="h-full transition-all duration-700" style={{ width: `${100 - incPct}%`, background: "#FF3B3B" }} />
+                  </>
+                )}
+              </div>
+            );
+          })()}
+
+          {/* Mitades tocables: filtran por tipo */}
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={() => handleTypeChange(filterType === "income" ? "all" : "income")}
+              className="rounded-2xl px-3 py-2 text-left transition-all active:scale-[0.98]"
+              style={{
+                background: "rgba(29,185,84,0.14)",
+                boxShadow: filterType === "income" ? "inset 0 0 0 1.5px #1DB954" : "none",
+                opacity: filterType === "expense" ? 0.45 : 1,
+              }}
+            >
+              <p className="text-[9px] font-bold uppercase tracking-widest" style={{ color: "#15803D" }}>Income</p>
+              <p className="text-sm font-bold tabular-nums" style={{ color: "#166534" }}>{filterType === "expense" ? "—" : `+${formatAmount(monthlyTotal?.income ?? 0)}`}</p>
+            </button>
+            <button
+              onClick={() => handleTypeChange(filterType === "expense" ? "all" : "expense")}
+              className="rounded-2xl px-3 py-2 text-left transition-all active:scale-[0.98]"
+              style={{
+                background: "rgba(255,59,59,0.12)",
+                boxShadow: filterType === "expense" ? "inset 0 0 0 1.5px #FF3B3B" : "none",
+                opacity: filterType === "income" ? 0.45 : 1,
+              }}
+            >
+              <p className="text-[9px] font-bold uppercase tracking-widest" style={{ color: "#B91C1C" }}>Expenses</p>
+              <p className="text-sm font-bold tabular-nums" style={{ color: "#9F1239" }}>{filterType === "income" ? "—" : `−${formatAmount(monthlyTotal?.expense ?? 0)}`}</p>
+            </button>
+          </div>
+        </div>
       </div>
+
+      {/* Categoria */}
+      <Select value={filterCategory} onValueChange={setFilterCategory}>
+        <SelectTrigger className="h-10 text-sm bg-card shadow-sm border-0 rounded-2xl px-3 [&>span]:truncate">
+          <SelectValue placeholder="All Categories" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All Categories</SelectItem>
+          {filteredCategoryOptions.length === 0 ? (
+            <div className="py-2 px-1">
+              <Link href="/categories" onClick={(e) => e.stopPropagation()}>
+                <button type="button" className="w-full flex items-center gap-2 px-2 py-2 rounded-2xl text-sm text-primary hover:bg-primary/10 transition-colors">
+                  <FolderPlus className="h-4 w-4 shrink-0" />
+                  Add a category
+                </button>
+              </Link>
+            </div>
+          ) : (
+            filteredCategoryOptions.map((c) => (
+              <SelectItem key={c.id} value={c.id.toString()}>
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: c.color }} />
+                  {c.name}
+                </div>
+              </SelectItem>
+            ))
+          )}
+        </SelectContent>
+      </Select>
 
       <Link href="/transactions/new" className="inline-flex w-full">
         <Button className="w-full gap-2 bg-[#A8FF3E] text-black hover:bg-[#9bfe32] border-0 font-bold" data-testid="button-add-transaction">
