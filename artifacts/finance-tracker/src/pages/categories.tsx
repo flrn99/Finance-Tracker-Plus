@@ -424,8 +424,19 @@ export default function Categories() {
                         </button>
 
                         {/* Contenido */}
-                        <div className="flex-1 min-w-0 px-2.5 py-2 flex items-center justify-between gap-1">
-                          <p className="min-w-0 flex-1 text-sm font-bold text-foreground leading-tight">{cat.name}</p>
+                        <div className="flex-1 min-w-0 px-2.5 py-2 flex items-center gap-1.5">
+                          {/* Nombre — se desvanece si es largo, nunca choca con los botones */}
+                          <p
+                            className="min-w-0 flex-1 text-sm font-bold text-foreground leading-tight whitespace-nowrap overflow-hidden"
+                            style={{
+                              WebkitMaskImage: "linear-gradient(to right, black 82%, transparent 98%)",
+                              maskImage: "linear-gradient(to right, black 82%, transparent 98%)",
+                            }}
+                          >
+                            {cat.name}
+                          </p>
+                          {/* Divisor — eco del lomo: la card queda enmarcada por su color */}
+                          <div className="w-px self-stretch my-1.5 shrink-0" style={{ background: `${cat.color}40` }} />
                           <div className="flex items-center shrink-0">
                             <button
                               onClick={() => openEdit(cat)}
