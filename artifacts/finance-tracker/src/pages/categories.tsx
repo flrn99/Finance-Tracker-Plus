@@ -15,7 +15,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Check, X, ChevronRight, TrendingDown, TrendingUp } from "lucide-react";
+import { Plus, Check, X, TrendingDown, TrendingUp } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -436,36 +436,35 @@ export default function Categories() {
                   <span className="text-xs text-muted-foreground">({filtered.length})</span>
                 </div>
 
-                {/* Swatches horizontales — color a la izquierda, nombre con toda la fila */}
-                <div className="space-y-1.5">
+                {/* Swatches Pantone — color arriba, grid de 2 */}
+                <div className="grid grid-cols-2 gap-2">
                   {filtered.map((cat) => (
                     <button
                       key={cat.id}
                       onClick={() => openEdit(cat)}
-                      className="w-full flex items-stretch rounded-2xl overflow-hidden bg-card text-left active:scale-[0.99] transition-transform"
+                      className="rounded-2xl overflow-hidden bg-card text-left active:scale-[0.98] transition-transform flex flex-col"
                       style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}
                     >
-                      {/* Bloque de color — sello Pantone */}
-                      <div className="relative w-14 shrink-0" style={{ backgroundColor: cat.color }}>
+                      {/* Bloque de color — sello Pantone, compacto */}
+                      <div className="relative w-full h-9 shrink-0" style={{ backgroundColor: cat.color }}>
                         <div
-                          className="absolute -top-4 -right-3 w-12 h-12 rounded-full pointer-events-none"
+                          className="absolute -top-5 -right-3 w-14 h-14 rounded-full pointer-events-none"
                           style={{ background: "rgba(255,255,255,0.3)" }}
                         />
                       </div>
-                      {/* Nombre — completo, sin cortes */}
-                      <div className="flex-1 min-w-0 px-3.5 py-3 flex items-center justify-between gap-2">
-                        <p className="min-w-0 text-sm font-bold text-foreground leading-snug">{cat.name}</p>
-                        <ChevronRight className="h-4 w-4 text-muted-foreground/40 shrink-0" />
+                      {/* Nombre — toda la base para el, envuelve si es largo */}
+                      <div className="flex-1 px-3 py-2.5 flex items-center">
+                        <p className="text-sm font-bold text-foreground leading-snug">{cat.name}</p>
                       </div>
                     </button>
                   ))}
-                  {/* Fila fantasma — crear con el tipo preseleccionado */}
+                  {/* Tile fantasma — crear con el tipo preseleccionado */}
                   <button
                     onClick={() => openCreate(type)}
-                    className="w-full flex items-center justify-center gap-1.5 rounded-2xl border-[1.5px] border-dashed border-border py-3 text-sm font-semibold text-muted-foreground hover:text-foreground hover:border-foreground/30 active:scale-[0.99] transition-all"
+                    className="rounded-2xl border-[1.5px] border-dashed border-border flex items-center justify-center gap-1.5 min-h-[74px] text-sm font-semibold text-muted-foreground hover:text-foreground hover:border-foreground/30 active:scale-[0.98] transition-all"
                   >
                     <Plus className="h-4 w-4" />
-                    New {type === "expense" ? "expense" : "income"} category
+                    New
                   </button>
                 </div>
               </div>
