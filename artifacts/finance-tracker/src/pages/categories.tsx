@@ -15,7 +15,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Trash2, Tag, Check, Pencil, X, TrendingDown, TrendingUp } from "lucide-react";
+import { Plus, Check, X, TrendingDown, TrendingUp } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -113,12 +113,14 @@ function CategoryForm({
   isPending,
   onCancel,
   submitLabel,
+  onDelete,
 }: {
   form: ReturnType<typeof useForm<CategoryFormValues>>;
   onSubmit: (data: CategoryFormValues) => void;
   isPending: boolean;
   onCancel: () => void;
   submitLabel: string;
+  onDelete?: () => void;
 }) {
   const selectedColor = form.watch("color");
   const watchedType = form.watch("type");
@@ -262,6 +264,30 @@ function CategoryForm({
             {isPending ? "Saving..." : submitLabel}
           </button>
         </div>
+
+        {onDelete && (
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <button type="button" className="w-full py-1.5 text-xs font-semibold text-destructive/70 hover:text-destructive transition-colors">
+                Delete category
+              </button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete Category</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This cannot be undone, and will fail if any transactions use this category.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={onDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90 border-0">
+                  Delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        )}
       </form>
     </Form>
   );
@@ -293,6 +319,16 @@ export default function Categories() {
 
   const invalidate = () =>
     queryClient.invalidateQueries({ queryKey: getListCategoriesQueryKey() });
+
+  const openCreate = (type: "expense" | "income") => {
+    createForm.reset({
+      name: "",
+      type,
+      color: type === "income" ? INCOME_COLORS[1] : EXPENSE_COLORS[3],
+      icon: "tag",
+    });
+    setIsCreateOpen(true);
+  };
 
   const onCreateSubmit = (data: CategoryFormValues) => {
     createCategory.mutate({ data }, {
@@ -346,7 +382,7 @@ export default function Categories() {
           <h2 className="text-2xl font-bold tracking-tight pr-14 min-h-10 flex items-center">Categories</h2>
         </div>
 
-        <Button className="gap-2 w-full sm:w-auto bg-[#A8FF3E] text-black hover:bg-[#9bfe32] border-0" onClick={() => setIsCreateOpen(true)}>
+        <Button className="gap-2 w-full sm:w-auto bg-[#A8FF3E] text-black hover:bg-[#9bfe32] border-0" onClick={() => openCreate("expense")}>
           <Plus className="h-4 w-4" />
           New Category
         </Button>
@@ -371,26 +407,24 @@ export default function Categories() {
           isPending={updateCategory.isPending}
           onCancel={() => setEditingId(null)}
           submitLabel="Save"
+          onDelete={() => {
+            if (editingId != null) handleDelete(editingId);
+            setEditingId(null);
+          }}
         />
       </FloatingModal>
 
-      {/* List — grouped by type */}
+      {/* Nubes de pills — cada categoria es un sticker de su color */}
       {isLoading ? (
-        <div className="grid grid-cols-2 gap-2">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-28 rounded-3xl" />
+        <div className="flex flex-wrap gap-1.5">
+          {[90, 64, 110, 72, 96, 60, 84].map((w, i) => (
+            <Skeleton key={i} className="h-9 rounded-xl" style={{ width: w }} />
           ))}
         </div>
-      ) : !categories?.length ? (
-        <div className="bg-card rounded-2xl shadow-sm flex flex-col items-center justify-center py-16 text-muted-foreground gap-2">
-          <Tag className="h-8 w-8 opacity-30" />
-          <p className="text-sm">No categories yet. Create one above.</p>
-        </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-5">
           {(["expense", "income"] as const).map((type) => {
             const filtered = (Array.isArray(categories) ? categories : []).filter(c => c.type === type);
-            if (filtered.length === 0) return null;
             const sectionColor = type === "expense" ? "#FF3B3B" : "#1DB954";
             const sectionLabel = type === "expense" ? "Expenses" : "Income";
             return (
@@ -402,70 +436,26 @@ export default function Categories() {
                   <span className="text-xs text-muted-foreground">({filtered.length})</span>
                 </div>
 
-                {/* Lista — una columna, nombres completos con aire */}
-                <div className="space-y-1.5">
-                  {filtered.map((cat) => {
-                    return (
-                      <div
-                        key={cat.id}
-                        className="rounded-2xl overflow-hidden bg-card flex items-stretch"
-                        style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}
-                      >
-                        {/* Lomo de color — compacto, tap para editar */}
-                        <button
-                          onClick={() => openEdit(cat)}
-                          className="relative w-8 shrink-0 active:opacity-80 transition-opacity overflow-hidden"
-                          style={{ backgroundColor: cat.color }}
-                        >
-                          <div
-                            className="absolute -top-3 -right-3 w-9 h-9 rounded-full pointer-events-none"
-                            style={{ background: "rgba(255,255,255,0.3)" }}
-                          />
-                        </button>
-
-                        {/* Contenido */}
-                        <div className="flex-1 min-w-0 px-3 py-2.5 flex items-center gap-2">
-                          <p className="min-w-0 flex-1 text-sm font-bold text-foreground leading-snug">
-                            {cat.name}
-                          </p>
-                          {/* Divisor — eco del lomo: la card queda enmarcada por su color */}
-                          <div className="w-px self-stretch my-1.5 shrink-0" style={{ background: `${cat.color}40` }} />
-                          <div className="flex items-center shrink-0">
-                            <button
-                              onClick={() => openEdit(cat)}
-                              className="h-7 w-7 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
-                            >
-                              <Pencil className="h-3 w-3" />
-                            </button>
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <button className="h-7 w-7 flex items-center justify-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all">
-                                  <Trash2 className="h-3 w-3" />
-                                </button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Delete Category</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    Delete "{cat.name}"? This cannot be undone, and will fail if any transactions use this category.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                  <AlertDialogAction
-                                    onClick={() => handleDelete(cat.id)}
-                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90 border-0"
-                                  >
-                                    Delete
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
+                {/* Nube — los pills crecen al tamaño de su nombre */}
+                <div className="flex flex-wrap gap-1.5">
+                  {filtered.map((cat) => (
+                    <button
+                      key={cat.id}
+                      onClick={() => openEdit(cat)}
+                      className="px-3.5 py-2 rounded-xl text-sm font-bold active:scale-95 transition-transform"
+                      style={{ background: `${cat.color}1C`, color: cat.color }}
+                    >
+                      {cat.name}
+                    </button>
+                  ))}
+                  {/* Ghost pill — crear con el tipo ya preseleccionado */}
+                  <button
+                    onClick={() => openCreate(type)}
+                    className="px-3.5 py-2 rounded-xl text-sm font-semibold text-muted-foreground border-[1.5px] border-dashed border-border flex items-center gap-1 active:scale-95 transition-transform hover:text-foreground hover:border-foreground/30"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    New
+                  </button>
                 </div>
               </div>
             );
@@ -473,5 +463,7 @@ export default function Categories() {
         </div>
       )}
     </div>
+  );
+}    </div>
   );
 }
