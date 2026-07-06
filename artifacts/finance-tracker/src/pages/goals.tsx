@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -81,6 +81,18 @@ interface Goal {
   createdAt: string;
 }
 
+// Exportadas para prefetch desde el layout — Goals carga en segundo plano al abrir la app
+export const goalsQueryOptions = {
+  queryKey: ["goals"] as const,
+  queryFn: () => api<Goal[]>("/goals"),
+  staleTime: 30_000,
+};
+export const habitsQueryOptions = {
+  queryKey: ["habits"] as const,
+  queryFn: () => api<Habit[]>("/habits"),
+  staleTime: 30_000,
+};
+
 interface Habit {
   id: number;
   name: string;
@@ -94,6 +106,12 @@ interface Habit {
 /* ------------------------------------------------------------------ */
 /* Icons & colors                                                      */
 /* ------------------------------------------------------------------ */
+
+/** Precarga goals y habits al abrir la app — la pagina abre instantanea */
+export function prefetchGoalsData(queryClient: QueryClient) {
+  queryClient.prefetchQuery({ queryKey: ["goals"], queryFn: () => api<Goal[]>("/goals") });
+  queryClient.prefetchQuery({ queryKey: ["habits"], queryFn: () => api<Habit[]>("/habits") });
+}
 
 const ICONS: Record<string, React.ComponentType<{ className?: string; style?: React.CSSProperties }>> = {
   target: Target,
@@ -693,8 +711,8 @@ export default function Goals() {
   const { currency } = useCurrency();
   const symbol = ((CURRENCY_INFO as Record<string, any>)[currency]?.symbol as string | undefined) ?? currency;
 
-  const goalsQuery = useQuery({ queryKey: ["goals"], queryFn: () => api<Goal[]>("/goals") });
-  const habitsQuery = useQuery({ queryKey: ["habits"], queryFn: () => api<Habit[]>("/habits") });
+  const goalsQuery = useQuery(goalsQueryOptions);
+  const habitsQuery = useQuery(habitsQueryOptions);
 
   const invalidateGoals = () => queryClient.invalidateQueries({ queryKey: ["goals"] });
   const invalidateHabits = () => queryClient.invalidateQueries({ queryKey: ["habits"] });

@@ -23,6 +23,8 @@ import { useTheme, type Theme } from "@/lib/theme-context";
 import { useCurrency, type Currency, CURRENCY_INFO } from "@/lib/currency-context";
 import { ExportPanel } from "@/pages/export";
 import { Capacitor } from "@capacitor/core";
+import { useQueryClient } from "@tanstack/react-query";
+import { goalsQueryOptions, habitsQueryOptions } from "@/pages/goals";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -276,6 +278,13 @@ function ProfileMenu() {
 export default function Layout({ children }: LayoutProps) {
   const [location] = useLocation();
   const { user } = useAuth();
+  const queryClient = useQueryClient();
+
+  // Prefetch de Goals — cuando el usuario llegue a la pestaña, ya cargo
+  useEffect(() => {
+    queryClient.prefetchQuery(goalsQueryOptions).catch(() => {});
+    queryClient.prefetchQuery(habitsQueryOptions).catch(() => {});
+  }, [queryClient]);
   const navRef = useRef<HTMLElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [scrolled, setScrolled] = useState(false);
