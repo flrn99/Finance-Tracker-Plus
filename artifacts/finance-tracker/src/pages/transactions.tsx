@@ -529,30 +529,32 @@ function TransactionList({
               onClick={() => onSelect(tx)}
               data-testid={`row-transaction-${tx.id}`}
               className={cn(
-                "max-w-[82%] min-w-[58%] text-left rounded-2xl px-3.5 py-2.5 active:scale-[0.98] transition-transform animate-in fade-in slide-in-from-bottom-1 duration-200",
+                "max-w-[78%] text-left rounded-2xl bg-card pl-3 pr-3.5 py-2.5 active:scale-[0.98] transition-transform animate-in fade-in slide-in-from-bottom-1 duration-200",
                 inc ? "rounded-br-md" : "rounded-bl-md"
               )}
               style={{
-                background: `${tx.categoryColor}21`,
-                boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+                // Varita de color en el borde exterior — como un mensaje citado
+                borderLeft: inc ? undefined : `3px solid ${tx.categoryColor}`,
+                borderRight: inc ? `3px solid ${tx.categoryColor}` : undefined,
+                boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
                 animationDelay: `${(idx % 12) * 20}ms`,
                 animationFillMode: "backwards",
               }}
             >
-              <p className="text-sm font-bold text-foreground leading-tight">{tx.description}</p>
-              <div className="flex items-end justify-between gap-3 mt-1.5">
-                <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: tx.categoryColor }}>
-                  {tx.categoryName}
-                </span>
+              <div className="flex items-baseline gap-3">
+                <p className="text-sm font-bold text-foreground leading-tight min-w-0">{tx.description}</p>
                 <span
                   className={cn(
-                    "text-base font-black tabular-nums leading-none",
+                    "text-[15px] font-black tabular-nums leading-none shrink-0 ml-auto",
                     inc ? "text-[#1DB954] dark:text-[#39D96B]" : "text-[#FF3B3B] dark:text-[#FF5C5C]"
                   )}
                 >
                   {inc ? "+" : "−"}{formatAmount(tx.amount)}
                 </span>
               </div>
+              <span className="block text-[10px] font-bold uppercase tracking-wide mt-1" style={{ color: tx.categoryColor }}>
+                {tx.categoryName}
+              </span>
             </button>
           </div>
         );
