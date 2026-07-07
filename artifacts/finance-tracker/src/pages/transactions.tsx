@@ -18,7 +18,7 @@ import { getApiUrl } from "@/lib/api-config";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, Search, FilterX, Trash2, TrendingUp, TrendingDown, FolderPlus, Pencil, X, Check, Calendar, AlertTriangle, ChevronDown } from "lucide-react";
+import { Plus, Search, FilterX, Trash2, TrendingUp, TrendingDown, FolderPlus, Pencil, X, Check, Calendar, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import MonthSelect from "@/components/month-select";
@@ -411,143 +411,149 @@ function currentYM() {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 }
 
-function TransactionList({ filteredTransactions, isLoading, formatAmount, onSelect }: {
-  filteredTransactions: any[] | undefined;
+function TransactionList({
+  filteredTransactions,
+  isLoading,
+  formatAmount,
+  onSelect,
+}: {
+  filteredTransactions: any[];
   isLoading: boolean;
   formatAmount: (n: number) => string;
   onSelect: (tx: any) => void;
 }) {
-  const thisMonth = currentYM();
-
-  // Agrupar por mes
-  const groups: Record<string, any[]> = {};
-  (filteredTransactions ?? []).forEach(tx => {
-    const key = tx.date.slice(0, 7);
-    if (!groups[key]) groups[key] = [];
-    groups[key]!.push(tx);
-  });
-  const sortedKeys = Object.keys(groups).sort((a, b) => b.localeCompare(a));
-
-  // Mes actual siempre abierto, el resto colapsado por defecto
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
-
-  const isCollapsed = (key: string) => {
-    if (key in collapsed) return collapsed[key];
-    return key !== thisMonth; // default: solo el mes actual abierto
-  };
-
-  const toggle = (key: string) =>
-    setCollapsed(prev => ({ ...prev, [key]: !isCollapsed(key) }));
-
   if (isLoading) return (
-    <div className="bg-card rounded-2xl shadow-sm overflow-hidden divide-y divide-border">
-      {Array.from({ length: 6 }).map((_, i) => (
-        <div key={i} className="flex items-center gap-3 px-4 py-3.5">
-          <Skeleton className="h-9 w-9 rounded-full shrink-0" />
-          <div className="flex-1 space-y-1.5">
-            <Skeleton className="h-3.5 w-32" />
-            <Skeleton className="h-3 w-20" />
-          </div>
-          <Skeleton className="h-4 w-16 shrink-0" />
+    <div className="space-y-2.5 px-1 pt-2">
+      {[0, 1, 2, 3, 4].map((i) => (
+        <div key={i} className={cn("flex", i % 3 === 1 ? "justify-end" : "justify-start")}>
+          <Skeleton className="h-16 rounded-2xl" style={{ width: `${62 + (i % 3) * 8}%` }} />
         </div>
       ))}
     </div>
   );
 
   if (!filteredTransactions?.length) return (
-    <div className="bg-card rounded-2xl shadow-sm p-12 flex flex-col items-center justify-center text-muted-foreground">
+    <div className="bg-card rounded-3xl shadow-sm p-12 flex flex-col items-center justify-center text-muted-foreground">
       <Search className="h-10 w-10 mb-3 opacity-30" />
-      <p className="font-semibold">No transactions found</p>
-      <p className="text-sm mt-1">Try adjusting your filters or adding a new one.</p>
+      <p className="font-semibold">It's quiet in here</p>
+      <p className="text-sm mt-1 text-center">Your money hasn't said anything yet. Add a transaction to start the conversation.</p>
     </div>
   );
 
+  // Orden descendente y feed con marcadores de mes y dia
+  const sorted = [...filteredTransactions].sort(
+    (a, b) => b.date.localeCompare(a.date) || b.id - a.id
+  );
+
+  const toKey = (d: Date) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  };
+  const now = new Date();
+  const todayKey = toKey(now);
+  const yest = new Date(now); yest.setDate(now.getDate() - 1);
+  const yesterdayKey = toKey(yest);
+
+  const dayLabel = (date: string) => {
+    if (date === todayKey) return "Today";
+    if (date === yesterdayKey) return "Yesterday";
+    return new Date(`${date}T00:00`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+  };
+
+  type FeedItem =
+    | { kind: "month"; key: string; label: string; net: number }
+    | { kind: "day"; key: string; label: string }
+    | { kind: "tx"; key: string; tx: any };
+
+  const feed: FeedItem[] = [];
+  let lastMonth = "";
+  let lastDay = "";
+  for (const tx of sorted) {
+    const month = tx.date.slice(0, 7);
+    if (month !== lastMonth) {
+      const net = sorted
+        .filter((t) => t.date.slice(0, 7) === month)
+        .reduce((a, t) => a + (t.type === "income" ? t.amount : -t.amount), 0);
+      feed.push({
+        kind: "month",
+        key: `m-${month}`,
+        label: new Date(Number(month.slice(0, 4)), Number(month.slice(5)) - 1)
+          .toLocaleDateString("en-US", { month: "long", year: "numeric" }),
+        net,
+      });
+      lastMonth = month;
+      lastDay = "";
+    }
+    if (tx.date !== lastDay) {
+      feed.push({ kind: "day", key: `d-${tx.date}`, label: dayLabel(tx.date) });
+      lastDay = tx.date;
+    }
+    feed.push({ kind: "tx", key: `t-${tx.id}`, tx });
+  }
+
   return (
-    <div className="bg-card rounded-2xl shadow-sm overflow-hidden divide-y divide-border">
-      {sortedKeys.map(monthKey => {
-        const [y, m] = monthKey.split("-").map(Number);
-        const monthLabel = new Date(y, m - 1).toLocaleDateString("en-US", { month: "long", year: "numeric" });
-        const txs = groups[monthKey]!;
-        const open = !isCollapsed(monthKey);
-
+    <div className="space-y-2 px-0.5 pb-2">
+      {feed.map((item, idx) => {
+        if (item.kind === "month") {
+          return (
+            <div key={item.key} className="flex justify-center pt-4 pb-1">
+              <span className="px-3.5 py-1.5 rounded-full bg-card shadow-sm flex items-center gap-2">
+                <span className="text-[11px] font-bold uppercase tracking-widest text-foreground">{item.label}</span>
+                <span
+                  className="text-[11px] font-black tabular-nums px-1.5 py-0.5 rounded-md"
+                  style={{
+                    background: item.net >= 0 ? "rgba(29,185,84,0.14)" : "rgba(255,59,59,0.12)",
+                    color: item.net >= 0 ? "#15803D" : "#B91C1C",
+                  }}
+                >
+                  {item.net >= 0 ? "+" : "−"}{formatAmount(Math.abs(item.net))}
+                </span>
+              </span>
+            </div>
+          );
+        }
+        if (item.kind === "day") {
+          return (
+            <div key={item.key} className="flex justify-center py-1">
+              <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground/60">{item.label}</span>
+            </div>
+          );
+        }
+        const tx = item.tx;
+        const inc = tx.type === "income";
         return (
-          <div key={monthKey}>
-            {/* Header del mes — clickeable */}
+          <div key={item.key} className={cn("flex", inc ? "justify-end" : "justify-start")}>
             <button
-              className="w-full flex items-center justify-between px-4 py-3 bg-muted/40 hover:bg-muted/60 transition-colors"
-              onClick={() => toggle(monthKey)}
+              onClick={() => onSelect(tx)}
+              data-testid={`row-transaction-${tx.id}`}
+              className={cn(
+                "max-w-[82%] min-w-[58%] text-left rounded-2xl px-3.5 py-2.5 active:scale-[0.98] transition-transform animate-in fade-in slide-in-from-bottom-1 duration-200",
+                inc ? "rounded-br-md" : "rounded-bl-md"
+              )}
+              style={{
+                background: `${tx.categoryColor}21`,
+                boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+                animationDelay: `${(idx % 12) * 20}ms`,
+                animationFillMode: "backwards",
+              }}
             >
-              <div className="flex items-center gap-2">
-                <ChevronDown
-                  className="h-3.5 w-3.5 text-muted-foreground transition-transform duration-200"
-                  style={{ transform: open ? "rotate(0deg)" : "rotate(-90deg)" }}
-                />
-                <span className="text-[11px] font-bold text-muted-foreground tracking-wide uppercase">{monthLabel}</span>
+              <p className="text-sm font-bold text-foreground leading-tight">{tx.description}</p>
+              <div className="flex items-end justify-between gap-3 mt-1.5">
+                <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: tx.categoryColor }}>
+                  {tx.categoryName}
+                </span>
+                <span
+                  className={cn(
+                    "text-base font-black tabular-nums leading-none",
+                    inc ? "text-[#1DB954] dark:text-[#39D96B]" : "text-[#FF3B3B] dark:text-[#FF5C5C]"
+                  )}
+                >
+                  {inc ? "+" : "−"}{formatAmount(tx.amount)}
+                </span>
               </div>
-              {(() => {
-                const net = txs.reduce((a, t) => a + (t.type === "income" ? t.amount : -t.amount), 0);
-                return (
-                  <span
-                    className="text-[11px] font-bold tabular-nums px-2 py-0.5 rounded-lg"
-                    style={{
-                      background: net >= 0 ? "rgba(29,185,84,0.14)" : "rgba(255,59,59,0.12)",
-                      color: net >= 0 ? "#15803D" : "#B91C1C",
-                    }}
-                  >
-                    {net >= 0 ? "+" : "−"}{formatAmount(Math.abs(net))}
-                  </span>
-                );
-              })()}
             </button>
-
-            {/* Items del mes */}
-            {open && (
-              <div className="divide-y divide-border/50">
-                {txs.map((tx, idx) => (
-                  <button
-                    key={tx.id}
-                    onClick={() => onSelect(tx)}
-                    data-testid={`row-transaction-${tx.id}`}
-                    className="w-full text-left flex items-center gap-3 px-4 py-3.5 hover:bg-muted/30 transition-colors duration-150 animate-in fade-in slide-in-from-top-1 duration-200"
-                    style={{ animationDelay: `${idx * 15}ms`, animationFillMode: "backwards" }}
-                  >
-                    {/* Avatar de letra — el color de la categoria con personalidad */}
-                    <div
-                      className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-                      style={{ backgroundColor: `${tx.categoryColor}33`, boxShadow: `inset 0 0 0 1.5px ${tx.categoryColor}59` }}
-                    >
-                      <span className="text-sm font-black" style={{ color: tx.categoryColor }}>
-                        {(tx.categoryName?.[0] ?? "?").toUpperCase()}
-                      </span>
-                    </div>
-
-                    {/* Descripcion principal + categoria como sticker */}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-foreground leading-tight truncate mb-1">{tx.description}</p>
-                      <span
-                        className="inline-block px-1.5 py-0.5 rounded-md text-[10px] font-bold leading-none"
-                        style={{ background: `${tx.categoryColor}26`, color: tx.categoryColor }}
-                      >
-                        {tx.categoryName}
-                      </span>
-                    </div>
-
-                    {/* Monto + fecha */}
-                    <div className="flex flex-col items-end gap-0.5 shrink-0">
-                      <span className={cn(
-                        "text-base font-black tabular-nums leading-none",
-                        tx.type === "income" ? "text-[#1DB954] dark:text-[#39D96B]" : "text-[#FF3B3B] dark:text-[#FF5C5C]"
-                      )}>
-                        {tx.type === "income" ? "+" : "−"}{formatAmount(tx.amount)}
-                      </span>
-                      <span className="text-[11px] text-muted-foreground/70 tabular-nums">
-                        {new Date(tx.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                      </span>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
           </div>
         );
       })}
@@ -597,100 +603,13 @@ export default function Transactions() {
   const hasFilters = filterType !== "all" || filterCategory !== "all" || filterMonth !== "";
   const resetFilters = () => { setFilterType("all"); setFilterCategory("all"); setFilterMonth(""); };
 
-  const monthlyTotal = filteredTransactions?.reduce(
-    (acc, tx) => { if (tx.type === "income") acc.income += tx.amount; else acc.expense += tx.amount; return acc; },
-    { income: 0, expense: 0 }
-  );
-
   return (
     <div className="space-y-3 animate-in fade-in duration-500">
       <h2 className="text-2xl font-bold tracking-tight text-foreground pr-14 min-h-10 flex items-center">Transactions</h2>
 
-      {/* Hero — el flujo del mes ES el filtro */}
-      <div
-        className="relative overflow-hidden rounded-3xl px-4 pt-4 pb-4"
-        style={{ background: "linear-gradient(145deg, #F1EDFF 0%, #DCD3FE 100%)" }}
-      >
-        <div className="absolute -top-10 -right-10 w-32 h-32 rounded-full pointer-events-none" style={{ background: "rgba(255,255,255,0.45)" }} />
-        <div className="relative">
-          {/* Fila 1: periodo + selector de mes + reset */}
-          <div className="flex items-center justify-between gap-2 mb-1">
-            <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "#6D28D9" }}>
-              Net · {filterMonth
-                ? new Date(Number(filterMonth.slice(0, 4)), Number(filterMonth.slice(5)) - 1).toLocaleDateString("en-US", { month: "long", year: "numeric" })
-                : "All time"}
-            </p>
-            {hasFilters && (
-              <button
-                onClick={resetFilters}
-                className="h-8 w-8 rounded-xl bg-white/60 flex items-center justify-center shrink-0"
-                title="Reset filters"
-              >
-                <FilterX className="h-3.5 w-3.5 text-neutral-500" />
-              </button>
-            )}
-          </div>
-
-          {/* Net grande */}
-          <p
-            className="font-serif font-bold text-3xl leading-tight mb-2.5"
-            style={{ color: (monthlyTotal?.income ?? 0) - (monthlyTotal?.expense ?? 0) >= 0 ? "#166534" : "#9F1239" }}
-          >
-            {(monthlyTotal?.income ?? 0) - (monthlyTotal?.expense ?? 0) >= 0 ? "+" : "−"}
-            {formatAmount(Math.abs((monthlyTotal?.income ?? 0) - (monthlyTotal?.expense ?? 0)))}
-          </p>
-
-          {/* Barra de flujo — proporcion entrada/salida */}
-          {(() => {
-            const inc = monthlyTotal?.income ?? 0;
-            const exp = monthlyTotal?.expense ?? 0;
-            const total = inc + exp;
-            const incPct = total > 0 ? (inc / total) * 100 : 50;
-            return (
-              <div className="h-2.5 rounded-full overflow-hidden flex mb-2.5" style={{ background: "rgba(91,33,182,0.10)" }}>
-                {total > 0 && (
-                  <>
-                    <div className="h-full transition-all duration-700" style={{ width: `${incPct}%`, background: "#1DB954" }} />
-                    <div className="h-full transition-all duration-700" style={{ width: `${100 - incPct}%`, background: "#FF3B3B" }} />
-                  </>
-                )}
-              </div>
-            );
-          })()}
-
-          {/* Mitades tocables: filtran por tipo */}
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              onClick={() => handleTypeChange(filterType === "income" ? "all" : "income")}
-              className="rounded-2xl px-3 py-2 text-left transition-all active:scale-[0.98]"
-              style={{
-                background: "linear-gradient(rgba(255,255,255,0.5), rgba(255,255,255,0.5)), rgba(29,185,84,0.35)",
-                boxShadow: filterType === "income" ? "inset 0 0 0 1.5px #1DB954" : "none",
-                opacity: filterType === "expense" ? 0.45 : 1,
-              }}
-            >
-              <p className="text-[9px] font-bold uppercase tracking-widest" style={{ color: "#15803D" }}>Income</p>
-              <p className="text-sm font-bold tabular-nums" style={{ color: "#166534" }}>{filterType === "expense" ? "—" : `+${formatAmount(monthlyTotal?.income ?? 0)}`}</p>
-            </button>
-            <button
-              onClick={() => handleTypeChange(filterType === "expense" ? "all" : "expense")}
-              className="rounded-2xl px-3 py-2 text-left transition-all active:scale-[0.98]"
-              style={{
-                background: "linear-gradient(rgba(255,255,255,0.5), rgba(255,255,255,0.5)), rgba(255,59,59,0.30)",
-                boxShadow: filterType === "expense" ? "inset 0 0 0 1.5px #FF3B3B" : "none",
-                opacity: filterType === "income" ? 0.45 : 1,
-              }}
-            >
-              <p className="text-[9px] font-bold uppercase tracking-widest" style={{ color: "#B91C1C" }}>Expenses</p>
-              <p className="text-sm font-bold tabular-nums" style={{ color: "#9F1239" }}>{filterType === "income" ? "—" : `−${formatAmount(monthlyTotal?.expense ?? 0)}`}</p>
-            </button>
-          </div>
-        </div>
-      </div>
-
       {/* Mes + Categoria — anchos completos, textos enteros */}
-      <div className="grid grid-cols-2 gap-2">
-      <MonthSelect value={filterMonth} onChange={setFilterMonth} variant="neutral" placeholder="All time" className="w-full" />
+      <div className="flex gap-2 items-center">
+      <MonthSelect value={filterMonth} onChange={setFilterMonth} variant="neutral" placeholder="All time" className="flex-1" />
       <Select value={filterCategory} onValueChange={setFilterCategory}>
         <SelectTrigger className="h-10 text-sm bg-card shadow-sm border-0 rounded-2xl px-3 [&>span]:truncate">
           <SelectValue placeholder="All Categories" />
@@ -718,6 +637,15 @@ export default function Transactions() {
           )}
         </SelectContent>
       </Select>
+      {hasFilters && (
+        <button
+          onClick={resetFilters}
+          className="h-10 w-10 rounded-2xl bg-card shadow-sm flex items-center justify-center shrink-0"
+          title="Reset filters"
+        >
+          <FilterX className="h-3.5 w-3.5 text-muted-foreground" />
+        </button>
+      )}
       </div>
 
       <Link href="/transactions/new" className="inline-flex w-full">
