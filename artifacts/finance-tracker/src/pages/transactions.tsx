@@ -514,7 +514,7 @@ function TransactionList({ filteredTransactions, isLoading, formatAmount, onSele
                     {/* Avatar de letra — el color de la categoria con personalidad */}
                     <div
                       className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-                      style={{ backgroundColor: `${tx.categoryColor}1F` }}
+                      style={{ backgroundColor: `${tx.categoryColor}33`, boxShadow: `inset 0 0 0 1.5px ${tx.categoryColor}59` }}
                     >
                       <span className="text-sm font-black" style={{ color: tx.categoryColor }}>
                         {(tx.categoryName?.[0] ?? "?").toUpperCase()}
@@ -523,10 +523,10 @@ function TransactionList({ filteredTransactions, isLoading, formatAmount, onSele
 
                     {/* Descripcion principal + categoria como sticker */}
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-foreground leading-tight truncate mb-1">{tx.description}</p>
+                      <p className="text-sm font-bold text-foreground leading-tight truncate mb-1">{tx.description}</p>
                       <span
                         className="inline-block px-1.5 py-0.5 rounded-md text-[10px] font-bold leading-none"
-                        style={{ background: `${tx.categoryColor}1A`, color: tx.categoryColor }}
+                        style={{ background: `${tx.categoryColor}26`, color: tx.categoryColor }}
                       >
                         {tx.categoryName}
                       </span>
@@ -535,7 +535,7 @@ function TransactionList({ filteredTransactions, isLoading, formatAmount, onSele
                     {/* Monto + fecha */}
                     <div className="flex flex-col items-end gap-0.5 shrink-0">
                       <span className={cn(
-                        "text-sm font-black tabular-nums leading-none",
+                        "text-base font-black tabular-nums leading-none",
                         tx.type === "income" ? "text-[#1DB954] dark:text-[#39D96B]" : "text-[#FF3B3B] dark:text-[#FF5C5C]"
                       )}>
                         {tx.type === "income" ? "+" : "−"}{formatAmount(tx.amount)}
@@ -609,29 +609,26 @@ export default function Transactions() {
       {/* Hero — el flujo del mes ES el filtro */}
       <div
         className="relative overflow-hidden rounded-3xl px-4 pt-4 pb-4"
-        style={{ background: "linear-gradient(120deg, #E3FBE9 0%, #F4F5F1 52%, #FFE9EC 100%)" }}
+        style={{ background: "linear-gradient(145deg, #F1EDFF 0%, #DCD3FE 100%)" }}
       >
         <div className="absolute -top-10 -right-10 w-32 h-32 rounded-full pointer-events-none" style={{ background: "rgba(255,255,255,0.45)" }} />
         <div className="relative">
           {/* Fila 1: periodo + selector de mes + reset */}
           <div className="flex items-center justify-between gap-2 mb-1">
-            <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "#57534E" }}>
+            <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "#6D28D9" }}>
               Net · {filterMonth
                 ? new Date(Number(filterMonth.slice(0, 4)), Number(filterMonth.slice(5)) - 1).toLocaleDateString("en-US", { month: "long", year: "numeric" })
                 : "All time"}
             </p>
-            <div className="flex items-center gap-1.5 shrink-0">
-              <MonthSelect value={filterMonth} onChange={setFilterMonth} variant="neutral" placeholder="All time" className="w-[120px]" />
-              {hasFilters && (
-                <button
-                  onClick={resetFilters}
-                  className="h-8 w-8 rounded-xl bg-white/60 flex items-center justify-center shrink-0"
-                  title="Reset filters"
-                >
-                  <FilterX className="h-3.5 w-3.5 text-neutral-500" />
-                </button>
-              )}
-            </div>
+            {hasFilters && (
+              <button
+                onClick={resetFilters}
+                className="h-8 w-8 rounded-xl bg-white/60 flex items-center justify-center shrink-0"
+                title="Reset filters"
+              >
+                <FilterX className="h-3.5 w-3.5 text-neutral-500" />
+              </button>
+            )}
           </div>
 
           {/* Net grande */}
@@ -650,7 +647,7 @@ export default function Transactions() {
             const total = inc + exp;
             const incPct = total > 0 ? (inc / total) * 100 : 50;
             return (
-              <div className="h-2.5 rounded-full overflow-hidden flex mb-2.5" style={{ background: "rgba(0,0,0,0.06)" }}>
+              <div className="h-2.5 rounded-full overflow-hidden flex mb-2.5" style={{ background: "rgba(91,33,182,0.10)" }}>
                 {total > 0 && (
                   <>
                     <div className="h-full transition-all duration-700" style={{ width: `${incPct}%`, background: "#1DB954" }} />
@@ -667,7 +664,7 @@ export default function Transactions() {
               onClick={() => handleTypeChange(filterType === "income" ? "all" : "income")}
               className="rounded-2xl px-3 py-2 text-left transition-all active:scale-[0.98]"
               style={{
-                background: "rgba(29,185,84,0.14)",
+                background: "linear-gradient(rgba(255,255,255,0.5), rgba(255,255,255,0.5)), rgba(29,185,84,0.35)",
                 boxShadow: filterType === "income" ? "inset 0 0 0 1.5px #1DB954" : "none",
                 opacity: filterType === "expense" ? 0.45 : 1,
               }}
@@ -679,7 +676,7 @@ export default function Transactions() {
               onClick={() => handleTypeChange(filterType === "expense" ? "all" : "expense")}
               className="rounded-2xl px-3 py-2 text-left transition-all active:scale-[0.98]"
               style={{
-                background: "rgba(255,59,59,0.12)",
+                background: "linear-gradient(rgba(255,255,255,0.5), rgba(255,255,255,0.5)), rgba(255,59,59,0.30)",
                 boxShadow: filterType === "expense" ? "inset 0 0 0 1.5px #FF3B3B" : "none",
                 opacity: filterType === "income" ? 0.45 : 1,
               }}
@@ -691,7 +688,9 @@ export default function Transactions() {
         </div>
       </div>
 
-      {/* Categoria */}
+      {/* Mes + Categoria — anchos completos, textos enteros */}
+      <div className="grid grid-cols-2 gap-2">
+      <MonthSelect value={filterMonth} onChange={setFilterMonth} variant="neutral" placeholder="All time" className="w-full" />
       <Select value={filterCategory} onValueChange={setFilterCategory}>
         <SelectTrigger className="h-10 text-sm bg-card shadow-sm border-0 rounded-2xl px-3 [&>span]:truncate">
           <SelectValue placeholder="All Categories" />
@@ -719,6 +718,7 @@ export default function Transactions() {
           )}
         </SelectContent>
       </Select>
+      </div>
 
       <Link href="/transactions/new" className="inline-flex w-full">
         <Button className="w-full gap-2 bg-[#A8FF3E] text-black hover:bg-[#9bfe32] border-0 font-bold" data-testid="button-add-transaction">
