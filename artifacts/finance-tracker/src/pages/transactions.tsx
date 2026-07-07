@@ -18,7 +18,7 @@ import { getApiUrl } from "@/lib/api-config";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, Search, FilterX, Trash2, TrendingUp, TrendingDown, FolderPlus, Pencil, X, Check, Calendar, AlertTriangle, ArrowUpRight, ArrowDownLeft } from "lucide-react";
+import { Plus, Search, FilterX, Trash2, TrendingUp, TrendingDown, FolderPlus, Pencil, X, Check, Calendar, AlertTriangle, ChevronDown, ArrowUpRight, ArrowDownLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import MonthSelect from "@/components/month-select";
@@ -411,25 +411,42 @@ function currentYM() {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 }
 
-function TransactionList({
-  filteredTransactions,
-  isLoading,
-  formatAmount,
-  onSelect,
-}: {
-  filteredTransactions: any[];
+function TransactionList({ filteredTransactions, isLoading, formatAmount, onSelect }: {
+  filteredTransactions: any[] | undefined;
   isLoading: boolean;
   formatAmount: (n: number) => string;
   onSelect: (tx: any) => void;
 }) {
+  const thisMonth = currentYM();
+
+  // Agrupar por mes
+  const groups: Record<string, any[]> = {};
+  (filteredTransactions ?? []).forEach(tx => {
+    const key = tx.date.slice(0, 7);
+    if (!groups[key]) groups[key] = [];
+    groups[key]!.push(tx);
+  });
+  const sortedKeys = Object.keys(groups).sort((a, b) => b.localeCompare(a));
+
+  // Mes actual siempre abierto, el resto colapsado por defecto
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+
+  const isCollapsed = (key: string) => {
+    if (key in collapsed) return collapsed[key];
+    return key !== thisMonth; // default: solo el mes actual abierto
+  };
+
+  const toggle = (key: string) =>
+    setCollapsed(prev => ({ ...prev, [key]: !isCollapsed(key) }));
+
   if (isLoading) return (
-    <div className="space-y-1.5">
+    <div className="bg-card rounded-2xl shadow-sm overflow-hidden divide-y divide-border">
       {Array.from({ length: 6 }).map((_, i) => (
-        <div key={i} className="bg-card rounded-2xl shadow-sm flex items-center gap-3 px-3.5 py-3">
+        <div key={i} className="flex items-center gap-3 px-4 py-3.5">
           <Skeleton className="h-9 w-9 rounded-full shrink-0" />
           <div className="flex-1 space-y-1.5">
             <Skeleton className="h-3.5 w-32" />
-            <Skeleton className="h-3 w-24" />
+            <Skeleton className="h-3 w-20" />
           </div>
           <Skeleton className="h-4 w-16 shrink-0" />
         </div>
@@ -438,93 +455,82 @@ function TransactionList({
   );
 
   if (!filteredTransactions?.length) return (
-    <div className="bg-card rounded-3xl shadow-sm p-12 flex flex-col items-center justify-center text-muted-foreground">
+    <div className="bg-card rounded-2xl shadow-sm p-12 flex flex-col items-center justify-center text-muted-foreground">
       <Search className="h-10 w-10 mb-3 opacity-30" />
       <p className="font-semibold">No transactions found</p>
-      <p className="text-sm mt-1 text-center">Try adjusting your filters or adding a new one.</p>
+      <p className="text-sm mt-1">Try adjusting your filters or adding a new one.</p>
     </div>
   );
 
-  // Agrupar por mes, orden descendente
-  const sorted = [...filteredTransactions].sort(
-    (a, b) => b.date.localeCompare(a.date) || b.id - a.id
-  );
-  const groups: Record<string, any[]> = {};
-  for (const tx of sorted) {
-    const key = tx.date.slice(0, 7);
-    (groups[key] ??= []).push(tx);
-  }
-  const monthKeys = Object.keys(groups).sort((a, b) => b.localeCompare(a));
-
   return (
-    <div className="space-y-4">
-      {monthKeys.map((monthKey) => {
-        const txs = groups[monthKey]!;
+    <div className="bg-card rounded-2xl shadow-sm overflow-hidden divide-y divide-border">
+      {sortedKeys.map(monthKey => {
         const [y, m] = monthKey.split("-").map(Number);
-        const label = new Date(y, m - 1).toLocaleDateString("en-US", { month: "long", year: "numeric" });
-        const net = txs.reduce((a, t) => a + (t.type === "income" ? t.amount : -t.amount), 0);
+        const monthLabel = new Date(y, m - 1).toLocaleDateString("en-US", { month: "long", year: "numeric" });
+        const txs = groups[monthKey]!;
+        const open = !isCollapsed(monthKey);
 
         return (
           <div key={monthKey}>
-            {/* Header del mes — etiqueta + net */}
-            <div className="flex items-center justify-between px-1.5 mb-1.5">
-              <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">{label}</p>
-              <span
-                className="text-[11px] font-black tabular-nums px-2 py-0.5 rounded-lg"
-                style={{
-                  background: net >= 0 ? "rgba(29,185,84,0.14)" : "rgba(255,59,59,0.12)",
-                  color: net >= 0 ? "#15803D" : "#B91C1C",
-                }}
-              >
-                {net >= 0 ? "+" : "−"}{formatAmount(Math.abs(net))}
+            {/* Header del mes — clickeable */}
+            <button
+              className="w-full flex items-center justify-between px-4 py-3 bg-muted/40 hover:bg-muted/60 transition-colors"
+              onClick={() => toggle(monthKey)}
+            >
+              <div className="flex items-center gap-2">
+                <ChevronDown
+                  className="h-3.5 w-3.5 text-muted-foreground transition-transform duration-200"
+                  style={{ transform: open ? "rotate(0deg)" : "rotate(-90deg)" }}
+                />
+                <span className="text-[11px] font-bold text-muted-foreground tracking-wide uppercase">{monthLabel}</span>
+              </div>
+              <span className="text-[11px] text-muted-foreground/60">
+                {txs.length} {txs.length === 1 ? "item" : "items"}
               </span>
-            </div>
+            </button>
 
-            {/* Filas flotantes */}
-            <div className="space-y-1.5">
-              {txs.map((tx, idx) => {
-                const inc = tx.type === "income";
-                return (
+            {/* Items del mes */}
+            {open && (
+              <div className="divide-y divide-border/50">
+                {txs.map((tx, idx) => (
                   <button
                     key={tx.id}
                     onClick={() => onSelect(tx)}
                     data-testid={`row-transaction-${tx.id}`}
-                    className="w-full text-left bg-card rounded-2xl shadow-sm flex items-center gap-3 px-3.5 py-3 active:scale-[0.99] transition-transform animate-in fade-in slide-in-from-bottom-1 duration-200"
-                    style={{ animationDelay: `${(idx % 10) * 18}ms`, animationFillMode: "backwards" }}
+                    className="w-full text-left flex items-center gap-3 px-4 py-3.5 hover:bg-muted/30 transition-colors duration-150 animate-in fade-in slide-in-from-top-1 duration-200"
+                    style={{ animationDelay: `${idx * 15}ms`, animationFillMode: "backwards" }}
                   >
-                    {/* Circulo direccional en el color de la categoria */}
+                    {/* Círculo direccional en el color de la categoría */}
                     <div
-                      className="w-9 h-9 rounded-full flex items-center justify-center shrink-0"
+                      className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
                       style={{ backgroundColor: `${tx.categoryColor}1F` }}
                     >
-                      {inc
-                        ? <ArrowDownLeft className="h-4 w-4" style={{ color: tx.categoryColor }} strokeWidth={2.5} />
-                        : <ArrowUpRight className="h-4 w-4" style={{ color: tx.categoryColor }} strokeWidth={2.5} />
+                      {tx.type === "income"
+                        ? <ArrowDownLeft className="h-4 w-4" strokeWidth={2.5} style={{ color: tx.categoryColor }} />
+                        : <ArrowUpRight className="h-4 w-4" strokeWidth={2.5} style={{ color: tx.categoryColor }} />
                       }
                     </div>
 
-                    {/* Descripcion + categoria · fecha */}
+                    {/* Descripción principal + categoría · fecha */}
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-bold text-foreground leading-tight truncate">{tx.description}</p>
                       <p className="text-xs mt-0.5 truncate">
                         <span className="font-semibold" style={{ color: tx.categoryColor }}>{tx.categoryName}</span>
-                        <span className="text-muted-foreground/60"> · {new Date(`${tx.date}T00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+                        <span className="text-muted-foreground/60"> · {new Date(tx.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
                       </p>
                     </div>
 
                     {/* Monto */}
-                    <span
-                      className={cn(
-                        "text-[15px] font-black tabular-nums shrink-0",
-                        inc ? "text-[#1DB954] dark:text-[#39D96B]" : "text-[#FF3B3B] dark:text-[#FF5C5C]"
-                      )}
-                    >
-                      {inc ? "+" : "−"}{formatAmount(tx.amount)}
+                    <span className={cn(
+                      "text-[15px] font-black tabular-nums leading-none shrink-0",
+                      tx.type === "income" ? "text-[#1DB954] dark:text-[#39D96B]" : "text-[#FF3B3B] dark:text-[#FF5C5C]"
+                    )}>
+                      {tx.type === "income" ? "+" : "−"}{formatAmount(tx.amount)}
                     </span>
                   </button>
-                );
-              })}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         );
       })}
@@ -574,49 +580,104 @@ export default function Transactions() {
   const hasFilters = filterType !== "all" || filterCategory !== "all" || filterMonth !== "";
   const resetFilters = () => { setFilterType("all"); setFilterCategory("all"); setFilterMonth(""); };
 
+  const monthlyTotal = filteredTransactions?.reduce(
+    (acc, tx) => { if (tx.type === "income") acc.income += tx.amount; else acc.expense += tx.amount; return acc; },
+    { income: 0, expense: 0 }
+  );
+
   return (
     <div className="space-y-3 animate-in fade-in duration-500">
       <h2 className="text-2xl font-bold tracking-tight text-foreground pr-14 min-h-10 flex items-center">Transactions</h2>
 
-      {/* Mes + Categoria — anchos completos, textos enteros */}
-      <div className="flex gap-2 items-center">
-      <MonthSelect value={filterMonth} onChange={setFilterMonth} variant="neutral" placeholder="All time" className="flex-1" />
-      <Select value={filterCategory} onValueChange={setFilterCategory}>
-        <SelectTrigger className="h-10 text-sm bg-card shadow-sm border-0 rounded-2xl px-3 [&>span]:truncate">
-          <SelectValue placeholder="All Categories" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">All Categories</SelectItem>
-          {filteredCategoryOptions.length === 0 ? (
-            <div className="py-2 px-1">
-              <Link href="/categories" onClick={(e) => e.stopPropagation()}>
-                <button type="button" className="w-full flex items-center gap-2 px-2 py-2 rounded-2xl text-sm text-primary hover:bg-primary/10 transition-colors">
-                  <FolderPlus className="h-4 w-4 shrink-0" />
-                  Add a category
-                </button>
-              </Link>
-            </div>
-          ) : (
-            filteredCategoryOptions.map((c) => (
-              <SelectItem key={c.id} value={c.id.toString()}>
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: c.color }} />
-                  {c.name}
+      {/* Filters */}
+      <div className="bg-card rounded-2xl shadow-sm p-3 space-y-2.5">
+        {/* Type + Category */}
+        <div className="grid grid-cols-2 gap-2">
+          <Select value={filterType} onValueChange={handleTypeChange}>
+            <SelectTrigger className="h-10 text-sm bg-muted/50 border-0 rounded-2xl px-3">
+              <SelectValue placeholder="Type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Types</SelectItem>
+              <SelectItem value="income">Income</SelectItem>
+              <SelectItem value="expense">Expense</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={filterCategory} onValueChange={setFilterCategory}>
+            <SelectTrigger className="h-10 text-sm bg-muted/50 border-0 rounded-2xl px-3 [&>span]:truncate">
+              <SelectValue placeholder="Category" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Categories</SelectItem>
+              {filteredCategoryOptions.length === 0 ? (
+                <div className="py-2 px-1">
+                  <Link href="/categories" onClick={(e) => e.stopPropagation()}>
+                    <button type="button" className="w-full flex items-center gap-2 px-2 py-2 rounded-2xl text-sm text-primary hover:bg-primary/10 transition-colors">
+                      <FolderPlus className="h-4 w-4 shrink-0" />
+                      Add a category
+                    </button>
+                  </Link>
                 </div>
-              </SelectItem>
-            ))
+              ) : (
+                filteredCategoryOptions.map((c) => (
+                  <SelectItem key={c.id} value={c.id.toString()}>
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: c.color }} />
+                      {c.name}
+                    </div>
+                  </SelectItem>
+                ))
+              )}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Month + Year */}
+        <div className="flex gap-2">
+          <MonthSelect
+            value={filterMonth}
+            onChange={setFilterMonth}
+            variant="neutral"
+            placeholder="Month"
+            className="flex-1"
+          />
+          {hasFilters && (
+            <button
+              onClick={resetFilters}
+              className="h-10 w-10 rounded-2xl bg-muted/50 flex items-center justify-center shrink-0"
+              title="Reset filters"
+            >
+              <FilterX className="h-3.5 w-3.5 text-muted-foreground" />
+            </button>
           )}
-        </SelectContent>
-      </Select>
-      {hasFilters && (
-        <button
-          onClick={resetFilters}
-          className="h-10 w-10 rounded-2xl bg-card shadow-sm flex items-center justify-center shrink-0"
-          title="Reset filters"
-        >
-          <FilterX className="h-3.5 w-3.5 text-muted-foreground" />
-        </button>
-      )}
+        </div>
+
+        {/* Summary strip */}
+        {(filterMonth !== "" || filterType !== "all") && monthlyTotal && (
+          <div className={cn("grid gap-2", filterType === "all" ? "grid-cols-3" : "grid-cols-1")}>
+            {(filterType === "all" || filterType === "income") && (
+              <div className="rounded-2xl px-3 py-2 flex flex-col items-center" style={{ background: "rgba(29,185,84,0.12)" }}>
+                <p className="text-[9px] font-semibold uppercase tracking-wide" style={{ color: "#15803D" }}>Income</p>
+                <p className="text-xs font-bold" style={{ color: "#1DB954" }}>{formatAmount(monthlyTotal.income)}</p>
+              </div>
+            )}
+            {(filterType === "all" || filterType === "expense") && (
+              <div className="rounded-2xl px-3 py-2 flex flex-col items-center" style={{ background: "rgba(255,59,59,0.12)" }}>
+                <p className="text-[9px] font-semibold uppercase tracking-wide" style={{ color: "#B91C1C" }}>Expenses</p>
+                <p className="text-xs font-bold" style={{ color: "#FF3B3B" }}>{formatAmount(monthlyTotal.expense)}</p>
+              </div>
+            )}
+            {filterType === "all" && (
+              <div className="rounded-2xl px-3 py-2 flex flex-col items-center" style={{ background: monthlyTotal.income - monthlyTotal.expense >= 0 ? "rgba(29,185,84,0.12)" : "rgba(255,59,59,0.12)" }}>
+                <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">Balance</p>
+                <p className="text-xs font-bold" style={{ color: monthlyTotal.income - monthlyTotal.expense >= 0 ? "#1DB954" : "#FF3B3B" }}>
+                  {formatAmount(monthlyTotal.income - monthlyTotal.expense)}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <Link href="/transactions/new" className="inline-flex w-full">
