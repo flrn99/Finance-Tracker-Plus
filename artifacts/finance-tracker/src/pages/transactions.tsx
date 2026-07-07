@@ -18,7 +18,7 @@ import { getApiUrl } from "@/lib/api-config";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, Search, FilterX, Trash2, TrendingUp, TrendingDown, FolderPlus, Pencil, X, Check, Calendar, AlertTriangle } from "lucide-react";
+import { Plus, Search, FilterX, Trash2, TrendingUp, TrendingDown, FolderPlus, Pencil, X, Check, Calendar, AlertTriangle, ArrowUpRight, ArrowDownLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import MonthSelect from "@/components/month-select";
@@ -423,10 +423,15 @@ function TransactionList({
   onSelect: (tx: any) => void;
 }) {
   if (isLoading) return (
-    <div className="space-y-2.5 px-1 pt-2">
-      {[0, 1, 2, 3, 4].map((i) => (
-        <div key={i} className={cn("flex", i % 3 === 1 ? "justify-end" : "justify-start")}>
-          <Skeleton className="h-16 rounded-2xl" style={{ width: `${62 + (i % 3) * 8}%` }} />
+    <div className="space-y-1.5">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div key={i} className="bg-card rounded-2xl shadow-sm flex items-center gap-3 px-3.5 py-3">
+          <Skeleton className="h-9 w-9 rounded-full shrink-0" />
+          <div className="flex-1 space-y-1.5">
+            <Skeleton className="h-3.5 w-32" />
+            <Skeleton className="h-3 w-24" />
+          </div>
+          <Skeleton className="h-4 w-16 shrink-0" />
         </div>
       ))}
     </div>
@@ -435,127 +440,91 @@ function TransactionList({
   if (!filteredTransactions?.length) return (
     <div className="bg-card rounded-3xl shadow-sm p-12 flex flex-col items-center justify-center text-muted-foreground">
       <Search className="h-10 w-10 mb-3 opacity-30" />
-      <p className="font-semibold">It's quiet in here</p>
-      <p className="text-sm mt-1 text-center">Your money hasn't said anything yet. Add a transaction to start the conversation.</p>
+      <p className="font-semibold">No transactions found</p>
+      <p className="text-sm mt-1 text-center">Try adjusting your filters or adding a new one.</p>
     </div>
   );
 
-  // Orden descendente y feed con marcadores de mes y dia
+  // Agrupar por mes, orden descendente
   const sorted = [...filteredTransactions].sort(
     (a, b) => b.date.localeCompare(a.date) || b.id - a.id
   );
-
-  const toKey = (d: Date) => {
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-    return `${y}-${m}-${day}`;
-  };
-  const now = new Date();
-  const todayKey = toKey(now);
-  const yest = new Date(now); yest.setDate(now.getDate() - 1);
-  const yesterdayKey = toKey(yest);
-
-  const dayLabel = (date: string) => {
-    if (date === todayKey) return "Today";
-    if (date === yesterdayKey) return "Yesterday";
-    return new Date(`${date}T00:00`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
-  };
-
-  type FeedItem =
-    | { kind: "month"; key: string; label: string; net: number }
-    | { kind: "day"; key: string; label: string }
-    | { kind: "tx"; key: string; tx: any };
-
-  const feed: FeedItem[] = [];
-  let lastMonth = "";
-  let lastDay = "";
+  const groups: Record<string, any[]> = {};
   for (const tx of sorted) {
-    const month = tx.date.slice(0, 7);
-    if (month !== lastMonth) {
-      const net = sorted
-        .filter((t) => t.date.slice(0, 7) === month)
-        .reduce((a, t) => a + (t.type === "income" ? t.amount : -t.amount), 0);
-      feed.push({
-        kind: "month",
-        key: `m-${month}`,
-        label: new Date(Number(month.slice(0, 4)), Number(month.slice(5)) - 1)
-          .toLocaleDateString("en-US", { month: "long", year: "numeric" }),
-        net,
-      });
-      lastMonth = month;
-      lastDay = "";
-    }
-    if (tx.date !== lastDay) {
-      feed.push({ kind: "day", key: `d-${tx.date}`, label: dayLabel(tx.date) });
-      lastDay = tx.date;
-    }
-    feed.push({ kind: "tx", key: `t-${tx.id}`, tx });
+    const key = tx.date.slice(0, 7);
+    (groups[key] ??= []).push(tx);
   }
+  const monthKeys = Object.keys(groups).sort((a, b) => b.localeCompare(a));
 
   return (
-    <div className="space-y-2 px-0.5 pb-2">
-      {feed.map((item, idx) => {
-        if (item.kind === "month") {
-          return (
-            <div key={item.key} className="flex justify-center pt-4 pb-1">
-              <span className="px-3.5 py-1.5 rounded-full bg-card shadow-sm flex items-center gap-2">
-                <span className="text-[11px] font-bold uppercase tracking-widest text-foreground">{item.label}</span>
-                <span
-                  className="text-[11px] font-black tabular-nums px-1.5 py-0.5 rounded-md"
-                  style={{
-                    background: item.net >= 0 ? "rgba(29,185,84,0.14)" : "rgba(255,59,59,0.12)",
-                    color: item.net >= 0 ? "#15803D" : "#B91C1C",
-                  }}
-                >
-                  {item.net >= 0 ? "+" : "−"}{formatAmount(Math.abs(item.net))}
-                </span>
-              </span>
-            </div>
-          );
-        }
-        if (item.kind === "day") {
-          return (
-            <div key={item.key} className="flex justify-center py-1">
-              <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground/60">{item.label}</span>
-            </div>
-          );
-        }
-        const tx = item.tx;
-        const inc = tx.type === "income";
+    <div className="space-y-4">
+      {monthKeys.map((monthKey) => {
+        const txs = groups[monthKey]!;
+        const [y, m] = monthKey.split("-").map(Number);
+        const label = new Date(y, m - 1).toLocaleDateString("en-US", { month: "long", year: "numeric" });
+        const net = txs.reduce((a, t) => a + (t.type === "income" ? t.amount : -t.amount), 0);
+
         return (
-          <div key={item.key} className={cn("flex", inc ? "justify-end" : "justify-start")}>
-            <button
-              onClick={() => onSelect(tx)}
-              data-testid={`row-transaction-${tx.id}`}
-              className={cn(
-                "max-w-[78%] text-left rounded-2xl bg-card pl-3 pr-3.5 py-2.5 active:scale-[0.98] transition-transform animate-in fade-in slide-in-from-bottom-1 duration-200",
-                inc ? "rounded-br-md" : "rounded-bl-md"
-              )}
-              style={{
-                // Varita de color en el borde exterior — como un mensaje citado
-                borderLeft: inc ? undefined : `3px solid ${tx.categoryColor}`,
-                borderRight: inc ? `3px solid ${tx.categoryColor}` : undefined,
-                boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
-                animationDelay: `${(idx % 12) * 20}ms`,
-                animationFillMode: "backwards",
-              }}
-            >
-              <div className="flex items-baseline gap-3">
-                <p className="text-sm font-bold text-foreground leading-tight min-w-0">{tx.description}</p>
-                <span
-                  className={cn(
-                    "text-[15px] font-black tabular-nums leading-none shrink-0 ml-auto",
-                    inc ? "text-[#1DB954] dark:text-[#39D96B]" : "text-[#FF3B3B] dark:text-[#FF5C5C]"
-                  )}
-                >
-                  {inc ? "+" : "−"}{formatAmount(tx.amount)}
-                </span>
-              </div>
-              <span className="block text-[10px] font-bold uppercase tracking-wide mt-1" style={{ color: tx.categoryColor }}>
-                {tx.categoryName}
+          <div key={monthKey}>
+            {/* Header del mes — etiqueta + net */}
+            <div className="flex items-center justify-between px-1.5 mb-1.5">
+              <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">{label}</p>
+              <span
+                className="text-[11px] font-black tabular-nums px-2 py-0.5 rounded-lg"
+                style={{
+                  background: net >= 0 ? "rgba(29,185,84,0.14)" : "rgba(255,59,59,0.12)",
+                  color: net >= 0 ? "#15803D" : "#B91C1C",
+                }}
+              >
+                {net >= 0 ? "+" : "−"}{formatAmount(Math.abs(net))}
               </span>
-            </button>
+            </div>
+
+            {/* Filas flotantes */}
+            <div className="space-y-1.5">
+              {txs.map((tx, idx) => {
+                const inc = tx.type === "income";
+                return (
+                  <button
+                    key={tx.id}
+                    onClick={() => onSelect(tx)}
+                    data-testid={`row-transaction-${tx.id}`}
+                    className="w-full text-left bg-card rounded-2xl shadow-sm flex items-center gap-3 px-3.5 py-3 active:scale-[0.99] transition-transform animate-in fade-in slide-in-from-bottom-1 duration-200"
+                    style={{ animationDelay: `${(idx % 10) * 18}ms`, animationFillMode: "backwards" }}
+                  >
+                    {/* Circulo direccional en el color de la categoria */}
+                    <div
+                      className="w-9 h-9 rounded-full flex items-center justify-center shrink-0"
+                      style={{ backgroundColor: `${tx.categoryColor}1F` }}
+                    >
+                      {inc
+                        ? <ArrowDownLeft className="h-4 w-4" style={{ color: tx.categoryColor }} strokeWidth={2.5} />
+                        : <ArrowUpRight className="h-4 w-4" style={{ color: tx.categoryColor }} strokeWidth={2.5} />
+                      }
+                    </div>
+
+                    {/* Descripcion + categoria · fecha */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-foreground leading-tight truncate">{tx.description}</p>
+                      <p className="text-xs mt-0.5 truncate">
+                        <span className="font-semibold" style={{ color: tx.categoryColor }}>{tx.categoryName}</span>
+                        <span className="text-muted-foreground/60"> · {new Date(`${tx.date}T00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+                      </p>
+                    </div>
+
+                    {/* Monto */}
+                    <span
+                      className={cn(
+                        "text-[15px] font-black tabular-nums shrink-0",
+                        inc ? "text-[#1DB954] dark:text-[#39D96B]" : "text-[#FF3B3B] dark:text-[#FF5C5C]"
+                      )}
+                    >
+                      {inc ? "+" : "−"}{formatAmount(tx.amount)}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         );
       })}
