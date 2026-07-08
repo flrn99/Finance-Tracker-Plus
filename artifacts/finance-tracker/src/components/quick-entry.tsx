@@ -21,6 +21,8 @@ import { TrendingUp, TrendingDown, Plus, Check, FolderPlus } from "lucide-react"
 import { cn } from "@/lib/utils";
 import { useCurrency } from "@/lib/currency-context";
 import { useState } from "react";
+import { Mic } from "lucide-react";
+import VoiceCapture, { type ParsedVoiceTx } from "@/components/voice-capture";
 import CurrencyInput from "@/components/currency-input";
 import MonthSelect from "@/components/month-select";
 import { Link } from "wouter";
@@ -40,6 +42,7 @@ export default function QuickEntry() {
   const queryClient = useQueryClient();
   const { symbol, formatAmount } = useCurrency();
   const [saved, setSaved] = useState(false);
+  const [voiceOpen, setVoiceOpen] = useState(false);
 
   const { data: categories } = useListCategories({
     query: { queryKey: getListCategoriesQueryKey() },
@@ -92,6 +95,16 @@ export default function QuickEntry() {
     );
   };
 
+  // Aplica el resultado de la nota de voz al formulario (para que el user confirme)
+  const applyVoice = (tx: ParsedVoiceTx) => {
+    setVoiceOpen(false);
+    form.setValue("type", tx.type, { shouldValidate: true });
+    if (tx.amount > 0) form.setValue("amount", tx.amount, { shouldValidate: true });
+    if (tx.description) form.setValue("description", tx.description, { shouldValidate: true });
+    if (tx.categoryId) form.setValue("categoryId", tx.categoryId, { shouldValidate: true });
+    toast({ title: "Got it — check and save", description: "Review what I understood, then tap Add." });
+  };
+
   const isIncome = type === "income";
 
   return (
@@ -108,7 +121,18 @@ export default function QuickEntry() {
       <div className="absolute -top-12 -right-12 w-40 h-40 rounded-full pointer-events-none" style={{ background: "rgba(255,255,255,0.4)" }} />
       <div className="relative">
       <div className="flex items-center justify-between mb-3 gap-2">
-        <h3 className="font-serif font-semibold text-lg shrink-0" style={{ color: "#1C1917" }}>New Entry</h3>
+        <div className="flex items-center gap-2 shrink-0">
+          <h3 className="font-serif font-semibold text-lg" style={{ color: "#1C1917" }}>New Entry</h3>
+          <button
+            type="button"
+            onClick={() => setVoiceOpen(true)}
+            aria-label="Add by voice"
+            className="w-8 h-8 rounded-full flex items-center justify-center active:scale-90 transition-transform"
+            style={{ background: "#1C1917" }}
+          >
+            <Mic className="h-4 w-4 text-white" />
+          </button>
+        </div>
         <div
           className="relative flex items-center p-1 rounded-full shrink-0 overflow-hidden"
           style={{
@@ -290,6 +314,10 @@ export default function QuickEntry() {
         </form>
       </Form>
       </div>
+
+      {voiceOpen && (
+        <VoiceCapture onClose={() => setVoiceOpen(false)} onParsed={applyVoice} />
+      )}
     </div>
   );
 }

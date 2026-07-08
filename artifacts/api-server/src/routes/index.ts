@@ -8,6 +8,7 @@ import accountRouter from "./account";
 import importRouter from "./import";
 import goalsRouter from "./goals";
 import insightsRouter from "./insights";
+import voiceRouter from "./voice";
 
 const router: IRouter = Router();
 
@@ -20,5 +21,6 @@ router.use(accountRouter);
 router.use(importRouter);
 router.use(goalsRouter);
 router.use(insightsRouter);
+router.use(voiceRouter);
 
 export default router;
