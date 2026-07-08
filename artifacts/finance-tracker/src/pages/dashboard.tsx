@@ -7,7 +7,8 @@ import {
 import { formatDate } from "@/lib/format";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ComposedChart, Bar, Cell, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid } from "recharts";
-import { ArrowDownIcon, ArrowUpIcon, Wallet, TrendingDown, TrendingUp } from "lucide-react";
+import { ArrowDownIcon, ArrowUpIcon, Wallet, TrendingDown, TrendingUp, ArrowLeftRight, ChevronRight } from "lucide-react";
+import { Link } from "wouter";
 import QuickEntry from "@/components/quick-entry";
 import { useCurrency } from "@/lib/currency-context";
 import { cn } from "@/lib/utils";
@@ -200,6 +201,20 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* View all transactions */}
+      <Link href="/transactions">
+        <button className="w-full flex items-center gap-3 bg-card rounded-2xl shadow-sm px-4 py-3.5 active:scale-[0.99] transition-transform">
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: "rgba(124,58,255,0.12)" }}>
+            <ArrowLeftRight className="h-4 w-4" style={{ color: "#7C3AFF" }} />
+          </div>
+          <div className="flex-1 text-left">
+            <p className="text-sm font-bold text-foreground leading-tight">All transactions</p>
+            <p className="text-xs text-muted-foreground leading-tight">Browse and edit your full history</p>
+          </div>
+          <ChevronRight className="h-4 w-4 text-muted-foreground/40 shrink-0" />
+        </button>
+      </Link>
 
       {/* ── Chart + Top 3 ─────────────────────────────────────────── */}
       <div className="bg-card rounded-3xl shadow-sm overflow-hidden">

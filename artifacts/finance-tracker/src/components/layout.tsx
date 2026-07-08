@@ -3,7 +3,6 @@ import { useRef, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   LayoutDashboard,
-  ListOrdered,
   Tags,
   Plus,
   DollarSign,
@@ -54,7 +53,6 @@ function TargetArrowIcon({ className, style }: { className?: string; style?: Rea
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/transactions", label: "Transactions", icon: ListOrdered },
   { href: "/insights", label: "Insights", icon: Sparkles },
   { href: "/goals", label: "Goals", icon: TargetArrowIcon },
   { href: "/categories", label: "Categories", icon: Tags },
