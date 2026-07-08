@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Fingerprint, KeyRound, Trash2, ShieldAlert } from "lucide-react";
-import { useBiometric, getStoredPin } from "@/lib/biometric-context";
+import { useBiometric, verifyPin } from "@/lib/biometric-context";
 import { cn } from "@/lib/utils";
 
 const MAX_ATTEMPTS = 3;
@@ -61,17 +61,18 @@ export default function BiometricLock() {
     setError("");
 
     if (newPin.length === 6) {
-      const stored = getStoredPin();
-      if (newPin === stored) {
-        unlock();
-      } else {
+      verifyPin(newPin).then((ok) => {
+        if (ok) {
+          unlock();
+          return;
+        }
         setShake(true);
         setTimeout(() => {
           setShake(false);
           setPin("");
           setError("Incorrect PIN. Try again.");
         }, 500);
-      }
+      });
     }
   };
 

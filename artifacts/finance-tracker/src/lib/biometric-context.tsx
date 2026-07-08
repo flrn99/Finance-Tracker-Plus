@@ -8,7 +8,7 @@ interface BiometricContextType {
   isSupported: boolean;
   unlock: () => void;
   enable: (pin: string) => Promise<{ success: boolean; error?: string }>;
-  disable: (pin: string) => boolean;
+  disable: (pin: string) => Promise<boolean>;
   triggerAuth: () => Promise<boolean>;
 }
 
@@ -18,7 +18,7 @@ const BiometricContext = createContext<BiometricContextType>({
   isSupported: false,
   unlock: () => {},
   enable: async () => ({ success: false }),
-  disable: () => false,
+  disable: async () => false,
   triggerAuth: async () => false,
 });
 
@@ -31,8 +31,38 @@ function getStoredPin(): string | null {
   try { return localStorage.getItem(STORAGE_KEY_PIN); } catch { return null; }
 }
 
-function savePin(pin: string) {
-  try { localStorage.setItem(STORAGE_KEY_PIN, pin); } catch {}
+// SHA-256 con Web Crypto (nativo del WebView, sin librerías).
+// El PIN se guarda hasheado; el texto plano nunca queda en disco.
+async function hashPin(pin: string): Promise<string> {
+  const data = new TextEncoder().encode(`ff-pin:${pin}`);
+  const digest = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+async function savePin(pin: string) {
+  try { localStorage.setItem(STORAGE_KEY_PIN, await hashPin(pin)); } catch {}
+}
+
+/**
+ * Verifica un PIN contra lo guardado.
+ * - Si lo guardado es un hash (64 hex) → compara hashes.
+ * - Si es texto plano (PIN viejo pre-migración) → compara directo y, si acierta,
+ *   lo re-guarda hasheado (migración transparente, el usuario no nota nada).
+ */
+async function verifyPin(pin: string): Promise<boolean> {
+  const stored = getStoredPin();
+  if (!stored) return false;
+  const looksHashed = /^[a-f0-9]{64}$/.test(stored);
+  if (looksHashed) {
+    return (await hashPin(pin)) === stored;
+  }
+  if (pin === stored) {
+    await savePin(pin); // migrar a hash
+    return true;
+  }
+  return false;
 }
 
 function isStoredEnabled(): boolean {
@@ -138,15 +168,15 @@ export function BiometricProvider({ children }: { children: React.ReactNode }) {
     const authed = await requestBiometricAuth();
     if (!authed) return { success: false, error: "auth_failed" };
 
-    savePin(pin);
+    await savePin(pin);
     setStoredEnabled(true);
     setIsEnabled(true);
     return { success: true };
   };
 
-  const disable = (pin: string): boolean => {
-    const stored = getStoredPin();
-    if (pin !== stored) return false;
+  const disable = async (pin: string): Promise<boolean> => {
+    const ok = await verifyPin(pin);
+    if (!ok) return false;
     setStoredEnabled(false);
     setIsEnabled(false);
     setIsLocked(false);
@@ -165,4 +195,4 @@ export function useBiometric() {
   return useContext(BiometricContext);
 }
 
-export { getStoredPin };
+export { getStoredPin, verifyPin };
