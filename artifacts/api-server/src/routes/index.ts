@@ -7,6 +7,7 @@ import exportRouter from "./export";
 import accountRouter from "./account";
 import importRouter from "./import";
 import goalsRouter from "./goals";
+import insightsRouter from "./insights";
 
 const router: IRouter = Router();
 
@@ -18,5 +19,6 @@ router.use(exportRouter);
 router.use(accountRouter);
 router.use(importRouter);
 router.use(goalsRouter);
+router.use(insightsRouter);
 
 export default router;

@@ -10,7 +10,7 @@ import ReactMarkdown from "react-markdown";
 import ImportReview from "@/components/import-review";
 import { useToast } from "@/hooks/use-toast";
 
-const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+// La API key de Gemini vive en el backend — ya NO se hornea en el APK
 
 const ACCENT = "#0EA5E9";
 
@@ -167,51 +167,23 @@ export default function Insights() {
     setError(null);
     setInsights(null);
     try {
-      setAnalyzePhase("Fetching transactions...");
-      const res = await fetch(getApiUrl("/api/transactions"), {
-        headers: { Authorization: `Bearer ${session?.access_token}` },
+      setAnalyzePhase("Analyzing your finances...");
+      const response = await fetch(getApiUrl("/api/insights/analyze"), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify({ currency }),
       });
-      const data = await res.json();
-      const transactions = data.data || data;
 
-      if (!transactions || transactions.length === 0) {
-        setError("No transactions found to analyze.");
+      const result = await response.json();
+      if (!response.ok) {
+        setError(result?.error || "Failed to analyze finances");
         return;
       }
-
-      const txText = transactions.map((t: any) =>
-        `${t.date} | ${t.type} | ${t.amount} | ${t.description} | ${t.categoryName || t.category?.name || "Unknown"}`
-      ).join("\n");
-
-      const prompt = `You are a personal finance advisor. Analyze these transactions and provide insights in a friendly, clear way. Include:
-1. Summary of spending by category
-2. Top expense categories
-3. Income sources analysis
-4. 3-5 specific actionable recommendations to improve financial health
-5. Overall financial health score (1-10)
-
-IMPORTANT: The user's currency is ${currency} (${CURRENCY_INFO[currency].label}). Always display amounts using the correct symbol and currency code — never convert to USD or any other currency.
-Format your response compactly: keep each section brief, avoid large blank lines between items, and use tight bullet lists. No verbose padding.
-
-Transactions:
-${txText}
-
-Keep it concise, friendly and actionable. Use emojis to make it engaging.`;
-
-      setAnalyzePhase("Sending to AI...");
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent?key=${GEMINI_API_KEY}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
-        }
-      );
-
-      setAnalyzePhase("Processing response...");
-      const geminiData = await response.json();
-      const text = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!text) throw new Error("No response from Gemini");
+      const text = result.text;
+      if (!text) throw new Error("No response from AI");
 
       // Save last analysis to localStorage
       const analysis: LastAnalysis = {
