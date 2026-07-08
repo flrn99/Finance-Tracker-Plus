@@ -203,7 +203,7 @@ export default function Dashboard() {
       </div>
 
       {/* View all transactions */}
-      <Link href="/transactions">
+      <Link href="/transactions" className="block py-1">
         <button className="w-full flex items-center gap-3 bg-card rounded-2xl shadow-sm px-4 py-3.5 active:scale-[0.99] transition-transform">
           <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: "rgba(124,58,255,0.12)" }}>
             <ArrowLeftRight className="h-4 w-4" style={{ color: "#7C3AFF" }} />
