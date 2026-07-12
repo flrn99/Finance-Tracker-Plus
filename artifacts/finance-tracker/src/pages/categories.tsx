@@ -379,7 +379,7 @@ export default function Categories() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight pr-14 min-h-10 flex items-center">Categories</h2>
+          <h2 className="font-title text-3xl font-bold pr-14 min-h-10 flex items-center">Categories</h2>
         </div>
 
         <Button className="gap-2 w-full sm:w-auto bg-[#A8FF3E] text-black hover:bg-[#9bfe32] border-0" onClick={() => openCreate("expense")}>

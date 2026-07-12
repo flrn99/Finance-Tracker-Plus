@@ -98,37 +98,67 @@ export default function QuickEntry() {
   // Aplica el resultado de la nota de voz al formulario (para que el user confirme)
   const applyVoice = (tx: ParsedVoiceTx) => {
     setVoiceOpen(false);
-    form.setValue("type", tx.type, { shouldValidate: true });
-    if (tx.amount > 0) form.setValue("amount", tx.amount, { shouldValidate: true });
-    if (tx.description) form.setValue("description", tx.description, { shouldValidate: true });
-    if (tx.categoryId) form.setValue("categoryId", tx.categoryId, { shouldValidate: true });
-    toast({ title: "Got it — check and save", description: "Review what I understood, then tap Add." });
+
+    // 1) tipo primero — cambia el filtro de categorías
+    form.setValue("type", tx.type, { shouldValidate: false });
+
+    // 2) monto y descripción de inmediato
+    if (tx.amount > 0) {
+      form.setValue("amount", tx.amount, { shouldValidate: true, shouldDirty: true, shouldTouch: true });
+    }
+    if (tx.description) {
+      form.setValue("description", tx.description, { shouldValidate: true, shouldDirty: true });
+    }
+
+    // 3) categoría en el siguiente tick: para entonces `type` ya cambió y
+    //    `filteredCategories` incluye la categoría correcta (arregla income)
+    if (tx.categoryId) {
+      setTimeout(() => {
+        form.setValue("categoryId", tx.categoryId as number, { shouldValidate: true, shouldDirty: true });
+      }, 60);
+    }
+
+    const missing: string[] = [];
+    if (!(tx.amount > 0)) missing.push("amount");
+    if (!tx.categoryId) missing.push("category");
+    if (missing.length) {
+      toast({ title: "Almost — fill the rest", description: `I couldn't catch the ${missing.join(" and ")}. Add it and save.` });
+    } else {
+      toast({ title: "Got it — check and save", description: "Review what I understood, then tap Add." });
+    }
   };
 
   const isIncome = type === "income";
 
   return (
     <div className="relative overflow-hidden rounded-3xl p-4 border-0">
-      {/* Fondos pastel — cross-fade segun modo */}
-      <div
-        className="absolute inset-0 transition-opacity duration-300 pointer-events-none"
-        style={{ background: "linear-gradient(145deg, #FFE9EC 0%, #FFD0D6 100%)", opacity: isIncome ? 0 : 1 }}
-      />
-      <div
-        className="absolute inset-0 transition-opacity duration-300 pointer-events-none"
-        style={{ background: "linear-gradient(145deg, #E3FBE9 0%, #C2F4CF 100%)", opacity: isIncome ? 1 : 0 }}
-      />
-      <div className="absolute -top-12 -right-12 w-40 h-40 rounded-full pointer-events-none" style={{ background: "rgba(255,255,255,0.4)" }} />
+      {/* Fondo EXPENSE — pastel rojo vivo con mesh */}
+      <div className="absolute inset-0 transition-opacity duration-300 pointer-events-none" style={{ opacity: isIncome ? 0 : 1 }}>
+        <div className="absolute inset-0" style={{ background: "linear-gradient(145deg, #FFC9CE 0%, #FFA8B0 100%)" }} />
+        <div className="absolute inset-0" style={{ background: "radial-gradient(circle at 18% 12%, #FFDDE0 0%, transparent 50%), radial-gradient(circle at 95% 95%, #FF8A94 0%, transparent 55%)" }} />
+        <div className="absolute inset-x-0 top-0 h-1/2" style={{ background: "linear-gradient(180deg, rgba(255,255,255,0.5) 0%, transparent 100%)" }} />
+      </div>
+      {/* Fondo INCOME — pastel verde vivo con mesh */}
+      <div className="absolute inset-0 transition-opacity duration-300 pointer-events-none" style={{ opacity: isIncome ? 1 : 0 }}>
+        <div className="absolute inset-0" style={{ background: "linear-gradient(145deg, #A8FFDC 0%, #6FFFC0 100%)" }} />
+        <div className="absolute inset-0" style={{ background: "radial-gradient(circle at 18% 12%, #C9FFE9 0%, transparent 50%), radial-gradient(circle at 95% 95%, #34F5AE 0%, transparent 55%)" }} />
+        <div className="absolute inset-x-0 top-0 h-1/2" style={{ background: "linear-gradient(180deg, rgba(255,255,255,0.55) 0%, transparent 100%)" }} />
+      </div>
+      {/* Ícono fantasma que cambia con el modo */}
+      {isIncome
+        ? <TrendingUp className="absolute -bottom-5 -right-4 h-32 w-32 pointer-events-none" style={{ color: "rgba(0,120,80,0.12)" }} strokeWidth={1.5} />
+        : <TrendingDown className="absolute -bottom-5 -right-4 h-32 w-32 pointer-events-none" style={{ color: "rgba(200,30,50,0.12)" }} strokeWidth={1.5} />
+      }
       <div className="relative">
       <div className="flex items-center justify-between mb-3 gap-2">
         <div className="flex items-center gap-2 shrink-0">
-          <h3 className="font-serif font-semibold text-lg" style={{ color: "#1C1917" }}>New Entry</h3>
+          <h3 className="font-serif font-semibold text-lg" style={{ color: isIncome ? "#00593C" : "#9F1239" }}>New Entry</h3>
           <button
             type="button"
             onClick={() => setVoiceOpen(true)}
             aria-label="Add by voice"
             className="w-8 h-8 rounded-full flex items-center justify-center active:scale-90 transition-transform"
-            style={{ background: "#1C1917" }}
+            style={{ background: isIncome ? "#00593C" : "#9F1239" }}
           >
             <Mic className="h-4 w-4 text-white" />
           </button>

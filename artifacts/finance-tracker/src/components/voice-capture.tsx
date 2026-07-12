@@ -6,9 +6,9 @@ import { supabase } from "@/lib/supabase";
 import { useCurrency } from "@/lib/currency-context";
 
 const FLOW = "#A8FF3E";
-const SILENCE_MS = 2000;        // auto-stop tras 2s de silencio
-const SILENCE_THRESHOLD = 0.045; // nivel de volumen considerado "silencio"
-const MIN_SPEECH_MS = 700;       // no auto-parar antes de que hable
+const SILENCE_MS = 2500;        // auto-stop tras 2.5s de silencio
+const SILENCE_THRESHOLD = 0.04;  // nivel de volumen considerado "silencio"
+const SPEECH_THRESHOLD = 0.08;   // por encima de esto = el usuario esta hablando
 
 export interface ParsedVoiceTx {
   amount: number;
@@ -105,6 +105,9 @@ export default function VoiceCapture({
   const silenceStartRef = useRef<number | null>(null);
   const startedAtRef = useRef<number>(0);
   const stoppedRef = useRef(false);
+  const closedRef = useRef(false);
+  const heardRef = useRef(false);
+  const [runId, setRunId] = useState(0);
 
   const stopEverything = useCallback(() => {
     cancelAnimationFrame(rafRef.current);
@@ -122,6 +125,7 @@ export default function VoiceCapture({
     });
 
   const sendAudio = useCallback(async (blob: Blob, mimeType: string) => {
+    if (closedRef.current) return;
     setPhase("processing");
     try {
       const audio = await blobToBase64(blob);
@@ -135,9 +139,17 @@ export default function VoiceCapture({
         body: JSON.stringify({ audio, mimeType, currency }),
       });
       const result = await res.json();
-      if (!res.ok) { setError(result?.error || "Something went wrong."); setPhase("error"); return; }
+      if (closedRef.current) return;
+      if (!res.ok) { setError(result?.error || "I couldn't understand that."); setPhase("error"); return; }
+      // Si no captó monto ni categoría, tratarlo como "no reconocido" y ofrecer reintento
+      if (!(result?.amount > 0) && result?.categoryId == null && !result?.description) {
+        setError("I couldn't make out a transaction. Try again, a bit slower.");
+        setPhase("error");
+        return;
+      }
       onParsed(result as ParsedVoiceTx);
     } catch {
+      if (closedRef.current) return;
       setError("Couldn't reach the server. Try again.");
       setPhase("error");
     }
@@ -153,6 +165,9 @@ export default function VoiceCapture({
 
   useEffect(() => {
     let mounted = true;
+    stoppedRef.current = false;
+    silenceStartRef.current = null;
+    heardRef.current = false;
     (async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -179,9 +194,11 @@ export default function VoiceCapture({
         mr.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
         mr.onstop = () => {
           stopEverything();
+          if (closedRef.current) return;
+          if (!heardRef.current) { setError("I didn't hear anything. Tap to try again."); setPhase("error"); return; }
           const blob = new Blob(chunksRef.current, { type: mime || "audio/webm" });
           if (blob.size > 0) sendAudio(blob, mime || "audio/webm");
-          else { setError("No audio captured."); setPhase("error"); }
+          else { setError("I didn't hear anything. Tap to try again."); setPhase("error"); }
         };
         mr.start();
         startedAtRef.current = Date.now();
@@ -203,8 +220,11 @@ export default function VoiceCapture({
           const now = Date.now();
           setElapsed(Math.floor((now - startedAtRef.current) / 1000));
 
-          // Auto-stop por silencio (tras un mínimo de habla)
-          if (now - startedAtRef.current > MIN_SPEECH_MS) {
+          // Marca cuando el usuario EMPIEZA a hablar
+          if (rms > SPEECH_THRESHOLD) heardRef.current = true;
+
+          // Auto-stop solo DESPUES de que haya hablado (no cuenta el silencio inicial)
+          if (heardRef.current) {
             if (rms < SILENCE_THRESHOLD) {
               if (silenceStartRef.current == null) silenceStartRef.current = now;
               else if (now - silenceStartRef.current > SILENCE_MS) { handleStop(); return; }
@@ -222,18 +242,30 @@ export default function VoiceCapture({
     })();
 
     return () => { mounted = false; stopEverything(); };
-  }, [sendAudio, stopEverything, handleStop]);
+  }, [sendAudio, stopEverything, handleStop, runId]);
 
-  const close = () => { stopEverything(); onClose(); };
+  const restart = () => {
+    closedRef.current = false;
+    stoppedRef.current = false;
+    silenceStartRef.current = null;
+    heardRef.current = false;
+    setError("");
+    setElapsed(0);
+    levelsRef.current = levelsRef.current.map(() => 0);
+    setPhase("listening");
+    setRunId((n) => n + 1);
+  };
+
+  const close = () => { closedRef.current = true; stopEverything(); onClose(); };
 
   return createPortal(
     <div className="fixed inset-0 z-[999] flex flex-col items-center justify-center px-6 animate-in fade-in duration-300"
       style={{ background: "rgba(8,10,6,0.92)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" }}>
 
       {/* Cerrar */}
-      <button onClick={close} className="absolute top-6 right-6 w-10 h-10 rounded-full flex items-center justify-center"
-        style={{ background: "rgba(255,255,255,0.08)" }}>
-        <X className="h-5 w-5 text-white/70" />
+      <button onClick={close} className="absolute w-9 h-9 rounded-full flex items-center justify-center active:scale-90 transition-transform"
+        style={{ top: "calc(env(safe-area-inset-top) + 12px)", right: 16, background: "rgba(255,255,255,0.1)" }}>
+        <X className="h-4 w-4 text-white/70" />
       </button>
 
       {phase === "listening" && (
@@ -281,14 +313,20 @@ export default function VoiceCapture({
 
       {phase === "error" && (
         <div className="flex flex-col items-center text-center animate-in fade-in duration-300 max-w-xs">
-          <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4" style={{ background: "rgba(255,59,59,0.15)" }}>
-            <X className="h-8 w-8 text-[#FF5C5C]" />
+          <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4" style={{ background: "rgba(255,255,255,0.06)" }}>
+            <Mic className="h-8 w-8 text-white/50" />
           </div>
           <p className="text-white font-bold text-lg mb-1">Didn't catch that</p>
           <p className="text-white/50 text-sm mb-6">{error}</p>
-          <button onClick={close} className="px-6 py-3 rounded-full font-bold text-black" style={{ background: FLOW }}>
-            Try again
-          </button>
+          <div className="flex items-center gap-2.5">
+            <button onClick={close} className="px-5 py-2.5 rounded-2xl font-bold text-white/80" style={{ background: "rgba(255,255,255,0.1)" }}>
+              Cancel
+            </button>
+            <button onClick={restart} className="px-5 py-2.5 rounded-2xl font-bold text-black flex items-center gap-2" style={{ background: FLOW }}>
+              <Mic className="h-4 w-4" strokeWidth={2.5} />
+              Try again
+            </button>
+          </div>
         </div>
       )}
     </div>,

@@ -27,7 +27,7 @@ interface ImportReviewProps {
 
 function ConfirmModal({ message, onConfirm, onClose }: { message: string; onConfirm: () => void; onClose: () => void }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center px-4" style={{ paddingBottom: "calc(var(--nav-height, 90px) + 16px)" }}>
+    <div className="fixed inset-0 z-50 flex items-end justify-center px-4" style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 16px)" }}>
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
       <div className="relative w-full max-w-sm bg-card border border-card-border rounded-2xl p-5 space-y-4 animate-in slide-in-from-bottom-4 duration-200">
         <div className="flex items-start gap-3">
@@ -104,7 +104,7 @@ export default function ImportReview({ transactions: initial, categories, onDone
           top: 0,
           left: 0,
           right: 0,
-          bottom: `calc(var(--nav-height, 90px) + ${FOOTER_H}px)`,
+          bottom: `calc(env(safe-area-inset-bottom) + ${FOOTER_H}px)`,
           paddingTop: "calc(env(safe-area-inset-top) + 16px)",
           paddingLeft: "16px",
           paddingRight: "16px",
@@ -220,7 +220,7 @@ export default function ImportReview({ transactions: initial, categories, onDone
       {/* Footer con fade */}
       <div
         className="fixed left-0 right-0 flex flex-col"
-        style={{ bottom: "calc(var(--nav-height, 90px) + 28px)", zIndex: 35 }}
+        style={{ bottom: "calc(env(safe-area-inset-bottom) + 16px)", zIndex: 35 }}
       >
         <div
           className="w-full pointer-events-none"

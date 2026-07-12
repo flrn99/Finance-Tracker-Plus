@@ -1,6 +1,9 @@
 package com.florian.financetracker;
+
 import android.graphics.Color;
 import android.os.Bundle;
+import android.webkit.PermissionRequest;
+import android.webkit.WebChromeClient;
 import android.webkit.WebView;
 import androidx.core.view.WindowCompat;
 import com.getcapacitor.BridgeActivity;
@@ -12,10 +15,8 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(FilePickerPlugin.class);
         super.onCreate(savedInstanceState);
 
-        // Que la WebView ocupe toda la pantalla incluyendo nav bar y status bar
         WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
 
-        // Nav bar y status bar transparentes — la WebView controla el color desde JS
         getWindow().setNavigationBarColor(Color.parseColor("#CAFA01"));
         getWindow().setStatusBarColor(Color.parseColor("#CAFA01"));
 
@@ -24,5 +25,20 @@ public class MainActivity extends BridgeActivity {
         webView.setBackgroundColor(Color.parseColor("#CAFA01"));
         webView.getSettings().setDomStorageEnabled(true);
         webView.getSettings().setJavaScriptEnabled(true);
+
+        webView.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public void onPermissionRequest(final PermissionRequest request) {
+                runOnUiThread(() -> {
+                    for (String r : request.getResources()) {
+                        if (PermissionRequest.RESOURCE_AUDIO_CAPTURE.equals(r)) {
+                            request.grant(new String[]{ PermissionRequest.RESOURCE_AUDIO_CAPTURE });
+                            return;
+                        }
+                    }
+                    request.deny();
+                });
+            }
+        });
     }
 }

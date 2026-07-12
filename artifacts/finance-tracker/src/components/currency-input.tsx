@@ -28,8 +28,15 @@ export default function CurrencyInput({ value, onChange, onBlur, placeholder = "
   const focused = useRef(false);
 
   useEffect(() => {
-    if (!focused.current && (value === undefined || value === null)) {
+    if (focused.current) return;
+    if (value === undefined || value === null) {
       setDisplay("");
+    } else {
+      // Sincroniza cuando el valor llega desde fuera (ej. nota de voz)
+      const current = parseFloat(display.replace(/,/g, ""));
+      if (current !== value) {
+        setDisplay(value > 0 ? formatWithCommas(value.toFixed(2)) : "");
+      }
     }
   }, [value]);
 

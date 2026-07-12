@@ -958,7 +958,7 @@ export default function Goals() {
 
   return (
     <div className="space-y-4 animate-in fade-in duration-500">
-      <h2 className="text-2xl font-bold tracking-tight pr-14 min-h-10 flex items-center">Goals</h2>
+      <h2 className="font-title text-3xl font-bold pr-14 min-h-10 flex items-center">Goals</h2>
 
       {/* Resumen — pasteles de zona (verde=ahorro, ambar=rachas) */}
       {!isLoading && (goals.length > 0 || habits.length > 0) && (

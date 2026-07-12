@@ -272,7 +272,7 @@ export default function Insights() {
 
   if (editableTxs) {
     return (
-      <div className="fixed inset-0 z-30 bg-background">
+      <div className="fixed inset-0 z-50 bg-background">
         <ImportReview
           transactions={editableTxs}
           categories={categories}
@@ -311,7 +311,7 @@ export default function Insights() {
           </div>
 
           {/* Titulo */}
-          <h2 className="text-2xl font-serif font-bold leading-tight" style={{ color: "#082F49" }}>
+          <h2 className="text-2xl font-serif font-bold leading-tight" style={{ color: "#082F49", letterSpacing: "0.05em" }}>
             Financial <span style={{ color: "#0284C7" }}>Insights</span>
           </h2>
           <p className="text-xs mt-1" style={{ color: "rgba(12,74,110,0.6)" }}>
@@ -401,43 +401,53 @@ export default function Insights() {
         </div>
         {topCategories.length > 0 ? (
           <div className="px-4 pt-1 pb-4 space-y-2">
-            {topCategories.map((cat, i) => {
-              const grandTotal = topCategories.reduce((sum, c) => sum + c.total, 0);
-              const share = grandTotal > 0 ? Math.round((cat.total / grandTotal) * 100) : 0;
-              return (
-                <div
-                  key={i}
-                  className="rounded-2xl px-3.5 py-3"
-                  style={{ background: `${cat.categoryColor}14` }}
-                >
-                  <div className="flex items-center justify-between gap-3 mb-2">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="w-3 h-3 rounded-md shrink-0" style={{ backgroundColor: cat.categoryColor }} />
-                      <div className="min-w-0">
-                        <p className="text-sm font-bold text-foreground leading-tight truncate">{cat.categoryName}</p>
-                        <p className="text-[11px] text-muted-foreground leading-tight">
-                          {cat.count} {cat.count === 1 ? "transaction" : "transactions"}
-                        </p>
+            {(() => {
+              const sorted = [...topCategories].sort((a, b) => b.total - a.total);
+              const grandTotal = sorted.reduce((sum, c) => sum + c.total, 0);
+              return sorted.map((cat, i) => {
+                const share = grandTotal > 0 ? Math.round((cat.total / grandTotal) * 100) : 0;
+                const rankOpacity = i === 0 ? 1 : i === 1 ? 0.6 : 0.35;
+                return (
+                  <div
+                    key={i}
+                    className="rounded-2xl px-3.5 py-3 bg-muted/40 animate-in fade-in slide-in-from-bottom-1"
+                    style={{ animationDuration: "400ms", animationDelay: `${i * 80}ms`, animationFillMode: "backwards" }}
+                  >
+                    <div className="flex items-center justify-between gap-3 mb-2">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div
+                          className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 font-serif text-sm font-bold"
+                          style={{ background: ACCENT, opacity: rankOpacity, color: "#FFFFFF" }}
+                        >
+                          {i + 1}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-bold text-foreground leading-tight truncate">{cat.categoryName}</p>
+                          <p className="text-[11px] text-muted-foreground leading-tight">
+                            {cat.count} {cat.count === 1 ? "transaction" : "transactions"}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-sm font-bold leading-tight text-foreground">{formatAmount(cat.total)}</p>
+                        <p className="text-[11px] font-semibold text-muted-foreground leading-tight">{share}%</p>
                       </div>
                     </div>
-                    <div className="text-right shrink-0">
-                      <p className="text-sm font-bold leading-tight" style={{ color: cat.categoryColor }}>{formatAmount(cat.total)}</p>
-                      <p className="text-[11px] font-semibold text-muted-foreground leading-tight">{share}%</p>
+                    <div className="h-2 w-full rounded-full overflow-hidden bg-muted">
+                      <div
+                        className="h-full rounded-full transition-all duration-700"
+                        style={{
+                          backgroundColor: ACCENT,
+                          opacity: rankOpacity,
+                          width: `${Math.round((cat.total / sorted[0].total) * 100)}%`,
+                          transitionDelay: `${i * 120}ms`,
+                        }}
+                      />
                     </div>
                   </div>
-                  <div className="h-2 w-full rounded-full overflow-hidden" style={{ background: `${cat.categoryColor}22` }}>
-                    <div
-                      className="h-full rounded-full transition-all duration-700"
-                      style={{
-                        backgroundColor: cat.categoryColor,
-                        width: `${Math.round((cat.total / topCategories[0].total) * 100)}%`,
-                        transitionDelay: `${i * 120}ms`,
-                      }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
+                );
+              });
+            })()}
           </div>
         ) : (
           <div className="px-5 py-5 flex items-start gap-3">

@@ -1,0 +1,115 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-07-12T00:00:00.000Z",
+  "title": "Design System: Flow!",
+  "extensions": {
+    "colorMeta": {
+      "flow-green": { "role": "primary", "displayName": "Flow Green", "canonical": "oklch(92% 0.28 128)", "tonalRamp": ["#1F2E00", "#3D5900", "#5C8300", "#7DAD00", "#A8FF3E", "#C4FF7A", "#DFFFB3", "#F5FFE0"] },
+      "flow-green-active": { "role": "primary", "displayName": "Flow Green Active", "canonical": "oklch(85% 0.26 122)", "tonalRamp": ["#1A2600", "#334D00", "#4D7300", "#669900", "#7DD900", "#A0EB3D", "#C8F58C", "#EBFCCE"] },
+      "balance-purple": { "role": "secondary", "displayName": "Balance Purple", "canonical": "oklch(56% 0.28 305)", "tonalRamp": ["#3B0764", "#560F92", "#7217C0", "#8E1FEE", "#B026FF", "#CE9CFF", "#E4C6FF", "#F5E8FF"] },
+      "income-green": { "role": "secondary", "displayName": "Income Green", "canonical": "oklch(90% 0.19 160)", "tonalRamp": ["#00281A", "#00432C", "#005E3E", "#008A5C", "#00FF9C", "#8FFFCB", "#BFFFE3", "#E3FFF4"] },
+      "expense-red": { "role": "secondary", "displayName": "Expense Red", "canonical": "oklch(65% 0.21 25)", "tonalRamp": ["#4A0E0E", "#7F1D1D", "#B32B2B", "#E63939", "#FF4D4D", "#FFB0B5", "#FFD3D6", "#FFEDEE"] },
+      "entry-pink": { "role": "secondary", "displayName": "Entry Pink", "canonical": "oklch(72% 0.24 335)", "tonalRamp": ["#4A0537", "#7A0A5C", "#A8156F", "#D62B9E", "#FF66D9", "#FF9FE8", "#FFD1F5", "#FFEAFB"] },
+      "insights-sky": { "role": "secondary", "displayName": "Insights Sky", "canonical": "oklch(68% 0.14 230)", "tonalRamp": ["#082F49", "#0C4A6E", "#0369A1", "#0EA5E9", "#5AC4F5", "#A5DCFB", "#BFE7FD", "#E3F4FF"] },
+      "aurora-violet": { "role": "tertiary", "displayName": "Aurora Violet", "canonical": "oklch(72% 0.16 290)", "tonalRamp": ["#2E1065", "#4C1D95", "#6D28D9", "#8B5CF6", "#A78BFA", "#C4B5FD", "#DDD6FE", "#F3EFFF"] },
+      "aurora-cyan": { "role": "tertiary", "displayName": "Aurora Cyan", "canonical": "oklch(83% 0.13 210)", "tonalRamp": ["#083344", "#155E75", "#0891B2", "#06B6D4", "#22D3EE", "#67E8F9", "#A5F3FC", "#ECFEFF"] },
+      "aurora-mint": { "role": "tertiary", "displayName": "Aurora Mint", "canonical": "oklch(78% 0.15 155)", "tonalRamp": ["#022C22", "#065F46", "#047857", "#10B981", "#34D399", "#6EE7B7", "#A7F3D0", "#ECFDF5"] },
+      "ink-black": { "role": "neutral", "displayName": "Ink Black", "canonical": "oklch(3% 0.002 285)", "tonalRamp": ["#020203", "#0F0F10", "#1C1C1E", "#2A2A2C", "#3A3A3D", "#5A5A5D", "#8A8A8D", "#C5C5C7"] },
+      "paper-white": { "role": "neutral", "displayName": "Paper White", "canonical": "oklch(98% 0.002 90)", "tonalRamp": ["#111111", "#3A3A3A", "#6B6B6B", "#9E9E9E", "#C9C9C9", "#E5E5E5", "#F2F2F1", "#f9f8f8"] }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display (Righteous)", "purpose": "Hero figures only — balance amounts, stat tile totals, the Insights score. Never body copy." },
+      "title": { "displayName": "Title (Geist / pending Brunson)", "purpose": "Page-level H2 headers via .font-title. Brunson.ttf is loaded but not yet wired to this role." },
+      "body": { "displayName": "Body (Plus Jakarta Sans)", "purpose": "Default UI text, descriptions, captions." },
+      "label": { "displayName": "Label (Plus Jakarta Sans, uppercase micro)", "purpose": "Eyebrow micro-labels inside zone cards." }
+    },
+    "shadows": [
+      { "name": "floating-chrome", "value": "0 4px 24px rgba(0,0,0,0.12), inset 0 1px 0 hsl(var(--foreground) / 0.06), inset 0 -1px 0 hsl(var(--background) / 0.2)", "purpose": "Bottom nav pill and similar floating glass surfaces." },
+      { "name": "dropdown", "value": "0 8px 32px rgba(0,0,0,0.25)", "purpose": "Profile menu and popups floating furthest above the page." },
+      { "name": "glass-button", "value": "0 2px 12px rgba(0,0,0,0.12), inset 0 1px 0 hsl(var(--foreground) / 0.06)", "purpose": "Avatar button and small floating circular controls." },
+      { "name": "toggle-knob", "value": "inset 0 1px 1px rgba(255,255,255,0.5), inset 0 -1px 1px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.06)", "purpose": "Segmented toggle track and sliding knob — tactile inset highlight." }
+    ],
+    "motion": [
+      { "name": "ease-nav", "value": "cubic-bezier(0.25, 0.46, 0.45, 0.94)", "purpose": "Bottom nav shrink/expand on scroll, icon active-state transitions." },
+      { "name": "ease-standard", "value": "cubic-bezier(0.4, 0, 0.2, 1)", "purpose": "General state transitions (nav label wrapper)." },
+      { "name": "duration-chrome", "value": "0.4s", "purpose": "Default duration for floating-chrome transitions (nav resize, background fade)." },
+      { "name": "duration-segment", "value": "500ms", "purpose": "Balance hero segmented meter fill, staggered 30ms per segment." }
+    ],
+    "breakpoints": [
+      { "name": "md", "value": "768px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Balance Zone Card",
+      "kind": "card",
+      "refersTo": "card-zone-balance",
+      "description": "The Dashboard's hero card — total balance on the Balance Purple gradient with a segmented spend meter.",
+      "html": "<section class=\"ds-card-balance\"><div class=\"ds-blob ds-blob--tl\"></div><div class=\"ds-blob ds-blob--br\"></div><div class=\"ds-card-balance__row\"><span class=\"ds-card-balance__label\">Total Balance</span></div><p class=\"ds-card-balance__amount\">$2,480.00</p><p class=\"ds-card-balance__caption\">July 2026</p></section>",
+      "css": ".ds-card-balance { position: relative; overflow: hidden; border-radius: 24px; padding: 16px; background: linear-gradient(145deg, #F5E8FF 0%, #E4C6FF 55%, #CE9CFF 100%); } .ds-blob { position: absolute; border-radius: 9999px; pointer-events: none; } .ds-blob--tl { top: -56px; right: -40px; width: 176px; height: 176px; background: rgba(255,255,255,0.4); } .ds-blob--br { bottom: -56px; left: -32px; width: 144px; height: 144px; background: rgba(176,38,255,0.12); } .ds-card-balance__row { position: relative; display: flex; align-items: center; justify-content: space-between; } .ds-card-balance__label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.2em; color: #7A0DB3; } .ds-card-balance__amount { position: relative; margin-top: 12px; font-family: Righteous, sans-serif; font-weight: 400; font-size: 2.4rem; line-height: 1; letter-spacing: -0.01em; color: #3B0764; } .ds-card-balance__caption { position: relative; margin-top: 6px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.15em; color: rgba(59,7,100,0.55); }"
+    },
+    {
+      "name": "Expense Zone Tile",
+      "kind": "card",
+      "refersTo": "card-zone-expense",
+      "description": "Stat tile on the Expense Red gradient; income tile is the same shape on the Income Green gradient.",
+      "html": "<div class=\"ds-tile ds-tile--expense\"><div class=\"ds-blob ds-blob--tl-sm\"></div><div class=\"ds-blob ds-blob--br-sm ds-blob--expense\"></div><div class=\"ds-tile__row\"><span class=\"ds-tile__label\">Expenses</span></div><p class=\"ds-tile__amount\">$860.00</p></div>",
+      "css": ".ds-tile { position: relative; overflow: hidden; border-radius: 24px; padding: 14px; display: flex; flex-direction: column; justify-content: space-between; } .ds-tile--expense { background: linear-gradient(145deg, #FFEDEE 0%, #FFD3D6 55%, #FFB0B5 100%); } .ds-blob--tl-sm { top: -40px; right: -32px; width: 112px; height: 112px; background: rgba(255,255,255,0.4); } .ds-blob--br-sm { bottom: -40px; left: -24px; width: 96px; height: 96px; } .ds-blob--expense { background: rgba(255,77,77,0.12); } .ds-tile__row { position: relative; display: flex; align-items: center; justify-content: space-between; } .ds-tile__label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.2em; color: rgba(127,29,29,0.65); } .ds-tile__amount { position: relative; margin-top: 12px; font-family: Righteous, sans-serif; font-size: 1.25rem; font-weight: 700; letter-spacing: -0.01em; color: #7F1D1D; }"
+    },
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Flow Green pill button for the strongest call to action.",
+      "html": "<button class=\"ds-btn-primary\">Save</button>",
+      "css": ".ds-btn-primary { background: #A8FF3E; color: #000000; padding: 10px 16px; border-radius: 16px; border: none; font-weight: 700; font-size: 14px; transition: transform 0.15s ease; } .ds-btn-primary:hover { filter: brightness(0.97); } .ds-btn-primary:active { transform: scale(0.96); } .ds-btn-primary:focus-visible { outline: 2px solid #020203; outline-offset: 2px; }"
+    },
+    {
+      "name": "Bottom Navigation",
+      "kind": "nav",
+      "refersTo": "nav-pill",
+      "description": "Floating liquid-glass pill nav, active icon on Insights gets a sky-tinted pill background.",
+      "html": "<nav class=\"ds-nav\"><span class=\"ds-nav__item ds-nav__item--active\">●</span><span class=\"ds-nav__item\">○</span><span class=\"ds-nav__item\">○</span><span class=\"ds-nav__item\">○</span></nav>",
+      "css": ".ds-nav { display: flex; align-items: center; gap: 4px; padding: 10px 16px; border-radius: 9999px; backdrop-filter: blur(24px) saturate(1.8); -webkit-backdrop-filter: blur(24px) saturate(1.8); background: rgba(255,255,255,0.55); border: 1px solid rgba(0,0,0,0.08); box-shadow: 0 4px 24px rgba(0,0,0,0.12); } .ds-nav__item { display: flex; align-items: center; justify-content: center; padding: 6px 16px; border-radius: 9999px; color: rgba(0,0,0,0.4); } .ds-nav__item--active { background: rgba(0,0,0,0.1); color: #020203; }"
+    },
+    {
+      "name": "Active Badge",
+      "kind": "chip",
+      "refersTo": "badge-active",
+      "description": "Flow Green selected-state chip used in menus and pickers (currency, theme).",
+      "html": "<span class=\"ds-badge-active\">USD</span>",
+      "css": ".ds-badge-active { background: #A8FF3E; color: #000000; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 16px; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Zoned Voltage System",
+    "overview": "Flow! rejects the beige-and-navy finance-app default. Every functional zone of the app — Balance, Expense, Income, New Entry, Insights — owns its own saturated pastel-to-vivid gradient identity, so the interface reads like a set of charged, distinct rooms rather than one uniform dashboard. The mood is vívida, lúdica, directa (vivid, playful, direct): loud enough that a screenshot is instantly recognizable as Flow!, but never cluttered — each card carries exactly one gradient, one or two soft white \"sheen\" blobs, and dark, high-contrast type sitting directly on the color instead of on a neutral panel. This is a Committed-to-Full-palette color strategy: several named zone colors, each used deliberately and never mixed across zones, anchored by Flow Green (#A8FF3E) as the one color that crosses every zone — it marks primary actions, active nav state, and the lock screen, regardless of which zone the screen belongs to. The system explicitly rejects the \"sad corporate finance app\" aesthetic — muted grays, spreadsheet-style tables, navy-and-white bank branding, timid single-accent restraint. Warmth and energy are carried by saturated hue, not by a cream/beige body background; the base surface is a near-white, low-chroma warm neutral that exists only to make the zone gradients pop, never as the star of the page.",
+    "keyCharacteristics": [
+      "Every card is a self-contained color zone: pastel-to-vivid diagonal gradient (145deg), 1-2 soft translucent white blobs for sheen, dark ink-toned text at full opacity sitting directly on the gradient.",
+      "Flow Green (#A8FF3E) is the one cross-zone constant: primary buttons, active states, the lock screen's floating unlock button.",
+      "Semantic temperature is fixed: green = income/positive, red = expense/negative, never inverted, never neutralized to gray.",
+      "Floating chrome (bottom nav, avatar, dropdowns) is liquid glass: backdrop-filter blur(24px) saturate(1.8) over a translucent card-color fill, never a flat opaque bar.",
+      "The lock screen is the system's boldest moment: four animated, heavily blurred color blobs behind a narrow floating card — an aurora mesh treatment reserved for that one screen."
+    ],
+    "rules": [
+      { "name": "The Semantic Temperature Rule", "body": "Green means income/positive, red means expense/negative. The exact hue can shift with a redesign; the meaning never inverts and never goes gray for \"neutrality.\"", "section": "colors" },
+      { "name": "The One Zone, One Color Rule", "body": "A gradient family belongs to exactly one card type. Never borrow another zone's exact gradient to \"match\" a nearby card — the zone distinctness is the point.", "section": "colors" },
+      { "name": "The Numbers-Get-Personality Rule", "body": "Righteous is reserved for figures the user cares about (balances, totals, the AI score). Body copy, labels, and descriptions stay in Plus Jakarta Sans — display type never leaks into paragraph text.", "section": "typography" },
+      { "name": "The Flat Zone, Floating Chrome Rule", "body": "Content cards are flat at rest — their depth comes from color and sheen blobs, not shadow. Shadow is reserved for chrome that must visually float above content: nav, dropdowns, modals, floating buttons.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do give every new functional zone its own gradient family with a matching deep-text color — never reuse another zone's exact gradient.",
+      "Do keep Flow Green (#A8FF3E) as the one cross-zone color for primary actions and active states, paired with black text/icons.",
+      "Do use rounded-3xl (24px) for content cards and reserve rounded-full for pills, nav, and small circular controls.",
+      "Do use backdrop-filter: blur(24px) saturate(1.8) for any chrome that floats above content rather than a flat opaque fill.",
+      "Do keep green = income/positive and red = expense/negative absolute; never substitute a neutral gray for either."
+    ],
+    "donts": [
+      "Don't default to a cream/beige/paper body background \"for warmth\" — the base surface must stay a low-chroma near-white or near-black so zone gradients carry the color.",
+      "Don't put a drop shadow on a zone card at rest — depth comes from the gradient and sheen blobs, not box-shadow.",
+      "Don't invert or neutralize the income/expense color coding, even for a \"calmer\" variant.",
+      "Don't reuse the four-blob \"aurora\" treatment outside the lock screen — its rarity is what makes it read as an event.",
+      "Don't let Righteous leak into body copy, or Plus Jakarta Sans carry a hero balance figure."
+    ]
+  }
+}
