@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { X, Delete, Check, FolderPlus, TrendingUp, TrendingDown } from "lucide-react";
+import { X, Delete, Check, FolderPlus, TrendingUp, TrendingDown, Trash2, AlertTriangle, Calendar } from "lucide-react";
 import { Link } from "wouter";
+import { App } from "@capacitor/app";
 import {
   useCreateTransaction,
+  useUpdateTransaction,
+  useDeleteTransaction,
   useListCategories,
   getListCategoriesQueryKey,
   getListTransactionsQueryKey,
@@ -14,26 +17,45 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/lib/currency-context";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { cn } from "@/lib/utils";
+import { formatDate } from "@/lib/format";
+import { cn, readableTextColor } from "@/lib/utils";
 
 export type EntryType = "expense" | "income";
 
 const KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0", "del"];
 
+// Mismo patrón que biometric-lock.tsx: cachea el módulo tras el primer import
+// para que cada tecla no pague el overhead de una promesa nueva.
+let hapticsModule: any = null;
+const triggerHaptic = () => {
+  if (hapticsModule) {
+    hapticsModule.Haptics.impact({ style: hapticsModule.ImpactStyle.Light }).catch(() => {});
+  } else {
+    import("@capacitor/haptics").then((mod) => {
+      hapticsModule = mod;
+      mod.Haptics.impact({ style: mod.ImpactStyle.Light }).catch(() => {});
+    }).catch(() => {});
+  }
+};
+
 export function EntrySheet({
   open,
   onClose,
   initial,
+  tx,
 }: {
   open: boolean;
   onClose: () => void;
   initial?: { type?: EntryType; amount?: number; categoryId?: number; note?: string } | null;
+  /** Transacción completa a editar. Si viene seteada, la hoja entra en modo edit (PATCH + Delete) en vez de modo crear (POST). */
+  tx?: { id: number; type: EntryType; amount: number; categoryId: number; description: string; date: string } | null;
 }) {
   const { symbol } = useCurrency();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const createTx = useCreateTransaction();
+  const updateTx = useUpdateTransaction();
+  const deleteTx = useDeleteTransaction();
 
   const { data: categories } = useListCategories({
     query: { queryKey: getListCategoriesQueryKey() },
@@ -43,10 +65,18 @@ export function EntrySheet({
   const [raw, setRaw] = useState("0");
   const [categoryId, setCategoryId] = useState<number | null>(null);
   const [note, setNote] = useState("");
+  const [pressedKey, setPressedKey] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const isExpense = type === "expense";
 
   const touchStart = useRef<{ x: number; y: number } | null>(null);
+  const deleteTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const deleteInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+  const keyStartPos = useRef<{ x: number; y: number } | null>(null);
+  // Evita doble disparo entre pointer events y el click sintético que le sigue,
+  // pero deja pasar el click "puro" de Enter/Espacio por teclado (sin pointerdown antes).
+  const firedByPointer = useRef(false);
 
   function handleTouchStart(e: React.TouchEvent) {
     const t = e.touches[0];
@@ -65,24 +95,75 @@ export function EntrySheet({
     else if (dx > 0 && !isExpense) { setType("expense"); setCategoryId(null); }
   }
 
+  // El swipe expense/income de arriba escucha touch en toda la hoja — sin cortar la
+  // propagación acá, arrastrar los dedos sobre las pills (sobre todo al pegar contra
+  // el último/primer chip) también se cuenta como ese swipe y cambia el tipo solo.
+  function handleCategoryTouchStart(e: React.TouchEvent) {
+    e.stopPropagation();
+  }
+
+  const catScrollRef = useRef<HTMLDivElement>(null);
+  const [catFade, setCatFade] = useState({ left: false, right: false });
+
+  function updateCatFade() {
+    const el = catScrollRef.current;
+    if (!el) return;
+    setCatFade({
+      left: el.scrollLeft > 4,
+      right: el.scrollLeft < el.scrollWidth - el.clientWidth - 4,
+    });
+  }
+
   const filteredCategories = Array.isArray(categories)
     ? categories.filter((c: any) => c.type === type || c.type === "both")
     : [];
 
-  // Reset / prefill on open
+  // La lista de pills cambia con el tipo (y el ancho de scroll con ella) — el fade
+  // estático no reflejaba eso: quedaba prendido en el borde izquierdo aunque no
+  // hubiera nada para atrás. Se recalcula cada vez que cambia la lista o se abre la hoja.
+  useEffect(() => {
+    updateCatFade();
+  }, [filteredCategories.length, open]);
+
+  // Reset / prefill on open — si hay tx, precarga para editar; si no, usa initial (voice-capture) o vacío
   useEffect(() => {
     if (!open) return;
+    setConfirmDelete(false);
+    if (tx) {
+      setType(tx.type);
+      setRaw(String(tx.amount));
+      setCategoryId(tx.categoryId);
+      setNote(tx.description ?? "");
+      return;
+    }
     setType(initial?.type ?? "expense");
     setRaw(initial?.amount ? String(initial.amount) : "0");
     setCategoryId(initial?.categoryId ?? null);
     setNote(initial?.note ?? "");
-  }, [open, initial]);
+  }, [open, initial, tx]);
 
   useEffect(() => {
     if (!open) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = prev; };
+  }, [open]);
+
+  // Back nativo de Android: cierra la hoja en vez de dejar que Android no haga nada o salga de la app
+  useEffect(() => {
+    if (!open) return;
+    const handler = App.addListener("backButton", () => {
+      onClose();
+    });
+    return () => { handler.then((h) => h.remove()); };
+  }, [open]);
+
+  // Corta el auto-repeat de borrar si la hoja se cierra a mitad de un hold
+  useEffect(() => {
+    if (!open) {
+      if (deleteTimeout.current) { clearTimeout(deleteTimeout.current); deleteTimeout.current = null; }
+      if (deleteInterval.current) { clearInterval(deleteInterval.current); deleteInterval.current = null; }
+    }
   }, [open]);
 
   const numeric = useMemo(() => Number.parseFloat(raw || "0") || 0, [raw]);
@@ -93,7 +174,18 @@ export function EntrySheet({
     return dec !== undefined ? `${grouped}.${dec.slice(0, 2)}` : grouped;
   }, [raw]);
 
+  // Auto-achica el monto si el número es largo, para que nunca se corte —
+  // el tamaño base (64px) es el que ya se aprobó para montos cortos.
+  const amountFontSize = useMemo(() => {
+    const len = display.length;
+    if (len <= 6) return 64;
+    if (len <= 8) return 56;
+    if (len <= 10) return 46;
+    return 38;
+  }, [display]);
+
   function press(key: string) {
+    triggerHaptic();
     if (key === "del") { setRaw((r) => (r.length <= 1 ? "0" : r.slice(0, -1))); return; }
     if (key === ".") { setRaw((r) => (r.includes(".") ? r : r + ".")); return; }
     setRaw((r) => {
@@ -103,25 +195,82 @@ export function EntrySheet({
     });
   }
 
+  function startDeleteRepeat() {
+    stopDeleteRepeat();
+    deleteTimeout.current = setTimeout(() => {
+      deleteInterval.current = setInterval(() => press("del"), 90);
+    }, 450);
+  }
+
+  function stopDeleteRepeat() {
+    if (deleteTimeout.current) { clearTimeout(deleteTimeout.current); deleteTimeout.current = null; }
+    if (deleteInterval.current) { clearInterval(deleteInterval.current); deleteInterval.current = null; }
+  }
+
   const selectedCategory = filteredCategories.find((c: any) => c.id === categoryId);
-  const canSubmit = numeric > 0 && !!categoryId && !createTx.isPending;
+
+  const hasChanges = !tx || (
+    type !== tx.type ||
+    numeric !== tx.amount ||
+    categoryId !== tx.categoryId ||
+    note.trim() !== (tx.description ?? "").trim()
+  );
+
+  const canSubmit =
+    numeric > 0 && !!categoryId && !createTx.isPending && !updateTx.isPending && hasChanges;
+
+  const invalidateAll = () => {
+    queryClient.invalidateQueries({ queryKey: getListTransactionsQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey({}) });
+    queryClient.invalidateQueries({ queryKey: getGetSpendingByCategoryQueryKey({}) });
+    queryClient.invalidateQueries({ queryKey: getGetMonthlyTrendQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getGetTopExpensesQueryKey({ limit: 5 }) });
+  };
 
   function submit() {
     if (!canSubmit || !categoryId) return;
+    const description = note.trim() || selectedCategory?.name || "—";
+
+    if (tx) {
+      updateTx.mutate(
+        { id: tx.id, data: { type, amount: numeric, description, categoryId, date: tx.date } },
+        {
+          onSuccess: () => {
+            invalidateAll();
+            toast({ title: "Transaction updated" });
+            onClose();
+          },
+          onError: () => toast({ title: "Failed to update transaction", variant: "destructive" }),
+        }
+      );
+      return;
+    }
+
     const date = new Date().toISOString().slice(0, 7) + "-01";
     createTx.mutate(
-      { data: { type, amount: numeric, description: note.trim() || selectedCategory?.name || "—", categoryId, date } },
+      { data: { type, amount: numeric, description, categoryId, date } },
       {
         onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getListTransactionsQueryKey() });
-          queryClient.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey({}) });
-          queryClient.invalidateQueries({ queryKey: getGetSpendingByCategoryQueryKey({}) });
-          queryClient.invalidateQueries({ queryKey: getGetMonthlyTrendQueryKey() });
-          queryClient.invalidateQueries({ queryKey: getGetTopExpensesQueryKey({ limit: 5 }) });
+          invalidateAll();
           toast({ title: `${isExpense ? "Expense" : "Income"} added` });
           onClose();
         },
         onError: () => toast({ title: "Failed to save", variant: "destructive" }),
+      }
+    );
+  }
+
+  function handleDelete() {
+    if (!tx) return;
+    deleteTx.mutate(
+      { id: tx.id },
+      {
+        onSuccess: () => {
+          invalidateAll();
+          toast({ title: "Transaction deleted" });
+          onClose();
+        },
+        onError: () => toast({ title: "Failed to delete", variant: "destructive" }),
       }
     );
   }
@@ -142,26 +291,15 @@ export function EntrySheet({
             <X className="h-5 w-5" strokeWidth={2.25} />
           </button>
 
-          {/* Toggle liquid glass */}
-          <div
-            className="relative flex items-center overflow-hidden rounded-full p-1 shrink-0"
-            style={{
-              backdropFilter: "blur(24px) saturate(1.6)",
-              WebkitBackdropFilter: "blur(24px) saturate(1.6)",
-              background: "linear-gradient(135deg, rgba(255,255,255,0.5), rgba(255,255,255,0.12))",
-              boxShadow: "inset 0 1px 1px rgba(255,255,255,0.6), inset 0 -1px 1px rgba(0,0,0,0.06), 0 1px 4px rgba(0,0,0,0.08)",
-            }}
-          >
+          {/* Toggle — flat, sin glass */}
+          <div className="relative flex items-center rounded-full bg-muted p-1 shrink-0">
             <div
               className="absolute top-1 left-1 rounded-full transition-transform duration-300 ease-out"
               style={{
                 bottom: "4px",
                 width: "calc(50% - 4px)",
                 transform: isExpense ? "translateX(0%)" : "translateX(100%)",
-                background: isExpense
-                  ? "linear-gradient(135deg, rgba(255,59,59,0.95), rgba(255,59,59,0.75))"
-                  : "linear-gradient(135deg, rgba(29,185,84,0.95), rgba(29,185,84,0.75))",
-                boxShadow: "inset 0 1px 1px rgba(255,255,255,0.4), 0 2px 6px rgba(0,0,0,0.18)",
+                background: isExpense ? "#FF4D4D" : "#00A870",
               }}
             />
             <button
@@ -193,99 +331,243 @@ export function EntrySheet({
 
         {/* Body */}
         <div className="flex flex-1 flex-col overflow-y-auto px-5 pt-2">
-          {/* Amount — hero pastel claro, misma familia que Insights */}
-          <div
-            className="relative overflow-hidden rounded-3xl px-5 pt-5 pb-6 transition-[background] duration-300"
-            style={{
-              background: isExpense
-                ? "linear-gradient(145deg, #FFEDEE 0%, #FFD3D6 55%, #FFB0B5 100%)"
-                : "linear-gradient(145deg, #E3FFF4 0%, #BFFFE3 55%, #8FFFCB 100%)",
-            }}
-          >
-            {/* Blobs decorativos suaves */}
-            <div className="absolute -top-14 -right-10 w-44 h-44 rounded-full pointer-events-none" style={{ background: "rgba(255,255,255,0.4)" }} />
-            <div className="absolute -bottom-14 -left-8 w-36 h-36 rounded-full pointer-events-none" style={{ background: isExpense ? "rgba(255,77,77,0.12)" : "rgba(0,255,156,0.15)" }} />
-
-            <div className="relative flex flex-col items-center">
-              <p className="text-[11px] font-bold uppercase tracking-[0.25em]" style={{ color: isExpense ? "rgba(127,29,29,0.6)" : "rgba(0,67,44,0.6)" }}>
-                {isExpense ? "Money out" : "Money in"}
-              </p>
-              <div className="mt-2 flex items-start justify-center gap-1">
-                <span className="mt-2 text-3xl font-bold" style={{ color: isExpense ? "#FF4D4D" : "#00A870" }}>{symbol}</span>
-                <span className="font-serif text-[56px] font-bold leading-none tracking-tight tabular-nums"
-                  style={{ color: numeric > 0 ? (isExpense ? "#7F1D1D" : "#00432C") : (isExpense ? "rgba(127,29,29,0.3)" : "rgba(0,67,44,0.3)") }}>
-                  {display}
-                </span>
-              </div>
+          {/* Amount — superficie neutra, el color vive solo en el monto (acento puntual) */}
+          <div className="flex flex-col items-center py-5">
+            <div className="flex items-baseline justify-center gap-1">
+              <span
+                className={cn(
+                  "font-bold",
+                  isExpense ? "text-[#E11D48] dark:text-[#FFA3A3]" : "text-[#00593C] dark:text-[#6EE7B7]"
+                )}
+                style={{ fontSize: amountFontSize * 0.45 }}
+              >
+                {symbol}
+              </span>
+              <span
+                className={cn(
+                  "font-serif font-bold leading-none tracking-tight tabular-nums",
+                  numeric > 0
+                    ? isExpense
+                      ? "text-[#E11D48] dark:text-[#FFA3A3]"
+                      : "text-[#00593C] dark:text-[#6EE7B7]"
+                    : "text-muted-foreground/40"
+                )}
+                style={{ fontSize: amountFontSize, transition: "font-size 150ms ease-out" }}
+              >
+                {display}
+              </span>
             </div>
+            {tx && (
+              <span className="mt-2.5 flex items-center gap-1 text-[10px] font-semibold text-muted-foreground/50">
+                <Calendar className="h-2.5 w-2.5" />
+                {formatDate(tx.date)}
+              </span>
+            )}
           </div>
 
-          {/* Category — dropdown */}
-          <div className="mt-4">
-            <Select value={categoryId ? String(categoryId) : ""} onValueChange={(v) => setCategoryId(Number(v))}>
-              <SelectTrigger className="h-14 w-full rounded-2xl border-0 bg-muted px-4">
-                <div className="flex min-w-0 items-center gap-2.5">
-                  {selectedCategory ? (
-                    <span className="h-3 w-3 shrink-0 rounded-full" style={{ background: selectedCategory.color }} />
-                  ) : (
-                    <FolderPlus className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={2.25} />
-                  )}
-                  <SelectValue placeholder={isExpense ? "Where did it go?" : "Where from?"} />
-                </div>
-              </SelectTrigger>
-              <SelectContent>
-                {filteredCategories.length === 0 ? (
-                  <div className="px-1 py-2">
-                    <Link href="/categories" onClick={(e) => e.stopPropagation()}>
-                      <button type="button" className="flex w-full items-center gap-2 rounded-2xl px-2 py-2 text-sm text-primary transition-colors hover:bg-primary/10">
-                        <FolderPlus className="h-4 w-4 shrink-0" />
-                        Add a category
-                      </button>
-                    </Link>
-                  </div>
-                ) : (
-                  filteredCategories.map((c: any) => (
-                    <SelectItem key={c.id} value={String(c.id)}>
-                      <div className="flex items-center gap-2">
-                        <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: c.color }} />
-                        {c.name}
-                      </div>
-                    </SelectItem>
-                  ))
-                )}
-              </SelectContent>
-            </Select>
+          {/* Category — fila de pills con scroll horizontal, quietas hasta seleccionar */}
+          <div className="mt-3">
+            <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+              {isExpense ? "Where did it go?" : "Where from?"}
+            </p>
+            <div
+              ref={catScrollRef}
+              onScroll={updateCatFade}
+              onTouchStart={handleCategoryTouchStart}
+              className="flex gap-1.5 overflow-x-auto pb-1"
+              style={{
+                WebkitMaskImage: `linear-gradient(to right, ${catFade.left ? "transparent 0, black 12px" : "black 0"}, ${catFade.right ? "black calc(100% - 20px), transparent 100%" : "black 100%"})`,
+                maskImage: `linear-gradient(to right, ${catFade.left ? "transparent 0, black 12px" : "black 0"}, ${catFade.right ? "black calc(100% - 20px), transparent 100%" : "black 100%"})`,
+                scrollbarWidth: "none",
+              }}
+            >
+              {filteredCategories.map((c: any) => {
+                const isSelected = categoryId === c.id;
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => setCategoryId(c.id)}
+                    className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-2 text-[13px] font-bold transition-colors"
+                    style={{
+                      background: isSelected ? c.color : "hsl(var(--muted))",
+                      color: isSelected ? readableTextColor(c.color) : "hsl(var(--foreground))",
+                    }}
+                  >
+                    {isSelected ? (
+                      <Check className="h-3 w-3 shrink-0" strokeWidth={3} />
+                    ) : (
+                      <span className="h-[7px] w-[7px] shrink-0 rounded-full" style={{ background: c.color }} />
+                    )}
+                    {c.name}
+                  </button>
+                );
+              })}
+              <Link href="/categories" onClick={(e) => e.stopPropagation()}>
+                <button
+                  type="button"
+                  className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-dashed border-border px-3.5 py-2 text-[13px] font-bold text-muted-foreground"
+                >
+                  <FolderPlus className="h-3.5 w-3.5" strokeWidth={2.25} />
+                  Add
+                </button>
+              </Link>
+            </div>
           </div>
 
           {/* Note */}
           <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Add a note…"
             className="mt-3 w-full rounded-2xl border-0 bg-muted px-4 py-3.5 text-base text-foreground outline-none placeholder:text-muted-foreground" />
 
-          {/* Keypad */}
+          {/* Keypad — mismo flujo que el resto, sin separarlo en su propio contenedor */}
           <div className="pb-6 pt-4" style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 1.5rem)" }}>
-            <div className="grid grid-cols-3 gap-2">
-              {KEYS.map((k) => (
-                <button key={k} type="button" onClick={() => press(k)}
-                  className="flex h-14 items-center justify-center rounded-2xl bg-muted text-2xl font-semibold text-foreground transition-transform active:scale-95">
-                  {k === "del" ? <Delete className="h-6 w-6" strokeWidth={2} /> : k}
-                </button>
-              ))}
+            <div className="mx-auto grid max-w-[228px] grid-cols-3 items-center gap-0.5">
+              {KEYS.map((k) => {
+                const isZero = k === "0";
+                const isDot = k === ".";
+                const isDel = k === "del";
+                const isPressed = pressedKey === k;
+                return (
+                  <button
+                    key={k}
+                    type="button"
+                    aria-label={isDel ? "Delete" : isDot ? "Decimal point" : k}
+                    onPointerDown={(e) => {
+                      e.preventDefault();
+                      setPressedKey(k);
+                      if (isDel) {
+                        // Borrar sigue disparando al toque, para que el hold-to-delete funcione
+                        firedByPointer.current = true;
+                        press(k);
+                        startDeleteRepeat();
+                      } else {
+                        // Dígitos/punto: guardamos la posición, se confirma recién en pointerUp
+                        keyStartPos.current = { x: e.clientX, y: e.clientY };
+                      }
+                    }}
+                    onPointerUp={(e) => {
+                      setPressedKey(null);
+                      if (isDel) { stopDeleteRepeat(); return; }
+                      const start = keyStartPos.current;
+                      keyStartPos.current = null;
+                      if (!start) return;
+                      const dx = Math.abs(e.clientX - start.x);
+                      const dy = Math.abs(e.clientY - start.y);
+                      if (dx > 12 || dy > 12) return; // fue un swipe que pasó por encima, no una tocada real
+                      firedByPointer.current = true;
+                      press(k);
+                    }}
+                    onClick={() => {
+                      // Camino de teclado (Enter/Espacio) — no hubo pointer events antes de esto
+                      if (firedByPointer.current) { firedByPointer.current = false; return; }
+                      press(k);
+                    }}
+                    onPointerLeave={() => { setPressedKey(null); if (isDel) stopDeleteRepeat(); }}
+                    onPointerCancel={() => { setPressedKey(null); if (isDel) stopDeleteRepeat(); }}
+                    className={cn(
+                      "justify-self-center flex items-center justify-center rounded-full font-sans font-semibold leading-none text-foreground",
+                      isZero ? "h-[70px] w-[70px] text-5xl" : "h-[58px] w-[58px] text-4xl"
+                    )}
+                    style={{
+                      background: isPressed
+                        ? isExpense ? "rgba(255,77,77,0.16)" : "rgba(0,168,112,0.18)"
+                        : "transparent",
+                      transform: isPressed ? "scale(0.92)" : "scale(1)",
+                      transition: "background-color 180ms cubic-bezier(0.25, 1, 0.5, 1), transform 180ms cubic-bezier(0.25, 1, 0.5, 1)",
+                    }}
+                  >
+                    {isDel ? (
+                      <Delete
+                        className={cn("h-6 w-6 opacity-60", isExpense ? "text-[#E11D48]" : "text-[#00593C]")}
+                        strokeWidth={2}
+                      />
+                    ) : isDot ? (
+                      <span
+                        className="h-[11px] w-[11px] rounded-full"
+                        style={{ background: isExpense ? "#FF4D4D" : "#00FF9C" }}
+                      />
+                    ) : (
+                      k
+                    )}
+                  </button>
+                );
+              })}
             </div>
 
-            <button type="button" disabled={!canSubmit} onClick={submit}
-              className="mt-3 flex h-14 w-full items-center justify-center gap-2 rounded-2xl text-base font-bold transition-colors"
-              style={{
-                background: canSubmit ? (isExpense ? "#E11D48" : "#00593C") : "hsl(var(--muted))",
-                color: canSubmit ? "#FFFFFF" : "hsl(var(--muted-foreground))",
-                cursor: canSubmit ? "pointer" : "not-allowed",
-                boxShadow: canSubmit ? "0 4px 14px rgba(0,0,0,0.2)" : "none",
-              }}>
-              <Check className="h-5 w-5" strokeWidth={2.5} />
-              {canSubmit ? `Add ${isExpense ? "expense" : "income"}` : (createTx.isPending ? "Saving…" : "Enter amount & category")}
-            </button>
+            <div className="mt-3 flex gap-2">
+              {tx && (
+                <button
+                  type="button"
+                  onClick={() => setConfirmDelete(true)}
+                  aria-label="Delete transaction"
+                  className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-muted transition-transform active:scale-95"
+                >
+                  <Trash2 className="h-5 w-5 text-muted-foreground" strokeWidth={2} />
+                </button>
+              )}
+              <button type="button" disabled={!canSubmit} onClick={submit}
+                className="flex h-14 flex-1 items-center justify-center gap-2 rounded-2xl text-base font-bold transition-colors"
+                style={{
+                  background: canSubmit ? (isExpense ? "#E11D48" : "#00593C") : "hsl(var(--muted))",
+                  color: canSubmit ? "#FFFFFF" : "hsl(var(--muted-foreground))",
+                  cursor: canSubmit ? "pointer" : "not-allowed",
+                  boxShadow: canSubmit ? "0 4px 14px rgba(0,0,0,0.2)" : "none",
+                }}>
+                <Check className="h-5 w-5" strokeWidth={2.5} />
+                {canSubmit
+                  ? (tx ? "Save changes" : `Add ${isExpense ? "expense" : "income"}`)
+                  : (createTx.isPending || updateTx.isPending)
+                    ? "Saving…"
+                    : (tx && !hasChanges ? "No changes to save" : "Enter amount & category")}
+              </button>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Confirmación de borrado — decisión binaria, se resuelve con un popup chico, no con otra hoja */}
+      {confirmDelete && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center px-6"
+          onClick={() => setConfirmDelete(false)}
+          role="alertdialog"
+          aria-modal="true"
+        >
+          <div className="absolute inset-0 bg-black/70" />
+          <div
+            className="relative w-full max-w-xs animate-in fade-in slide-in-from-bottom-4 rounded-2xl border border-border/60 bg-background p-5 shadow-xl duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start gap-3">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#E11D48]/10">
+                <AlertTriangle className="h-4 w-4 text-[#E11D48]" />
+              </div>
+              <div>
+                <h4 className="text-xs font-bold text-foreground">Delete record?</h4>
+                <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">
+                  This action cannot be undone.
+                </p>
+              </div>
+            </div>
+            <div className="mt-4 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirmDelete(false)}
+                className="flex-1 rounded-2xl border border-border/60 bg-muted py-1.5 text-xs font-semibold text-foreground transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDelete}
+                className="flex-1 rounded-2xl bg-[#E11D48] py-1.5 text-xs font-bold text-white transition-colors hover:opacity-90"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

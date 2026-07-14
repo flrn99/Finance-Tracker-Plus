@@ -8,7 +8,6 @@ import { ArrowLeftRight, ChevronRight } from "lucide-react";
 import { Link } from "wouter";
 import { useCurrency } from "@/lib/currency-context";
 import { BalanceHero } from "@/components/dashboard/balance-hero";
-import { StatTiles } from "@/components/dashboard/stat-tiles";
 import { RangeSwitch } from "@/components/dashboard/range-switch";
 import { EntryLauncher } from "@/components/dashboard/entry-launcher";
 import { EntrySheet } from "@/components/dashboard/entry-sheet";
@@ -72,10 +71,6 @@ export default function Dashboard() {
     return () => observer.disconnect();
   }, [spending]);
 
-  const spentPct = summary && summary.totalIncome > 0
-    ? Math.min(100, Math.round((summary.totalExpenses / summary.totalIncome) * 100))
-    : 0;
-
   const applyVoice = (tx: ParsedVoiceTx) => {
     setVoiceOpen(false);
     setVoiceDraft({
@@ -88,51 +83,65 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="space-y-4 pb-4">
-      <h2 className="font-title text-3xl font-bold text-foreground pr-14 min-h-10 flex items-center" style={{ letterSpacing: "-0.01em" }}>Dashboard</h2>
+    <div className="pb-4">
+      {/* Antes: font-title (Geist 800 uppercase tracked) — gritaba sobre un sistema que ahora es quieto.
+          El kicker de período en BalanceHero ya orienta; esto queda como landmark semántico chico, no como titular. */}
+      <h2 className="flex min-h-10 items-center pr-14 text-lg font-bold text-foreground">Dashboard</h2>
 
       {/* New entry launcher */}
-      <EntryLauncher onOpen={() => { setVoiceDraft(null); setSheetOpen(true); }} onVoice={() => setVoiceOpen(true)} />
+      <div className="mt-6">
+        <EntryLauncher onOpen={() => { setVoiceDraft(null); setSheetOpen(true); }} onVoice={() => setVoiceOpen(true)} />
+      </div>
 
       {/* Range switch */}
-      <RangeSwitch value={filterMode} onChange={setFilterMode} />
+      <div className="mt-6">
+        <RangeSwitch value={filterMode} onChange={setFilterMode} />
+      </div>
 
       {/* Balance hero */}
-      {isLoadingSummary
-        ? <Skeleton className="h-48 w-full rounded-3xl" />
-        : <BalanceHero balance={formatAmount(summary?.balance || 0)} spentPct={spentPct} caption={periodLabel} />
-      }
-
-      {/* Expense / Income tiles */}
-      {isLoadingSummary
-        ? <div className="grid grid-cols-2 gap-3"><Skeleton className="h-32 rounded-3xl" /><Skeleton className="h-32 rounded-3xl" /></div>
-        : <StatTiles caption={periodLabel} expense={formatAmount(summary?.totalExpenses || 0)} income={formatAmount(summary?.totalIncome || 0)} />
-      }
+      <div className="mt-8">
+        {isLoadingSummary ? (
+          <div className="space-y-3">
+            <Skeleton className="h-3 w-24 rounded-full" />
+            <Skeleton className="h-12 w-40 rounded-lg" />
+            <Skeleton className="h-4 w-48 rounded-lg" />
+          </div>
+        ) : (
+          <BalanceHero
+            balance={formatAmount(summary?.balance || 0)}
+            caption={periodLabel}
+            expenseAmount={formatAmount(summary?.totalExpenses || 0)}
+            incomeAmount={formatAmount(summary?.totalIncome || 0)}
+          />
+        )}
+      </div>
 
       {/* All transactions link */}
-      <Link href="/transactions" className="block">
-        <button className="group flex w-full items-center gap-4 rounded-3xl bg-card p-4 text-left transition-colors hover:bg-muted" style={{ border: "1.5px solid #020203" }}>
-          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl text-white" style={{ background: "#020203" }}>
+      <Link href="/transactions" className="mt-8 block">
+        <button className="group flex w-full items-center gap-4 rounded-2xl bg-foreground p-4 text-left transition-opacity active:opacity-80">
+          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl text-background">
             <ArrowLeftRight className="h-5 w-5" strokeWidth={2} />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block text-base font-bold tracking-tight text-foreground">All transactions</span>
-            <span className="block truncate text-sm text-muted-foreground">Browse and edit your full history</span>
+            <span className="block text-base font-bold tracking-tight text-background">All transactions</span>
+            <span className="block truncate text-sm text-background/60">Browse and edit your full history</span>
           </span>
-          <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-1" strokeWidth={2} />
+          <ChevronRight className="h-5 w-5 shrink-0 text-background/60 transition-transform group-hover:translate-x-1" strokeWidth={2} />
         </button>
       </Link>
 
       {/* Spending breakdown */}
-      <SpendingBreakdown
-        type={categoryType}
-        onTypeChange={setCategoryType}
-        periodLabel={periodLabel}
-        data={Array.isArray(spending) ? spending : undefined}
-        isLoading={isLoadingSpending}
-        chartInView={chartInView}
-        chartRef={chartRef}
-      />
+      <div className="mt-8">
+        <SpendingBreakdown
+          type={categoryType}
+          onTypeChange={setCategoryType}
+          periodLabel={periodLabel}
+          data={Array.isArray(spending) ? spending : undefined}
+          isLoading={isLoadingSpending}
+          chartInView={chartInView}
+          chartRef={chartRef}
+        />
+      </div>
 
       <EntrySheet open={sheetOpen} onClose={() => { setSheetOpen(false); setVoiceDraft(null); }} initial={voiceDraft} />
       {voiceOpen && <VoiceCapture onClose={() => setVoiceOpen(false)} onParsed={applyVoice} />}

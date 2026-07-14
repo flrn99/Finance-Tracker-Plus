@@ -17,7 +17,6 @@ import ResetPassword from "@/pages/reset-password";
 // Pages
 import Dashboard from "@/pages/dashboard";
 import Transactions from "@/pages/transactions";
-import NewTransaction from "@/pages/new-transaction";
 import Categories from "@/pages/categories";
 import Export from "@/pages/export";
 import Insights from "@/pages/insights";
@@ -41,7 +40,6 @@ function Router() {
       <Switch>
         <Route path="/" component={Dashboard} />
         <Route path="/transactions" component={Transactions} />
-        <Route path="/transactions/new" component={NewTransaction} />
         <Route path="/categories" component={Categories} />
         <Route path="/export" component={Export} />
         <Route path="/insights" component={Insights} />

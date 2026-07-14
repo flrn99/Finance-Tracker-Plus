@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Link } from "wouter";
 import {
   useListTransactions,
@@ -11,411 +11,156 @@ import {
   getGetTopExpensesQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { formatDate } from "@/lib/format";
 import { useCurrency } from "@/lib/currency-context";
-import { useAuth } from "@/lib/auth-context";
-import { getApiUrl } from "@/lib/api-config";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, Search, FilterX, Trash2, TrendingUp, TrendingDown, FolderPlus, Pencil, X, Check, Calendar, AlertTriangle, ChevronDown, ArrowUpRight, ArrowDownLeft } from "lucide-react";
+import { Plus, Search, FilterX, FolderPlus, ChevronDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import MonthSelect from "@/components/month-select";
+import { EntrySheet } from "@/components/dashboard/entry-sheet";
 
-// ─── Transaction Edit Modal (Estilo Revolut Compact Friendly + Full Buttons) ──
-function TransactionModal({ tx, categories, onClose }: { tx: any; categories: any[]; onClose: () => void }) {
-  const { session } = useAuth();
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-  const { symbol } = useCurrency();
+// ─── TransactionRow — fila con swipe-to-delete, un solo gesto abierto a la vez ──
+const SWIPE_WIDTH = 74;
 
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
+function TransactionRow({
+  tx,
+  isOpen,
+  onOpenChange,
+  onSelect,
+  onDelete,
+  formatAmount,
+}: {
+  tx: any;
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSelect: (tx: any) => void;
+  onDelete: (tx: any) => void;
+  formatAmount: (n: number) => string;
+}) {
+  const startPos = useRef<{ x: number; y: number } | null>(null);
+  const dragging = useRef(false);
+  const firedByPointer = useRef(false);
+  const [dragX, setDragX] = useState(isOpen ? -SWIPE_WIDTH : 0);
 
-  const [amount, setAmount] = useState<number>(tx.amount);
-  const [amountDisplay, setAmountDisplay] = useState<string>(
-    tx.amount ? tx.amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ""
-  );
-  const [type, setType] = useState<"income" | "expense">(tx.type);
-  const [description, setDescription] = useState(tx.description);
-  // Se recuerda la categoría por separado para cada tipo, así si el usuario
-  // alterna entre Expense/Income sin guardar, no pierde la selección original.
-  const [expenseCategoryId, setExpenseCategoryId] = useState<number | undefined>(
-    tx.type === "expense" ? tx.categoryId : undefined
-  );
-  const [incomeCategoryId, setIncomeCategoryId] = useState<number | undefined>(
-    tx.type === "income" ? tx.categoryId : undefined
-  );
-  const [date, setDate] = useState(tx.date);
-  const [notes, setNotes] = useState(tx.notes ?? "");
-  const [categoryOpen, setCategoryOpen] = useState(false);
-  const justClosedRef = useRef(false);
+  // Si otra fila se abre (o algo la cierra desde afuera), seguimos ese estado
+  // salvo que este mismo dedo esté arrastrando esta fila ahora mismo.
+  useEffect(() => {
+    if (!dragging.current) setDragX(isOpen ? -SWIPE_WIDTH : 0);
+  }, [isOpen]);
 
+  const isExpense = tx.type === "expense";
 
-  const categoryId = type === "income" ? incomeCategoryId : expenseCategoryId;
-  const setCategoryIdForType = (id: number) => {
-    if (type === "income") setIncomeCategoryId(id);
-    else setExpenseCategoryId(id);
-  };
+  function commitTap() {
+    firedByPointer.current = true;
+    if (isOpen) { setDragX(0); onOpenChange(false); return; }
+    onSelect(tx);
+  }
 
-  const filteredCategories = categories.filter(c => c.type === type || c.type === "both");
+  function onPointerDown(e: React.PointerEvent) {
+    startPos.current = { x: e.clientX, y: e.clientY };
+    dragging.current = false;
+    // Sin esto, un swipe rápido puede "escaparse" del elemento a mitad de gesto
+    // y el navegador deja de mandarle los pointermove — de ahí el "se traba a mitad de camino".
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }
 
-  const isIncome = type === "income";
-  const accentColor = isIncome ? "#1DB954" : "#FF3B3B";
+  function onPointerMoveHandler(e: React.PointerEvent) {
+    const start = startPos.current;
+    if (!start) return;
+    const dx = e.clientX - start.x;
+    const dy = e.clientY - start.y;
+    if (!dragging.current) {
+      if (Math.abs(dx) < 8) return;
+      if (Math.abs(dx) < Math.abs(dy) * 1.3) { startPos.current = null; return; } // vertical → es scroll de la lista, no swipe de fila
+      dragging.current = true;
+    }
+    e.preventDefault(); // evita que el scroll nativo pelee con el drag mientras arrastramos
+    const base = isOpen ? -SWIPE_WIDTH : 0;
+    setDragX(Math.min(0, Math.max(-SWIPE_WIDTH, base + dx)));
+  }
 
-  const invalidateAll = () => {
-    queryClient.invalidateQueries({ queryKey: getListTransactionsQueryKey() });
-    queryClient.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey({}) });
-    queryClient.invalidateQueries({ queryKey: getGetSpendingByCategoryQueryKey({}) });
-    queryClient.invalidateQueries({ queryKey: getGetTopExpensesQueryKey({ limit: 3 }) });
-  };
-
-  const handleSave = async () => {
-    if (!categoryId) {
-      toast({ title: "Select a category", description: "Choose a category before saving.", variant: "destructive" });
+  function onPointerUp(e: React.PointerEvent) {
+    const start = startPos.current;
+    startPos.current = null;
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
+    if (!start) return;
+    if (dragging.current) {
+      dragging.current = false;
+      const openNow = dragX < -SWIPE_WIDTH / 2;
+      setDragX(openNow ? -SWIPE_WIDTH : 0);
+      onOpenChange(openNow);
+      firedByPointer.current = true;
       return;
     }
-    setIsSaving(true);
-    try {
-      const res = await fetch(getApiUrl(`/api/transactions/${tx.id}`), {
-        method: "PATCH",
-        headers: {
-          Authorization: `Bearer ${session?.access_token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ type, amount, description, categoryId, date, notes }),
-      });
-      if (!res.ok) throw new Error("Failed to update");
-      toast({ title: "Transaction updated" });
-      invalidateAll();
-      onClose();
-    } catch {
-      toast({ title: "Failed to update transaction", variant: "destructive" });
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const deleteTx = useDeleteTransaction();
-  const handleDelete = () => {
-    deleteTx.mutate({ id: tx.id }, {
-      onSuccess: () => {
-        toast({ title: "Transaction deleted" });
-        invalidateAll();
-        onClose();
-      },
-      onError: () => toast({ title: "Failed to delete", variant: "destructive" }),
-    });
-  };
-
-  // No usamos scrollIntoView en los inputs: con el overlay anclado al
-  // visualViewport real, el teclado nativo ya reposiciona el modal y un
-  // scroll JS adicional generaba el "salto" del modal completo.
-  const focusCenter = (_e: React.FocusEvent<HTMLElement>) => {};
-
-  // Para Notes: scroll suave hasta los botones después de que el teclado abra.
-  const actionsRef = useRef<HTMLDivElement>(null);
-  const contentRef = useRef<HTMLDivElement>(null);
-  const focusCenterAndShowActions = (_e: React.FocusEvent<HTMLElement>) => {
-    setTimeout(() => {
-      if (actionsRef.current && contentRef.current) {
-        const container = contentRef.current;
-        const target = actionsRef.current;
-        const containerRect = container.getBoundingClientRect();
-        const targetRect = target.getBoundingClientRect();
-        const scrollBy = targetRect.bottom - containerRect.bottom + 16;
-        if (scrollBy > 0) {
-          container.scrollBy({ top: scrollBy, behavior: "smooth" });
-        }
-      }
-    }, 420);
-  };
-
-  // Formato de monto: permite dígitos y un punto decimal, con separadores de miles
-  const formatWithCommas = (raw: string): string => {
-    const parts = raw.split(".");
-    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-    return parts.join(".");
-  };
-
-  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const raw = e.target.value.replace(/,/g, "");
-    if (raw === "" || /^\d*\.?\d{0,2}$/.test(raw)) {
-      setAmountDisplay(formatWithCommas(raw));
-      const num = parseFloat(raw);
-      setAmount(isNaN(num) ? 0 : num);
-    }
-  };
-
-  const handleAmountFocus = (e: React.FocusEvent<HTMLInputElement>) => {
-    const raw = amountDisplay.replace(/,/g, "");
-    setAmountDisplay(raw === "0.00" ? "" : raw);
-    focusCenter(e);
-  };
-
-  const handleAmountBlur = () => {
-    const raw = amountDisplay.replace(/,/g, "");
-    const num = parseFloat(raw);
-    if (!isNaN(num) && num > 0) {
-      setAmountDisplay(num.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
-    } else {
-      setAmountDisplay("");
-      setAmount(0);
-    }
-  };
-
-  const hasChanges =
-    type !== tx.type ||
-    amount !== tx.amount ||
-    description !== tx.description ||
-    categoryId !== tx.categoryId ||
-    date !== tx.date ||
-    (notes ?? "") !== (tx.notes ?? "");
+    commitTap();
+  }
 
   return (
-    <div
-      className="fixed z-50 flex items-center justify-center px-5"
-      style={{ top: 0, left: 0, right: 0, bottom: 0, height: "100dvh", width: "100vw" }}
-      onClick={onClose}
-    >
-      <div
-        className="bg-black/70 animate-in fade-in-0 duration-200"
-        style={{ position: "fixed", top: "-10vh", left: "-10vw", right: "-10vw", bottom: "-10vh", width: "120vw", height: "120dvh" }}
-      />
-      <div
-        className="relative w-full max-w-sm bg-background rounded-2xl shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-200 overflow-hidden"
-        style={{ willChange: "transform, opacity", transform: "translate3d(0,0,0)" }}
-        onClick={e => e.stopPropagation()}
+    <div className="relative overflow-hidden rounded-2xl">
+      <button
+        type="button"
+        onClick={() => onDelete(tx)}
+        aria-label={`Delete ${tx.description}`}
+        className="absolute inset-y-0 right-0 flex items-center justify-center text-xs font-bold text-white"
+        style={{ width: SWIPE_WIDTH, background: "#E11D48" }}
       >
-        {/* Header — toggle liquid glass + close */}
-        <div className="flex items-center justify-between gap-3 px-5 pt-4 pb-2 shrink-0">
-          <div
-            className="relative flex items-center p-1 rounded-full flex-1"
-            style={{
-              backdropFilter: "blur(24px) saturate(1.6)",
-              WebkitBackdropFilter: "blur(24px) saturate(1.6)",
-              background: "linear-gradient(135deg, rgba(255,255,255,0.35), rgba(255,255,255,0.08))",
-              boxShadow: "inset 0 1px 1px rgba(255,255,255,0.5), inset 0 -1px 1px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.06)",
-            }}
-          >
-            <div
-              className="absolute top-1 left-1 rounded-full transition-transform duration-300 ease-out"
-              style={{
-                bottom: "4px",
-                width: "calc(50% - 4px)",
-                transform: isIncome ? "translateX(100%)" : "translateX(0%)",
-                background: isIncome
-                  ? "linear-gradient(135deg, rgba(29,185,84,0.95), rgba(29,185,84,0.75))"
-                  : "linear-gradient(135deg, rgba(255,59,59,0.95), rgba(255,59,59,0.75))",
-                boxShadow: "inset 0 1px 1px rgba(255,255,255,0.4), 0 2px 6px rgba(0,0,0,0.18)",
-              }}
-            />
-            <button
-              type="button"
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => setType("expense")}
-              className={cn("relative z-10 flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-bold transition-colors duration-300 rounded-full", !isIncome ? "text-white" : "text-foreground/50")}
-            >
-              <TrendingDown className="h-3.5 w-3.5" />
-              Expense
-            </button>
-            <button
-              type="button"
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => setType("income")}
-              className={cn("relative z-10 flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-bold transition-colors duration-300 rounded-full", isIncome ? "text-white" : "text-foreground/50")}
-            >
-              <TrendingUp className="h-3.5 w-3.5" />
-              Income
-            </button>
-          </div>
+        Delete
+      </button>
+      <button
+        type="button"
+        data-testid={`row-transaction-${tx.id}`}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMoveHandler}
+        onPointerUp={onPointerUp}
+        onPointerCancel={() => { startPos.current = null; dragging.current = false; }}
+        onClick={() => {
+          if (firedByPointer.current) { firedByPointer.current = false; return; }
+          commitTap(); // activación por teclado (Enter/Espacio), sin pointer events antes
+        }}
+        className="relative w-full text-left flex items-center gap-3 px-1 py-3.5 bg-background"
+        style={{
+          touchAction: "pan-y",
+          transform: `translateX(${dragX}px)`,
+          transition: dragging.current ? "none" : "transform 220ms cubic-bezier(0.25,1,0.5,1)",
+        }}
+      >
+        <span className="w-[3px] h-9 rounded-full shrink-0" style={{ background: tx.categoryColor }} aria-hidden="true" />
 
-          <button onClick={onClose} className="w-8 h-8 rounded-full bg-muted flex items-center justify-center shrink-0 transition-all active:scale-95">
-            <X className="h-3.5 w-3.5 text-muted-foreground" />
-          </button>
-        </div>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-bold leading-tight text-foreground">{tx.description}</span>
+          <span className="mt-0.5 block truncate text-xs">
+            <span className="font-semibold" style={{ color: tx.categoryColor }}>{tx.categoryName}</span>
+            <span className="text-muted-foreground/60"> · {new Date(tx.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+          </span>
+        </span>
 
-        {/* Zona del formulario — scroll interno, el header permanece fijo */}
-        <div ref={contentRef} className="px-5 pb-5 space-y-4 overflow-y-auto" style={{ maxHeight: "min(70vh, 70dvh)" }}>
-          {/* Monto — liquid glass premium con subrayado indicador */}
-          <div className="flex flex-col items-center py-2">
-            <div
-              className="flex items-center gap-1.5 px-6 py-3 rounded-2xl"
-              style={{
-                backdropFilter: "blur(24px) saturate(1.6)",
-                WebkitBackdropFilter: "blur(24px) saturate(1.6)",
-                background: isIncome
-                  ? "linear-gradient(135deg, rgba(29,185,84,0.18), rgba(29,185,84,0.06))"
-                  : "linear-gradient(135deg, rgba(255,59,59,0.18), rgba(255,59,59,0.06))",
-                boxShadow: "inset 0 1px 1px rgba(255,255,255,0.4), inset 0 -1px 1px rgba(0,0,0,0.06)",
-              }}
-            >
-              <span className="text-2xl font-bold" style={{ color: accentColor }}>{symbol}</span>
-              <input
-                type="text"
-                inputMode="decimal"
-                value={amountDisplay}
-                onChange={handleAmountChange}
-                onFocus={handleAmountFocus}
-                onBlur={handleAmountBlur}
-                placeholder="0.00"
-                className="bg-transparent text-center text-4xl font-black tracking-tight border-0 outline-none focus:ring-0 p-0 shadow-none w-36"
-                style={{ color: accentColor, fontFeatureSettings: "'tnum' on, 'lnum' on", caretColor: accentColor }}
-              />
-            </div>
-            {/* Underline indicator — sugiere que es editable */}
-            <div className="h-0.5 w-20 rounded-full mt-2.5" style={{ background: accentColor, opacity: 0.4 }} />
-
-            <span className="text-[10px] font-semibold text-muted-foreground/50 mt-2.5 flex items-center gap-1">
-              <Calendar className="h-2.5 w-2.5" />
-              {formatDate(date)}
-            </span>
-          </div>
-
-          {/* Categoría */}
-          <div className="space-y-1">
-            <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60 flex items-center gap-1 px-0.5">
-              <FolderPlus className="h-2.5 w-2.5" />
-              Category
-            </label>
-            {categoryOpen && (
-              <div
-                className="fixed inset-0 z-[55]"
-                onPointerDown={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  justClosedRef.current = true;
-                  setCategoryOpen(false);
-                  setTimeout(() => { justClosedRef.current = false; }, 300);
-                }}
-              />
-            )}
-            <Select
-              value={categoryId?.toString() ?? ""}
-              onValueChange={v => setCategoryIdForType(Number(v))}
-              open={categoryOpen}
-              onOpenChange={setCategoryOpen}
-            >
-              <SelectTrigger
-                onClick={() => { if (!justClosedRef.current) setCategoryOpen(v => !v); }}
-                className="h-10 text-xs bg-black/[0.03] dark:bg-white/[0.03] border border-black/[0.06] dark:border-white/[0.06] rounded-2xl px-3 hover:bg-black/[0.06] dark:hover:bg-white/[0.06] transition-all"
-              >
-                <SelectValue placeholder="Select category...">
-                  {categoryId && (() => {
-                    const cat = categories.find(c => c.id === categoryId);
-                    if (!cat) return "Select category...";
-                    return (
-                      <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full shrink-0 shadow-sm" style={{ backgroundColor: cat.color }} />
-                        <span className="font-bold text-foreground text-xs">{cat.name}</span>
-                      </div>
-                    );
-                  })()}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent className="rounded-2xl border border-border shadow-xl bg-background">
-                {filteredCategories.map(c => (
-                  <SelectItem key={c.id} value={c.id.toString()} className="rounded-2xl text-xs font-medium">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: c.color }} />
-                      <span>{c.name}</span>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Descripción */}
-          <div className="space-y-1">
-            <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60 flex items-center gap-1 px-0.5">
-              <Pencil className="h-2.5 w-2.5" />
-              Description
-            </label>
-            <input
-              type="text"
-              value={description}
-              onChange={e => setDescription(e.target.value)}
-              onFocus={focusCenter}
-              placeholder="What was this for?"
-              className="w-full text-sm font-semibold bg-black/[0.03] dark:bg-white/[0.03] rounded-2xl px-3 py-2.5 border border-black/[0.06] dark:border-white/[0.06] outline-none text-foreground placeholder:text-muted-foreground/40 focus:border-border/60 focus:bg-transparent transition-all"
-            />
-          </div>
-
-          {/* Notas */}
-          <div className="space-y-1">
-            <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60 flex items-center gap-1 px-0.5">
-              <span>📝</span>
-              Notes
-            </label>
-            <textarea
-              value={notes}
-              onChange={e => setNotes(e.target.value)}
-              onFocus={focusCenterAndShowActions}
-              placeholder="Add extra details here..."
-              className="w-full text-sm font-semibold bg-black/[0.03] dark:bg-white/[0.03] rounded-2xl px-3 py-2.5 border border-black/[0.06] dark:border-white/[0.06] outline-none text-foreground placeholder:text-muted-foreground/40 focus:border-border/60 focus:bg-transparent transition-all resize-none"
-              rows={2}
-            />
-          </div>
-
-          {/* Acciones — flujo normal, sin gap extra */}
-          <div ref={actionsRef} className="flex gap-3 pt-1">
-            <button onClick={() => setConfirmDelete(true)} disabled={isSaving}
-              className="px-5 py-3 rounded-full bg-red-500/10 hover:bg-red-500/15 text-red-500 dark:text-red-400 text-sm font-bold transition-all active:scale-95 disabled:opacity-50 border-0 flex items-center justify-center gap-1.5 shadow-none">
-              <Trash2 className="h-4 w-4" />
-              Delete
-            </button>
-            <button onClick={handleSave} disabled={isSaving || !categoryId || !hasChanges}
-              className="flex-1 py-3 rounded-full bg-[#A8FF3E] hover:bg-[#9bfe32] text-black text-sm font-black border-0 flex items-center justify-center gap-2 transition-all active:scale-[0.98] shadow-none disabled:opacity-50">
-              {isSaving ? <Skeleton className="h-4 w-4 rounded-full bg-black/20 animate-pulse" /> : <Check className="h-4 w-4" />}
-              {isSaving ? "Saving..." : "Save Changes"}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Alerta de confirmación */}
-      {confirmDelete && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center px-4" onClick={() => setConfirmDelete(false)}>
-          <div className="absolute inset-0 bg-black/70" />
-          <div
-            className="relative w-full max-w-xs bg-background border border-border/60 shadow-xl rounded-2xl p-5 space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-200"
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="flex items-start gap-3">
-              <div className="w-8 h-8 rounded-full bg-red-500/10 flex items-center justify-center shrink-0">
-                <AlertTriangle className="h-4 w-4 text-red-500" />
-              </div>
-              <div>
-                <h4 className="text-xs font-bold text-foreground">Delete Record?</h4>
-                <p className="text-[11px] text-muted-foreground leading-relaxed mt-0.5">
-                  This action cannot be undone.
-                </p>
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <button onClick={() => setConfirmDelete(false)} className="flex-1 py-1.5 rounded-2xl bg-muted text-foreground text-xs font-semibold border border-border/60 transition-colors">Cancel</button>
-              <button onClick={handleDelete} className="flex-1 py-1.5 rounded-2xl bg-red-500 hover:bg-red-600 text-white text-xs font-bold transition-colors">Delete</button>
-            </div>
-          </div>
-        </div>
-      )}
+        <span
+          className={cn(
+            "shrink-0 font-serif text-[15px] leading-none tabular-nums",
+            isExpense ? "text-[#7F1D1D] dark:text-[#FFA3A3]" : "text-[#00432C] dark:text-[#6EE7B7]"
+          )}
+        >
+          {isExpense ? "−" : "+"}{formatAmount(tx.amount)}
+        </span>
+      </button>
     </div>
   );
 }
 
-// ─── TransactionList — extracto bancario colapsable ──────────────────────────
+// ─── TransactionList — ledger continuado, sin caja envolvente ─────────────────
 function currentYM() {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 }
 
-function TransactionList({ filteredTransactions, isLoading, formatAmount, onSelect }: {
+function TransactionList({ filteredTransactions, isLoading, formatAmount, onSelect, onDelete }: {
   filteredTransactions: any[] | undefined;
   isLoading: boolean;
   formatAmount: (n: number) => string;
   onSelect: (tx: any) => void;
+  onDelete: (tx: any) => void;
 }) {
   const thisMonth = currentYM();
 
@@ -430,6 +175,8 @@ function TransactionList({ filteredTransactions, isLoading, formatAmount, onSele
 
   // Mes actual siempre abierto, el resto colapsado por defecto
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  // Una sola fila con el swipe abierto a la vez, en toda la lista
+  const [openSwipeId, setOpenSwipeId] = useState<number | null>(null);
 
   const isCollapsed = (key: string) => {
     if (key in collapsed) return collapsed[key];
@@ -440,10 +187,10 @@ function TransactionList({ filteredTransactions, isLoading, formatAmount, onSele
     setCollapsed(prev => ({ ...prev, [key]: !isCollapsed(key) }));
 
   if (isLoading) return (
-    <div className="bg-card rounded-2xl shadow-sm overflow-hidden divide-y divide-border">
+    <div className="space-y-2">
       {Array.from({ length: 6 }).map((_, i) => (
-        <div key={i} className="flex items-center gap-3 px-4 py-3.5">
-          <Skeleton className="h-9 w-9 rounded-full shrink-0" />
+        <div key={i} className="flex items-center gap-3 px-1 py-3.5">
+          <Skeleton className="h-9 w-[3px] rounded-full shrink-0" />
           <div className="flex-1 space-y-1.5">
             <Skeleton className="h-3.5 w-32" />
             <Skeleton className="h-3 w-20" />
@@ -455,7 +202,7 @@ function TransactionList({ filteredTransactions, isLoading, formatAmount, onSele
   );
 
   if (!filteredTransactions?.length) return (
-    <div className="bg-card rounded-2xl shadow-sm p-12 flex flex-col items-center justify-center text-muted-foreground">
+    <div className="rounded-2xl border border-border bg-card p-12 flex flex-col items-center justify-center text-muted-foreground">
       <Search className="h-10 w-10 mb-3 opacity-30" />
       <p className="font-semibold">No transactions found</p>
       <p className="text-sm mt-1">Try adjusting your filters or adding a new one.</p>
@@ -463,7 +210,7 @@ function TransactionList({ filteredTransactions, isLoading, formatAmount, onSele
   );
 
   return (
-    <div className="bg-card rounded-2xl shadow-sm overflow-hidden divide-y divide-border">
+    <div>
       {sortedKeys.map(monthKey => {
         const [y, m] = monthKey.split("-").map(Number);
         const monthLabel = new Date(y, m - 1).toLocaleDateString("en-US", { month: "long", year: "numeric" });
@@ -471,19 +218,20 @@ function TransactionList({ filteredTransactions, isLoading, formatAmount, onSele
         const open = !isCollapsed(monthKey);
 
         return (
-          <div key={monthKey}>
-            {/* Header del mes — clickeable */}
+          <div key={monthKey} className="mt-6 first:mt-0">
+            {/* Header del mes — clickeable, sin fondo */}
             <button
-              className="w-full flex items-center justify-between px-4 py-3 bg-muted/40 hover:bg-muted/60 transition-colors"
+              type="button"
+              className="flex w-full items-center justify-between border-b border-border pb-2"
               onClick={() => toggle(monthKey)}
             >
-              <div className="flex items-center gap-2">
+              <span className="flex items-center gap-1.5">
                 <ChevronDown
                   className="h-3.5 w-3.5 text-muted-foreground transition-transform duration-200"
                   style={{ transform: open ? "rotate(0deg)" : "rotate(-90deg)" }}
                 />
-                <span className="text-[11px] font-bold text-muted-foreground tracking-wide uppercase">{monthLabel}</span>
-              </div>
+                <span className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">{monthLabel}</span>
+              </span>
               <span className="text-[11px] text-muted-foreground/60">
                 {txs.length} {txs.length === 1 ? "item" : "items"}
               </span>
@@ -491,43 +239,17 @@ function TransactionList({ filteredTransactions, isLoading, formatAmount, onSele
 
             {/* Items del mes */}
             {open && (
-              <div className="divide-y divide-border/50">
-                {txs.map((tx, idx) => (
-                  <button
+              <div className="mt-1">
+                {txs.map((tx) => (
+                  <TransactionRow
                     key={tx.id}
-                    onClick={() => onSelect(tx)}
-                    data-testid={`row-transaction-${tx.id}`}
-                    className="w-full text-left flex items-center gap-3 px-4 py-3.5 hover:bg-muted/30 transition-colors duration-150 animate-in fade-in slide-in-from-top-1 duration-200"
-                    style={{ animationDelay: `${idx * 15}ms`, animationFillMode: "backwards" }}
-                  >
-                    {/* Círculo direccional en el color de la categoría */}
-                    <div
-                      className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
-                      style={{ backgroundColor: `${tx.categoryColor}1F` }}
-                    >
-                      {tx.type === "income"
-                        ? <ArrowDownLeft className="h-4 w-4" strokeWidth={2.5} style={{ color: tx.categoryColor }} />
-                        : <ArrowUpRight className="h-4 w-4" strokeWidth={2.5} style={{ color: tx.categoryColor }} />
-                      }
-                    </div>
-
-                    {/* Descripción principal + categoría · fecha */}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-foreground leading-tight truncate">{tx.description}</p>
-                      <p className="text-xs mt-0.5 truncate">
-                        <span className="font-semibold" style={{ color: tx.categoryColor }}>{tx.categoryName}</span>
-                        <span className="text-muted-foreground/60"> · {new Date(tx.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
-                      </p>
-                    </div>
-
-                    {/* Monto */}
-                    <span className={cn(
-                      "text-[15px] font-black tabular-nums leading-none shrink-0",
-                      tx.type === "income" ? "text-[#1DB954] dark:text-[#39D96B]" : "text-[#FF3B3B] dark:text-[#FF5C5C]"
-                    )}>
-                      {tx.type === "income" ? "+" : "−"}{formatAmount(tx.amount)}
-                    </span>
-                  </button>
+                    tx={tx}
+                    isOpen={openSwipeId === tx.id}
+                    onOpenChange={(o) => setOpenSwipeId(o ? tx.id : null)}
+                    onSelect={onSelect}
+                    onDelete={onDelete}
+                    formatAmount={formatAmount}
+                  />
                 ))}
               </div>
             )}
@@ -542,15 +264,31 @@ function TransactionList({ filteredTransactions, isLoading, formatAmount, onSele
 export default function Transactions() {
   const queryClient = useQueryClient();
   const { formatAmount } = useCurrency();
+  const { toast } = useToast();
+  const deleteTx = useDeleteTransaction();
 
   const [filterType, setFilterType] = useState<string>("all");
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [filterMonth, setFilterMonth] = useState<string>("");
   const [selectedTx, setSelectedTx] = useState<any | null>(null);
+  const [creating, setCreating] = useState(false);
 
   const handleTypeChange = (val: string) => {
     setFilterType(val);
     setFilterCategory("all");
+  };
+
+  const handleDeleteTx = (tx: any) => {
+    deleteTx.mutate({ id: tx.id }, {
+      onSuccess: () => {
+        toast({ title: "Transaction deleted" });
+        queryClient.invalidateQueries({ queryKey: getListTransactionsQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey({}) });
+        queryClient.invalidateQueries({ queryKey: getGetSpendingByCategoryQueryKey({}) });
+        queryClient.invalidateQueries({ queryKey: getGetTopExpensesQueryKey({ limit: 3 }) });
+      },
+      onError: () => toast({ title: "Failed to delete", variant: "destructive" }),
+    });
   };
 
   const { data: categories } = useListCategories({ query: { queryKey: getListCategoriesQueryKey() } });
@@ -591,19 +329,28 @@ export default function Transactions() {
 
       {/* Filters */}
       <div className="bg-card rounded-2xl shadow-sm p-3 space-y-2.5">
-        {/* Type + Category */}
-        <div className="grid grid-cols-2 gap-2">
-          <Select value={filterType} onValueChange={handleTypeChange}>
-            <SelectTrigger className="h-10 text-sm bg-muted/50 border-0 rounded-2xl px-3">
-              <SelectValue placeholder="Type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Types</SelectItem>
-              <SelectItem value="income">Income</SelectItem>
-              <SelectItem value="expense">Expense</SelectItem>
-            </SelectContent>
-          </Select>
+        {/* Type — toggle plano, mismo lenguaje que el resto de la app */}
+        <div className="flex gap-1.5 rounded-2xl bg-muted p-1">
+          {([
+            { key: "all", label: "All" },
+            { key: "income", label: "Income" },
+            { key: "expense", label: "Expense" },
+          ] as const).map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => handleTypeChange(t.key)}
+              className={cn(
+                "flex-1 rounded-xl py-2 text-xs font-bold transition-colors",
+                filterType === t.key ? "bg-foreground text-background" : "text-muted-foreground"
+              )}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
 
+        <div className="grid grid-cols-1 gap-2">
           <Select value={filterCategory} onValueChange={setFilterCategory}>
             <SelectTrigger className="h-10 text-sm bg-muted/50 border-0 rounded-2xl px-3 [&>span]:truncate">
               <SelectValue placeholder="Category" />
@@ -657,21 +404,21 @@ export default function Transactions() {
         {(filterMonth !== "" || filterType !== "all") && monthlyTotal && (
           <div className={cn("grid gap-2", filterType === "all" ? "grid-cols-3" : "grid-cols-1")}>
             {(filterType === "all" || filterType === "income") && (
-              <div className="rounded-2xl px-3 py-2 flex flex-col items-center" style={{ background: "rgba(29,185,84,0.12)" }}>
-                <p className="text-[9px] font-semibold uppercase tracking-wide" style={{ color: "#15803D" }}>Income</p>
-                <p className="text-xs font-bold" style={{ color: "#1DB954" }}>{formatAmount(monthlyTotal.income)}</p>
+              <div className="rounded-2xl px-3 py-2 flex flex-col items-center" style={{ background: "rgba(0,168,112,0.12)" }}>
+                <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">Income</p>
+                <p className="text-xs font-bold text-[#00432C] dark:text-[#6EE7B7]">{formatAmount(monthlyTotal.income)}</p>
               </div>
             )}
             {(filterType === "all" || filterType === "expense") && (
-              <div className="rounded-2xl px-3 py-2 flex flex-col items-center" style={{ background: "rgba(255,59,59,0.12)" }}>
-                <p className="text-[9px] font-semibold uppercase tracking-wide" style={{ color: "#B91C1C" }}>Expenses</p>
-                <p className="text-xs font-bold" style={{ color: "#FF3B3B" }}>{formatAmount(monthlyTotal.expense)}</p>
+              <div className="rounded-2xl px-3 py-2 flex flex-col items-center" style={{ background: "rgba(255,77,77,0.12)" }}>
+                <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">Expenses</p>
+                <p className="text-xs font-bold text-[#7F1D1D] dark:text-[#FFA3A3]">{formatAmount(monthlyTotal.expense)}</p>
               </div>
             )}
             {filterType === "all" && (
-              <div className="rounded-2xl px-3 py-2 flex flex-col items-center" style={{ background: monthlyTotal.income - monthlyTotal.expense >= 0 ? "rgba(29,185,84,0.12)" : "rgba(255,59,59,0.12)" }}>
+              <div className="rounded-2xl px-3 py-2 flex flex-col items-center" style={{ background: monthlyTotal.income - monthlyTotal.expense >= 0 ? "rgba(0,168,112,0.12)" : "rgba(255,77,77,0.12)" }}>
                 <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">Balance</p>
-                <p className="text-xs font-bold" style={{ color: monthlyTotal.income - monthlyTotal.expense >= 0 ? "#1DB954" : "#FF3B3B" }}>
+                <p className={cn("text-xs font-bold", monthlyTotal.income - monthlyTotal.expense >= 0 ? "text-[#00432C] dark:text-[#6EE7B7]" : "text-[#7F1D1D] dark:text-[#FFA3A3]")}>
                   {formatAmount(monthlyTotal.income - monthlyTotal.expense)}
                 </p>
               </div>
@@ -680,29 +427,27 @@ export default function Transactions() {
         )}
       </div>
 
-      <Link href="/transactions/new" className="inline-flex w-full">
-        <Button className="w-full gap-2 bg-[#A8FF3E] text-black hover:bg-[#9bfe32] border-0 font-bold" data-testid="button-add-transaction">
-          <Plus className="h-4 w-4" />
-          Add Transaction
-        </Button>
-      </Link>
+      <Button
+        onClick={() => setCreating(true)}
+        className="w-full gap-2 bg-[#A8FF3E] text-black hover:bg-[#9bfe32] border-0 font-bold"
+        data-testid="button-add-transaction"
+      >
+        <Plus className="h-4 w-4" />
+        Add Transaction
+      </Button>
 
-      {/* Transaction list — extracto bancario colapsable */}
+      {/* Transaction list — ledger continuado, con swipe-to-delete por fila */}
       <TransactionList
         filteredTransactions={filteredTransactions}
         isLoading={isLoading}
         formatAmount={formatAmount}
         onSelect={setSelectedTx}
+        onDelete={handleDeleteTx}
       />
 
-      {/* Detail / Edit modal */}
-      {selectedTx && Array.isArray(categories) && (
-        <TransactionModal
-          tx={selectedTx}
-          categories={categories}
-          onClose={() => setSelectedTx(null)}
-        />
-      )}
+      {/* Add / Edit — mismo EntrySheet que "New Entry" en el dashboard */}
+      <EntrySheet open={creating} onClose={() => setCreating(false)} />
+      <EntrySheet open={!!selectedTx} onClose={() => setSelectedTx(null)} tx={selectedTx} />
     </div>
   );
 }

@@ -70,6 +70,13 @@ function QuickPopup({
   children: React.ReactNode;
   wide?: boolean;
 }) {
+  // Bloquea el swipe de página del nav mientras el popup está montado
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-6" onClick={onClose}>
       <div className="absolute inset-0 bg-black/70 animate-in fade-in-0 duration-200" />
@@ -274,7 +281,7 @@ function ProfileMenu() {
 }
 
 export default function Layout({ children }: LayoutProps) {
-  const [location] = useLocation();
+  const [location, navigate] = useLocation();
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
@@ -335,6 +342,37 @@ export default function Layout({ children }: LayoutProps) {
 
   const isIOS = Capacitor.getPlatform() === "ios";
 
+  // Swipe entre las páginas principales del nav — solo en las 4 pestañas de base,
+  // se ignora si hay un modal abierto encima (mismo body-scroll-lock que ya usan EntrySheet/VoiceCapture)
+  const pageSwipeStart = useRef<{ x: number; y: number } | null>(null);
+
+  function handlePageSwipeStart(e: React.TouchEvent) {
+    if (document.body.style.overflow === "hidden") { pageSwipeStart.current = null; return; }
+    const t = e.touches[0];
+    pageSwipeStart.current = { x: t.clientX, y: t.clientY };
+  }
+
+  function handlePageSwipeEnd(e: React.TouchEvent) {
+    const start = pageSwipeStart.current;
+    pageSwipeStart.current = null;
+    if (!start) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - start.x;
+    const dy = t.clientY - start.y;
+    if (Math.abs(dx) < 80 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+
+    const currentIndex = navItems.findIndex((item) =>
+      location === item.href || (item.href !== "/" && location.startsWith(item.href))
+    );
+    if (currentIndex === -1) return;
+
+    if (dx < 0 && currentIndex < navItems.length - 1) {
+      navigate(navItems[currentIndex + 1].href, { replace: true });
+    } else if (dx > 0 && currentIndex > 0) {
+      navigate(navItems[currentIndex - 1].href, { replace: true });
+    }
+  }
+
   return (
     <div className="flex min-h-screen w-full bg-background text-foreground overflow-x-hidden">
       {/* Sidebar — desktop only */}
@@ -353,7 +391,7 @@ export default function Layout({ children }: LayoutProps) {
             const Icon = item.icon;
             const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
             return (
-              <Link key={item.href} href={item.href}>
+              <Link key={item.href} href={item.href} replace>
                 <span
                   className={cn(
                     "flex items-center gap-3 px-3 py-2.5 rounded-2xl transition-all cursor-pointer text-sm font-medium",
@@ -371,7 +409,7 @@ export default function Layout({ children }: LayoutProps) {
         </nav>
 
         <div className="p-4 border-t border-sidebar-border">
-          <Link href="/transactions/new">
+          <Link href="/transactions">
             <Button className="w-full gap-2 bg-sidebar-primary hover:bg-sidebar-primary/90 text-white shadow-sm">
               <Plus className="h-4 w-4" />
               New Transaction
@@ -397,6 +435,8 @@ export default function Layout({ children }: LayoutProps) {
             paddingTop: 'calc(env(safe-area-inset-top) + 24px)',
             paddingBottom: isIOS ? '110px' : '6rem',
           }}
+          onTouchStart={handlePageSwipeStart}
+          onTouchEnd={handlePageSwipeEnd}
         >
           <div className="max-w-6xl mx-auto min-h-full relative">
             <ProfileMenu />
@@ -432,7 +472,7 @@ export default function Layout({ children }: LayoutProps) {
           const Icon = item.icon;
           const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
           return (
-            <Link key={item.href} href={item.href} className="flex-1 min-w-0">
+            <Link key={item.href} href={item.href} className="flex-1 min-w-0" replace>
               <span
                 className="flex flex-col items-center justify-center gap-1 w-full cursor-pointer"
                 style={{ transition: 'all 0.35s cubic-bezier(0.4,0,0.2,1)' }}

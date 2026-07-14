@@ -109,6 +109,14 @@ export default function VoiceCapture({
   const heardRef = useRef(false);
   const [runId, setRunId] = useState(0);
 
+  // Bloquea el scroll/swipe de fondo mientras el overlay está montado —
+  // mismo patrón que EntrySheet, así el swipe entre páginas del nav no lo confunde con esto.
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+
   const stopEverything = useCallback(() => {
     cancelAnimationFrame(rafRef.current);
     try { mediaRecorderRef.current?.state !== "inactive" && mediaRecorderRef.current?.stop(); } catch {}

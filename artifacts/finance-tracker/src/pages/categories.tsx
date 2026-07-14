@@ -1,7 +1,9 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   useListCategories,
   getListCategoriesQueryKey,
+  getGetDashboardSummaryQueryKey,
+  getGetSpendingByCategoryQueryKey,
   useCreateCategory,
   useUpdateCategory,
   useDeleteCategory
@@ -20,10 +22,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
-// Cálidos para gastos, fríos para ingresos — 8 y 8, en orden tonal ascendente
+// Gastos: rojo → violeta, sin amarillos ni naranjas (se sacaron a propósito).
+// Fríos para ingresos — 8 y 8, en orden tonal ascendente.
 const EXPENSE_COLORS = [
-  "#d946ef", "#ec4899", "#f43f5e", "#ef4444",
-  "#ea580c", "#f97316", "#f59e0b", "#eab308",
+  "#8b5cf6", "#c084fc", "#d946ef", "#e879f9",
+  "#ec4899", "#f43f5e", "#fb7185", "#ef4444",
 ];
 const INCOME_COLORS = [
   "#84cc16", "#22c55e", "#14b8a6", "#06b6d4",
@@ -31,14 +34,14 @@ const INCOME_COLORS = [
 ];
 
 const COLOR_NAMES: Record<string, string> = {
+  "#8b5cf6": "Violet",
+  "#c084fc": "Lilac",
   "#d946ef": "Fuchsia",
+  "#e879f9": "Orchid",
   "#ec4899": "Pink",
   "#f43f5e": "Cherry",
+  "#fb7185": "Blush",
   "#ef4444": "Red",
-  "#ea580c": "Vermilion",
-  "#f97316": "Orange",
-  "#f59e0b": "Amber",
-  "#eab308": "Yellow",
   "#84cc16": "Lime",
   "#22c55e": "Green",
   "#14b8a6": "Teal",
@@ -51,6 +54,44 @@ const COLOR_NAMES: Record<string, string> = {
 
 function colorLabel(hex: string): string {
   return COLOR_NAMES[hex.toLowerCase()] ?? hex;
+}
+
+function hueOf(hex: string): number {
+  const r = parseInt(hex.slice(1, 3), 16) / 255;
+  const g = parseInt(hex.slice(3, 5), 16) / 255;
+  const b = parseInt(hex.slice(5, 7), 16) / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  const d = max - min;
+  if (d === 0) return 0;
+  let h = 0;
+  switch (max) {
+    case r: h = ((g - b) / d) % 6; break;
+    case g: h = (b - r) / d + 2; break;
+    default: h = (r - g) / d + 4;
+  }
+  h *= 60;
+  return h < 0 ? h + 360 : h;
+}
+
+function hueDistance(a: number, b: number): number {
+  const d = Math.abs(a - b) % 360;
+  return d > 180 ? 360 - d : d;
+}
+
+// Categorías creadas antes de un cambio de paleta pueden tener guardado un color
+// que ya no se ofrece en el picker (paleta vieja) — se migran solas al color
+// vigente de tono más parecido la primera vez que se listan, mismo patrón que
+// la migración transparente del PIN en biometric-context.tsx.
+function nearestPaletteColor(oldHex: string, type: string): string {
+  const palette = type === "expense" ? EXPENSE_COLORS : type === "income" ? INCOME_COLORS : [...EXPENSE_COLORS, ...INCOME_COLORS];
+  const targetHue = hueOf(oldHex);
+  let best: string = palette[0]!;
+  let bestDist = Infinity;
+  for (const c of palette) {
+    const dist = hueDistance(hueOf(c), targetHue);
+    if (dist < bestDist) { bestDist = dist; best = c; }
+  }
+  return best;
 }
 
 
@@ -69,6 +110,14 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 function FloatingModal({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: React.ReactNode }) {
+  // Bloquea el swipe de página del nav mientras el modal está abierto
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, [open]);
+
   if (!open) return null;
   return (
     <div
@@ -307,6 +356,23 @@ export default function Categories() {
   const updateCategory = useUpdateCategory();
   const deleteCategory = useDeleteCategory();
 
+  // Migración transparente de colores viejos (paleta pre-rediseño) al color
+  // vigente más parecido — una sola pasada por sesión, silenciosa.
+  const hasMigratedColors = useRef(false);
+  useEffect(() => {
+    if (hasMigratedColors.current || !Array.isArray(categories)) return;
+    const allCurrentColors = new Set([...EXPENSE_COLORS, ...INCOME_COLORS]);
+    const stale = categories.filter((c) => !allCurrentColors.has(c.color.toLowerCase()));
+    if (stale.length === 0) return;
+    hasMigratedColors.current = true;
+    stale.forEach((c) => {
+      updateCategory.mutate(
+        { id: c.id, data: { color: nearestPaletteColor(c.color, c.type) } },
+        { onSuccess: () => invalidate() }
+      );
+    });
+  }, [categories]);
+
   const createForm = useForm<CategoryFormValues>({
     resolver: zodResolver(categorySchema),
     defaultValues: { name: "", type: "expense" as const, color: "#ef4444", icon: "tag" }
@@ -317,8 +383,14 @@ export default function Categories() {
     defaultValues: { name: "", type: "expense" as const, color: "#ef4444", icon: "tag" }
   });
 
-  const invalidate = () =>
+  // El color/nombre de categoría se lee en vivo desde otras queries (spending-by-category,
+  // dashboard summary) — invalidar solo la lista de categorías dejaba esas pantallas
+  // con el dato viejo aunque Categories ya mostrara el cambio.
+  const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: getListCategoriesQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey({}) });
+    queryClient.invalidateQueries({ queryKey: getGetSpendingByCategoryQueryKey({}) });
+  };
 
   const openCreate = (type: "expense" | "income") => {
     createForm.reset({
@@ -424,7 +496,11 @@ export default function Categories() {
       ) : (
         <div className="space-y-5">
           {(["expense", "income"] as const).map((type) => {
-            const filtered = (Array.isArray(categories) ? categories : []).filter(c => c.type === type);
+            // "both" también entra acá — si no, una categoría con ese type queda
+            // invisible en las dos secciones (ni "expense" ni "income" calzan
+            // estricto) aunque siga apareciendo en otros filtros de la app que sí
+            // la contemplan (ej. el filtro de Transactions).
+            const filtered = (Array.isArray(categories) ? categories : []).filter(c => c.type === type || c.type === "both");
             const sectionColor = type === "expense" ? "#FF3B3B" : "#1DB954";
             const sectionLabel = type === "expense" ? "Expenses" : "Income";
             return (

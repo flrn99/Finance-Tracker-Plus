@@ -25,6 +25,7 @@ public class MainActivity extends BridgeActivity {
         webView.setBackgroundColor(Color.parseColor("#CAFA01"));
         webView.getSettings().setDomStorageEnabled(true);
         webView.getSettings().setJavaScriptEnabled(true);
+        webView.getSettings().setTextZoom(100);
 
         webView.setWebChromeClient(new WebChromeClient() {
             @Override

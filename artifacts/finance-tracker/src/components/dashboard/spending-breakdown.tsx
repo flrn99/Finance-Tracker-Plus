@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type RefObject } from "react";
+import { useEffect, useMemo, useState, type RefObject } from "react";
 import { TrendingDown, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCurrency } from "@/lib/currency-context";
@@ -13,111 +13,83 @@ type SpendingEntry = {
 };
 
 const SPRING_EASE = "cubic-bezier(0.34, 1.56, 0.64, 1)";
-const CARD_WIDTH = 128;
-const RING_R = 32;
-const RING_STROKE = 7;
 
-function MiniOverview({
-  data,
-  maxTotal,
-  grown,
-  activeIndex,
-  onSelect,
-}: {
-  data: SpendingEntry[];
-  maxTotal: number;
-  grown: boolean;
-  activeIndex: number;
-  onSelect: (idx: number) => void;
-}) {
-  return (
-    <div className="flex items-end gap-1 h-16 mb-4 border-b border-border pb-1">
-      {data.map((entry, idx) => {
-        const pct = maxTotal > 0 ? (entry.total / maxTotal) * 100 : 0;
-        const isActive = idx === activeIndex;
-        return (
-          <button
-            key={entry.categoryId}
-            type="button"
-            onClick={() => onSelect(idx)}
-            className="flex-1 min-w-0 rounded-t-lg"
-            style={{
-              height: grown ? `${Math.max(pct, 10)}%` : "0%",
-              backgroundColor: entry.categoryColor,
-              opacity: isActive ? 1 : 0.35,
-              transitionProperty: "height, opacity",
-              transitionDuration: "600ms, 250ms",
-              transitionTimingFunction: `${SPRING_EASE}, ease-out`,
-              transitionDelay: `${idx * 45}ms, 0ms`,
-            }}
-            aria-label={entry.categoryName}
-          />
-        );
-      })}
-    </div>
-  );
+// Unidades abstractas del lienzo del treemap — solo importa que guarden la
+// misma proporción que el aspect-ratio real del contenedor (ver className
+// "aspect-[3/2]" más abajo), el squarify no necesita saber los px reales.
+const CANVAS_W = 150;
+const CANVAS_H = 100;
+const MAX_TILES = 6;
+// Los 16 colores reales de categoría (EXPENSE_COLORS/INCOME_COLORS en categories.tsx)
+// resuelven TODOS a texto negro — este gris se elige a propósito para caer del
+// mismo lado (zinc-500/#71717a quedaba justo en el punto de quiebre y elegía
+// blanco, rompiendo la consistencia visual con el resto de los tiles).
+const OTHER_COLOR = "#9ca3af";
+
+type Rect = { x: number; y: number; w: number; h: number };
+
+// Squarify (Bruls, Huizing, van Wijk 1999): reparte áreas proporcionales al
+// valor de cada item intentando que cada rectángulo quede lo más cuadrado
+// posible, en vez de tiras finitas — así el tamaño del tile SE LEE como el monto.
+function worstAspectRatio(row: number[], side: number): number {
+  const sum = row.reduce((a, b) => a + b, 0);
+  const max = Math.max(...row);
+  const min = Math.min(...row);
+  return Math.max((side * side * max) / (sum * sum), (sum * sum) / (side * side * min));
 }
 
-function CategoryCard({
-  entry,
-  pct,
-  isActive,
-  grown,
-  delay,
-  amountLabel,
-}: {
-  entry: SpendingEntry;
-  pct: number;
-  isActive: boolean;
-  grown: boolean;
-  delay: number;
-  amountLabel: string;
-}) {
-  const circumference = 100;
-  const gapPct = 4;
-  const segLen = grown ? Math.max(pct - gapPct, 0) : 0;
+function squarify(values: number[], rect: Rect): Rect[] {
+  const results: Rect[] = [];
+  let items = values.slice();
+  let cur = rect;
 
-  return (
-    <div
-      className="snap-center shrink-0 flex flex-col items-center gap-2 rounded-3xl bg-muted/50 px-3 py-4 animate-in fade-in slide-in-from-bottom-2"
-      style={{
-        width: CARD_WIDTH,
-        transform: isActive ? "scale(1)" : "scale(0.9)",
-        opacity: isActive ? 1 : 0.55,
-        transitionProperty: "transform, opacity",
-        transitionDuration: "300ms",
-        transitionTimingFunction: "ease-out",
-        animationDuration: "450ms",
-        animationDelay: `${delay}ms`,
-        animationFillMode: "backwards",
-      }}
-    >
-      <div className="relative" style={{ width: 76, height: 76 }}>
-        <svg width={76} height={76} viewBox="0 0 76 76">
-          <circle cx={38} cy={38} r={RING_R} fill="none" stroke="hsl(var(--muted-foreground) / 0.15)" strokeWidth={RING_STROKE} />
-          <circle
-            cx={38}
-            cy={38}
-            r={RING_R}
-            fill="none"
-            stroke={entry.categoryColor}
-            strokeWidth={RING_STROKE}
-            strokeLinecap="round"
-            pathLength={circumference}
-            strokeDasharray={`${segLen} ${circumference}`}
-            transform="rotate(-90 38 38)"
-            style={{ transition: `stroke-dasharray 700ms ${SPRING_EASE}`, transitionDelay: `${delay}ms` }}
-          />
-        </svg>
-        <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-sm font-bold tabular-nums text-foreground">{Math.round(pct)}%</span>
-        </div>
-      </div>
-      <p className="text-xs font-semibold text-foreground text-center truncate max-w-full">{entry.categoryName}</p>
-      <p className="text-sm font-bold tabular-nums text-foreground">{amountLabel}</p>
-    </div>
-  );
+  while (items.length) {
+    const side = Math.min(cur.w, cur.h);
+    let row = [items[0]!];
+    let rowWorst = worstAspectRatio(row, side);
+    let i = 1;
+    while (i < items.length) {
+      const testRow = [...row, items[i]!];
+      const testWorst = worstAspectRatio(testRow, side);
+      if (testWorst <= rowWorst) {
+        row = testRow;
+        rowWorst = testWorst;
+        i++;
+      } else break;
+    }
+    items = items.slice(row.length);
+    const rowSum = row.reduce((a, b) => a + b, 0);
+
+    if (cur.w >= cur.h) {
+      const colW = rowSum / cur.h;
+      let cy = cur.y;
+      for (const v of row) {
+        const rh = v / colW;
+        results.push({ x: cur.x, y: cy, w: colW, h: rh });
+        cy += rh;
+      }
+      cur = { x: cur.x + colW, y: cur.y, w: cur.w - colW, h: cur.h };
+    } else {
+      const rowH = rowSum / cur.w;
+      let cx = cur.x;
+      for (const v of row) {
+        const rw = v / rowH;
+        results.push({ x: cx, y: cur.y, w: rw, h: rowH });
+        cx += rw;
+      }
+      cur = { x: cur.x, y: cur.y + rowH, w: cur.w, h: cur.h - rowH };
+    }
+  }
+  return results;
 }
+
+// Texto siempre blanco sobre el color puro de la categoría (sin degradé — el
+// color se ve tal cual es). Una sombra suave de una sola dirección (no un
+// contorno de 4 lados, que se leía como sticker) le da el empujón de legibilidad
+// que hace falta en los tonos más claros — pareja en los 16 colores reales
+// (expense + income), sin lista de excepciones: income de hecho la necesita
+// más (5 de 8 fallan 3:1 con blanco plano, contra 3 de 8 en expense).
+const WHITE_TEXT_SHADOW = "0 1px 4px rgba(0,0,0,.45)";
 
 export function SpendingBreakdown({
   type,
@@ -138,23 +110,63 @@ export function SpendingBreakdown({
 }) {
   const { formatAmount } = useCurrency();
   const isExpense = type === "expense";
-  const GhostIcon = isExpense ? TrendingDown : TrendingUp;
 
-  const maxTotal = data && data.length > 0 ? Math.max(...data.map((d) => d.total)) : 0;
   const total = data ? data.reduce((sum, d) => sum + d.total, 0) : 0;
 
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const cardRefs = useRef<Map<number, HTMLDivElement>>(new Map());
-  const ratiosRef = useRef<Map<number, number>>(new Map());
-  const [activeIndex, setActiveIndex] = useState(0);
+  const tiles = useMemo(() => {
+    if (!data || total <= 0) return [];
+    const sorted = [...data].sort((a, b) => b.total - a.total);
 
-  // Retrigger the grow-in animation every time the dataset changes (type toggle or fresh fetch)
+    // Con muchas categorías chicas, squarify termina dejando tiras casi invisibles
+    // al final del reparto (el área es real, pero ilegible) — se acota el treemap
+    // a un puñado de tiles y el resto se agrupa en un bucket genérico. La leyenda
+    // de abajo sigue mostrando cada categoría real por separado.
+    // El label es "+N more", nunca "Other": si el usuario ya tiene una categoría
+    // real llamada así, un nombre igual acá se pisaba con la de la leyenda y
+    // parecía una categoría duplicada/mezclada.
+    let display: (SpendingEntry & { isOther?: boolean })[] = sorted;
+    if (sorted.length > MAX_TILES) {
+      const head = sorted.slice(0, MAX_TILES - 1);
+      const tail = sorted.slice(MAX_TILES - 1);
+      display = [
+        ...head,
+        {
+          categoryId: -1,
+          categoryName: `+${tail.length} more`,
+          categoryColor: OTHER_COLOR,
+          total: tail.reduce((s, d) => s + d.total, 0),
+          percentage: tail.reduce((s, d) => s + d.percentage, 0),
+          isOther: true,
+        },
+      ];
+    }
+
+    const area = CANVAS_W * CANVAS_H;
+    const values = display.map((d) => Math.max((d.total / total) * area, 0.001));
+    const rects = squarify(values, { x: 0, y: 0, w: CANVAS_W, h: CANVAS_H });
+    // Font-size proporcional al tamaño real del tile — calculado acá en vez de con
+    // container query units (cqmin): en el WebView de Android real no escalaban
+    // (todo quedaba en el mínimo del clamp), así que esto se resuelve en JS, sin
+    // depender de soporte de features CSS nuevas en el dispositivo.
+    return display.map((entry, i) => {
+      const rect = rects[i]!;
+      const scale = Math.sqrt(rect.w * rect.h);
+      return {
+        ...entry,
+        rect,
+        // El % es el número hero (hasta 68px en el tile dominante), el nombre queda
+        // como etiqueta chica arriba — jerarquía invertida a propósito, inspirada en
+        // el "Sales Report" que trajo el usuario.
+        nameFontSize: Math.min(Math.max(scale * 0.12, 8), 13),
+        pctFontSize: Math.min(Math.max(scale * 0.85, 16), 68),
+      };
+    });
+  }, [data, total]);
+
+  // Retrigger el grow-in cada vez que cambia el dataset (toggle de tipo o fetch nuevo)
   const [grown, setGrown] = useState(false);
   useEffect(() => {
     setGrown(false);
-    setActiveIndex(0);
-    ratiosRef.current.clear();
-    scrollRef.current?.scrollTo({ left: 0 });
     if (!chartInView || !data || data.length === 0) return;
     let raf2 = 0;
     const raf1 = requestAnimationFrame(() => {
@@ -166,150 +178,133 @@ export function SpendingBreakdown({
     };
   }, [type, data, chartInView]);
 
-  useEffect(() => {
-    const root = scrollRef.current;
-    if (!root || !data || data.length === 0) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((e) => {
-          const idx = Number((e.target as HTMLElement).dataset.idx);
-          ratiosRef.current.set(idx, e.intersectionRatio);
-        });
-        let best = 0;
-        let bestRatio = -1;
-        ratiosRef.current.forEach((ratio, idx) => {
-          if (ratio > bestRatio) {
-            bestRatio = ratio;
-            best = idx;
-          }
-        });
-        setActiveIndex(best);
-      },
-      { root, threshold: [0, 0.25, 0.5, 0.75, 1] }
-    );
-    cardRefs.current.forEach((el) => observer.observe(el));
-    return () => observer.disconnect();
-  }, [data]);
-
-  const scrollToIndex = (idx: number) => {
-    setActiveIndex(idx);
-    cardRefs.current.get(idx)?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
-  };
+  const reducedMotion = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 
   return (
-    <div
-      className="relative overflow-hidden rounded-3xl bg-card p-5 shadow-sm"
-      style={{ border: "1.5px solid hsl(var(--card-border))" }}
-    >
-      {/* Sheen glass superior */}
-      <div className="absolute inset-x-0 top-0 h-1/2 pointer-events-none" style={{ background: "linear-gradient(180deg, hsl(var(--foreground) / 0.03) 0%, transparent 100%)" }} />
-      {/* Ícono fantasma — neutro, solo decorativo */}
-      <GhostIcon className="absolute -bottom-6 -right-5 h-36 w-36 pointer-events-none" style={{ color: "hsl(var(--foreground) / 0.05)" }} strokeWidth={1.5} />
+    <div>
+      <div className="mb-5 flex items-center justify-between gap-2">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{periodLabel}</p>
+          <p className="font-serif text-2xl font-bold tabular-nums text-foreground leading-tight">{formatAmount(total)}</p>
+        </div>
 
-      <div className="relative mb-4">
-        <p className="text-base font-bold text-foreground mb-3">
-          {isExpense ? "Spending" : "Income"} by Category
-        </p>
-
-        <div className="flex items-center justify-between gap-2">
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{periodLabel}</p>
-            <p className="font-serif text-xl font-bold tabular-nums text-foreground leading-tight">{formatAmount(total)}</p>
-          </div>
-
-          {/* Toggle — liquid glass slider */}
+        {/* Toggle — flat, el color es indicador de estado (product register) */}
+        <div className="relative flex items-center rounded-full bg-muted p-1 shrink-0">
           <div
-            className="relative flex items-center p-1 rounded-full shrink-0"
+            className="absolute top-1 left-1 rounded-full transition-transform duration-300 ease-out"
             style={{
-              backdropFilter: "blur(24px) saturate(1.6)",
-              WebkitBackdropFilter: "blur(24px) saturate(1.6)",
-              background: "linear-gradient(135deg, rgba(255,255,255,0.5), rgba(255,255,255,0.15))",
-              boxShadow: "inset 0 1px 1px rgba(255,255,255,0.6), inset 0 -1px 1px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.08)",
+              bottom: "4px",
+              width: "calc(50% - 4px)",
+              transform: isExpense ? "translateX(0%)" : "translateX(100%)",
+              background: isExpense ? "#FF4D4D" : "#00A870",
             }}
+          />
+          <button
+            type="button"
+            onClick={() => onTypeChange("expense")}
+            className={cn(
+              "relative z-10 flex items-center gap-1 px-2.5 py-1 text-xs font-semibold transition-colors duration-300 whitespace-nowrap rounded-full",
+              isExpense ? "text-white" : "text-muted-foreground hover:text-foreground/70"
+            )}
           >
-            <div
-              className="absolute top-1 left-1 rounded-full transition-transform duration-300 ease-out"
-              style={{
-                bottom: "4px",
-                width: "calc(50% - 4px)",
-                transform: isExpense ? "translateX(0%)" : "translateX(100%)",
-                background: isExpense
-                  ? "linear-gradient(135deg, rgba(255,59,59,0.95), rgba(255,59,59,0.75))"
-                  : "linear-gradient(135deg, rgba(29,185,84,0.95), rgba(29,185,84,0.75))",
-                boxShadow: "inset 0 1px 1px rgba(255,255,255,0.4), 0 2px 6px rgba(0,0,0,0.18)",
-              }}
-            />
-            <button
-              type="button"
-              onClick={() => onTypeChange("expense")}
-              className={cn(
-                "relative z-10 flex items-center gap-1 px-2.5 py-1 text-xs font-semibold transition-colors duration-300 whitespace-nowrap rounded-full",
-                isExpense ? "text-white" : "text-foreground/50 hover:text-foreground/70"
-              )}
-            >
-              <TrendingDown className="h-3 w-3 shrink-0" />
-              Expense
-            </button>
-            <button
-              type="button"
-              onClick={() => onTypeChange("income")}
-              className={cn(
-                "relative z-10 flex items-center gap-1 px-2.5 py-1 text-xs font-semibold transition-colors duration-300 whitespace-nowrap rounded-full",
-                !isExpense ? "text-white" : "text-foreground/50 hover:text-foreground/70"
-              )}
-            >
-              <TrendingUp className="h-3 w-3 shrink-0" />
-              Income
-            </button>
-          </div>
+            <TrendingDown className="h-3 w-3 shrink-0" />
+            Expense
+          </button>
+          <button
+            type="button"
+            onClick={() => onTypeChange("income")}
+            className={cn(
+              "relative z-10 flex items-center gap-1 px-2.5 py-1 text-xs font-semibold transition-colors duration-300 whitespace-nowrap rounded-full",
+              !isExpense ? "text-white" : "text-muted-foreground hover:text-foreground/70"
+            )}
+          >
+            <TrendingUp className="h-3 w-3 shrink-0" />
+            Income
+          </button>
         </div>
       </div>
 
-      <div className="relative" ref={chartRef}>
+      <div ref={chartRef}>
         {isLoading ? (
-          <div className="flex flex-col gap-4">
-            <Skeleton className="h-9 w-full rounded-full" />
-            <div className="flex gap-3">
-              {[1, 2, 3].map((i) => <Skeleton key={i} className="h-[152px] rounded-3xl" style={{ width: CARD_WIDTH }} />)}
+          <div className="flex flex-col items-center gap-5">
+            <Skeleton className="aspect-[3/2] w-full rounded-2xl" />
+            <div className="w-full space-y-2.5">
+              {[1, 2, 3].map((i) => <Skeleton key={i} className="h-4 w-full rounded-full" />)}
             </div>
           </div>
         ) : data && data.length > 0 ? (
-          <div key={type}>
-            <MiniOverview data={data} maxTotal={maxTotal} grown={grown} activeIndex={activeIndex} onSelect={scrollToIndex} />
+          <div className="flex flex-col">
+            {/* Decorativo: la leyenda de abajo ya expone cada categoría como texto real */}
+            <div aria-hidden="true" className="relative w-full overflow-hidden" style={{ aspectRatio: `${CANVAS_W} / ${CANVAS_H}` }}>
+              {tiles.map((t, i) => {
+                // El texto escala con el tamaño real del tile (calculado en JS a partir
+                // del rect de squarify) — así cada tile queda legible a su propia escala,
+                // como un mapa de países: el gigante grita, el chico susurra.
+                const tooSmall = t.rect.w < 8 || t.rect.h < 8;
+                // Padding fijo, no escalado con el tile — el que sí escalaba dejaba
+                // el % pegado a la esquina en tiles chicos (4px de aire y una letra
+                // de 7px se leía como si se estuviera saliendo del tile).
+                const padding = 8;
+                return (
+                  <div
+                    key={t.categoryId}
+                    className="absolute"
+                    style={{
+                      left: `${(t.rect.x / CANVAS_W) * 100}%`,
+                      top: `${(t.rect.y / CANVAS_H) * 100}%`,
+                      width: `${(t.rect.w / CANVAS_W) * 100}%`,
+                      height: `${(t.rect.h / CANVAS_H) * 100}%`,
+                    }}
+                  >
+                    <div
+                      className="absolute flex flex-col justify-between overflow-hidden"
+                      style={{
+                        inset: 2,
+                        borderRadius: 14,
+                        background: t.categoryColor,
+                        color: "#f9f8f8",
+                        padding,
+                        opacity: grown ? 1 : 0,
+                        transform: grown ? "scale(1)" : "scale(0.85)",
+                        transition: reducedMotion
+                          ? "none"
+                          : `opacity 450ms ${SPRING_EASE} ${i * 40}ms, transform 450ms ${SPRING_EASE} ${i * 40}ms`,
+                      }}
+                    >
+                      {!tooSmall && (
+                        <>
+                          <div
+                            className="line-clamp-3 font-extrabold uppercase tracking-wide leading-[1.15] opacity-90"
+                            style={{ fontSize: t.nameFontSize, overflowWrap: "anywhere", textShadow: WHITE_TEXT_SHADOW }}
+                          >
+                            {t.categoryName}
+                          </div>
+                          <span
+                            className="font-serif font-bold leading-[0.9] tracking-tight"
+                            style={{ fontSize: t.pctFontSize, textShadow: WHITE_TEXT_SHADOW }}
+                          >
+                            {Math.round(t.percentage)}%
+                          </span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
 
-            <div
-              ref={scrollRef}
-              className="flex gap-3 overflow-x-auto snap-x snap-mandatory pb-1 -mx-1"
-              style={{
-                scrollbarWidth: "none",
-                WebkitOverflowScrolling: "touch",
-                paddingLeft: `calc(50% - ${CARD_WIDTH / 2}px)`,
-                paddingRight: `calc(50% - ${CARD_WIDTH / 2}px)`,
-              }}
-            >
-              {data.map((entry, idx) => (
-                <div
-                  key={entry.categoryId}
-                  data-idx={idx}
-                  ref={(el) => {
-                    if (el) cardRefs.current.set(idx, el);
-                    else cardRefs.current.delete(idx);
-                  }}
-                >
-                  <CategoryCard
-                    entry={entry}
-                    pct={total > 0 ? (entry.total / total) * 100 : 0}
-                    isActive={idx === activeIndex}
-                    grown={grown}
-                    delay={idx * 60}
-                    amountLabel={formatAmount(entry.total)}
-                  />
+            <div className="mt-6 w-full space-y-2.5">
+              {data.map((entry) => (
+                <div key={entry.categoryId} className="flex items-center text-sm font-semibold text-foreground">
+                  <span className="mr-2.5 h-[7px] w-[7px] shrink-0 rounded-full" style={{ background: entry.categoryColor }} />
+                  <span className="truncate">{entry.categoryName}</span>
+                  <span className="ml-auto shrink-0 tabular-nums font-bold text-muted-foreground">{formatAmount(entry.total)}</span>
                 </div>
               ))}
             </div>
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center h-[200px] text-sm text-muted-foreground">
+          <div className="flex h-[200px] flex-col items-center justify-center text-sm text-muted-foreground">
             <p>No {isExpense ? "spending" : "income"} data yet.</p>
           </div>
         )}

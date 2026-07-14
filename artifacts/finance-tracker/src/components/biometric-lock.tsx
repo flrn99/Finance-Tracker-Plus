@@ -28,6 +28,9 @@ export default function BiometricLock() {
   const [shake, setShake] = useState(false);
   const didAutoTrigger = useRef(false);
   const [logoOk, setLogoOk] = useState(true);
+  // Evita que un tap/click dispare la acción dos veces (pointerdown + click sintético),
+  // pero deja pasar el click "puro" que llega de Enter/Espacio por teclado (sin pointerdown antes).
+  const firedByPointer = useRef(false);
 
   // Auto-trigger biometric on mount
   useEffect(() => {
@@ -90,6 +93,9 @@ export default function BiometricLock() {
 
   return (
     <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Unlock Flow!"
       className="fixed inset-0 z-[999] flex flex-col items-center justify-center px-5 animate-in fade-in duration-500 overflow-hidden"
       style={{
         paddingTop: "env(safe-area-inset-top)",
@@ -97,56 +103,40 @@ export default function BiometricLock() {
         backgroundColor: "hsl(var(--background))",
       }}
     >
-      {/* 🌈 Aurora mesh — blobs difuminados a la deriva */}
+      {/* 🌈 Aurora mesh — estática (sin animación, sin blur()), colores solapados entre sí
+          para que nunca se vea el fondo plano asomando */}
+      <div
+        aria-hidden
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          backgroundImage: `
+            radial-gradient(circle 145vmin at 16% 12%, rgba(168,255,62,0.9) 0%, rgba(168,255,62,0.55) 32%, rgba(168,255,62,0.18) 55%, transparent 78%),
+            radial-gradient(circle 138vmin at 86% 20%, rgba(34,211,238,0.85) 0%, rgba(34,211,238,0.5) 32%, rgba(34,211,238,0.16) 55%, transparent 78%),
+            radial-gradient(circle 141vmin at 10% 88%, rgba(167,139,250,0.85) 0%, rgba(167,139,250,0.5) 32%, rgba(167,139,250,0.16) 55%, transparent 78%),
+            radial-gradient(circle 131vmin at 90% 86%, rgba(52,211,153,0.8) 0%, rgba(52,211,153,0.45) 32%, transparent 78%)
+          `,
+        }}
+      />
+
+      {/* El movimiento vive acá — glow animado ciclando los 4 colores, mucho más barato que 4 blobs con blur */}
       <style>{`
-        @keyframes ff-drift-1 { from { transform: translate(0,0) scale(1); } to { transform: translate(9vmin,7vmin) scale(1.12); } }
-        @keyframes ff-drift-2 { from { transform: translate(0,0) scale(1.05); } to { transform: translate(-8vmin,5vmin) scale(0.95); } }
-        @keyframes ff-drift-3 { from { transform: translate(0,0) scale(0.95); } to { transform: translate(6vmin,-8vmin) scale(1.1); } }
-        @keyframes ff-drift-4 { from { transform: translate(0,0) scale(1.08); } to { transform: translate(-6vmin,-5vmin) scale(1); } }
+        @keyframes ff-card-glow {
+          0%   { box-shadow: 0 0 90px 8px rgba(168,255,62,0.4), 0 24px 80px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.06); }
+          25%  { box-shadow: 0 0 90px 8px rgba(34,211,238,0.4), 0 24px 80px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.06); }
+          50%  { box-shadow: 0 0 90px 8px rgba(167,139,250,0.4), 0 24px 80px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.06); }
+          75%  { box-shadow: 0 0 90px 8px rgba(52,211,153,0.4), 0 24px 80px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.06); }
+          100% { box-shadow: 0 0 90px 8px rgba(168,255,62,0.4), 0 24px 80px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.06); }
+        }
+        .ff-card-glow { animation: ff-card-glow 16s ease-in-out infinite; }
         @media (prefers-reduced-motion: reduce) {
-          .ff-blob { animation: none !important; }
+          .ff-card-glow { animation: none !important; box-shadow: 0 24px 80px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.06) !important; }
         }
       `}</style>
-      <div aria-hidden className="absolute inset-0 pointer-events-none">
-        <div
-          className="ff-blob absolute rounded-full"
-          style={{
-            width: "72vmin", height: "72vmin", top: "-18%", left: "-18%",
-            background: "#A8FF3E", opacity: 0.8, filter: "blur(60px)",
-            animation: "ff-drift-1 16s ease-in-out infinite alternate",
-          }}
-        />
-        <div
-          className="ff-blob absolute rounded-full"
-          style={{
-            width: "60vmin", height: "60vmin", top: "22%", right: "-22%",
-            background: "#22D3EE", opacity: 0.7, filter: "blur(60px)",
-            animation: "ff-drift-2 20s ease-in-out infinite alternate",
-          }}
-        />
-        <div
-          className="ff-blob absolute rounded-full"
-          style={{
-            width: "58vmin", height: "58vmin", bottom: "-16%", left: "2%",
-            background: "#A78BFA", opacity: 0.7, filter: "blur(65px)",
-            animation: "ff-drift-3 18s ease-in-out infinite alternate",
-          }}
-        />
-        <div
-          className="ff-blob absolute rounded-full"
-          style={{
-            width: "46vmin", height: "46vmin", bottom: "8%", right: "6%",
-            background: "#34D399", opacity: 0.65, filter: "blur(60px)",
-            animation: "ff-drift-4 22s ease-in-out infinite alternate",
-          }}
-        />
-      </div>
 
       {/* 💳 Card flotante limpia */}
       <div
-        className="relative w-full max-w-[310px] rounded-[2rem] bg-card px-5 pt-7 pb-6 flex flex-col items-center animate-in fade-in zoom-in-95 duration-500"
+        className="ff-card-glow relative w-full max-w-[310px] rounded-[2rem] bg-card px-5 pt-7 pb-6 flex flex-col items-center animate-in fade-in zoom-in-95 duration-500"
         style={{
-          boxShadow: "0 24px 80px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.06)",
           border: "1px solid hsl(var(--foreground) / 0.05)",
           marginBottom: "10vh",
         }}
@@ -186,7 +176,7 @@ export default function BiometricLock() {
           {mode === "biometric" ? (
             <div className="flex flex-col items-center gap-5 w-full animate-in fade-in zoom-in-95 duration-300">
               {error && (
-                <div className="flex items-center gap-2.5 bg-destructive/10 text-destructive rounded-[20px] px-4 py-3.5 w-full">
+                <div role="alert" className="flex items-center gap-2.5 bg-destructive/10 text-destructive rounded-[20px] px-4 py-3.5 w-full">
                   <ShieldAlert className="h-4 w-4 shrink-0" />
                   <p className="text-xs font-semibold leading-tight">{error}</p>
                 </div>
@@ -203,7 +193,7 @@ export default function BiometricLock() {
 
               <button
                 onClick={() => { setMode("pin"); setError(""); }}
-                className="mt-1 h-10 px-6 rounded-full flex items-center justify-center text-sm font-semibold text-foreground/70 hover:text-foreground hover:bg-muted transition-colors active:scale-95"
+                className="mt-1 h-11 px-6 rounded-full flex items-center justify-center text-sm font-semibold text-foreground/70 hover:text-foreground hover:bg-muted transition-colors active:scale-95"
               >
                 Use PIN instead
               </button>
@@ -211,8 +201,8 @@ export default function BiometricLock() {
           ) : (
             <div className="flex flex-col items-center gap-5 w-full animate-in fade-in slide-in-from-bottom-4 duration-300">
 
-              {/* 💎 PIN dots idénticos a los de settings.tsx */}
-              <div className={cn("flex gap-3 py-2 justify-center items-center h-4", shake && "animate-shake")}>
+              {/* 💎 PIN dots idénticos a los de settings.tsx — puramente visual, el progreso real se anuncia aparte */}
+              <div aria-hidden="true" className={cn("flex gap-3 py-2 justify-center items-center h-4", shake && "animate-shake")}>
                 {Array.from({ length: 6 }).map((_, i) => (
                   <div
                     key={i}
@@ -226,9 +216,10 @@ export default function BiometricLock() {
                   />
                 ))}
               </div>
+              <span className="sr-only" aria-live="polite">{pin.length} of 6 digits entered</span>
 
               {error && (
-                <p className="text-xs font-bold text-red-500 dark:text-red-400 text-center animate-in fade-in duration-200">{error}</p>
+                <p role="alert" className="text-xs font-bold text-[#E11D48] dark:text-[#FFA3A3] text-center animate-in fade-in duration-200">{error}</p>
               )}
 
               {/* 💎 TECLADO LIGERO (IDÉNTICO AL MODAL DE CONFIGURACIÓN) */}
@@ -238,7 +229,13 @@ export default function BiometricLock() {
                   if (digit === "del") return (
                     <button
                       key={i}
-                      onPointerDown={(e) => { e.preventDefault(); triggerHaptic(); handleDelete(); }}
+                      aria-label="Delete"
+                      onPointerDown={(e) => { e.preventDefault(); firedByPointer.current = true; triggerHaptic(); handleDelete(); }}
+                      onClick={() => {
+                        if (firedByPointer.current) { firedByPointer.current = false; return; }
+                        triggerHaptic();
+                        handleDelete();
+                      }}
                       disabled={pin.length === 0}
                       className="relative h-14 w-14 rounded-full mx-auto flex items-center justify-center overflow-hidden active:scale-[0.88] transition-transform duration-75 ease-out disabled:opacity-20 shrink-0 bg-black/[0.03] dark:bg-white/[0.04] active:bg-black/[0.08] dark:active:bg-white/[0.1] will-change-transform"
                       style={{ touchAction: "manipulation" }}
@@ -249,7 +246,12 @@ export default function BiometricLock() {
                   return (
                     <button
                       key={i}
-                      onPointerDown={(e) => { e.preventDefault(); triggerHaptic(); handlePinDigit(digit); }}
+                      onPointerDown={(e) => { e.preventDefault(); firedByPointer.current = true; triggerHaptic(); handlePinDigit(digit); }}
+                      onClick={() => {
+                        if (firedByPointer.current) { firedByPointer.current = false; return; }
+                        triggerHaptic();
+                        handlePinDigit(digit);
+                      }}
                       disabled={pin.length >= 6}
                       className="relative h-14 w-14 rounded-full mx-auto flex items-center justify-center overflow-hidden active:scale-[0.88] transition-transform duration-75 ease-out disabled:opacity-20 shrink-0 bg-black/[0.03] dark:bg-white/[0.04] active:bg-black/[0.08] dark:active:bg-white/[0.1] will-change-transform"
                       style={{ touchAction: "manipulation", fontFeatureSettings: "'tnum' on" }}
@@ -263,7 +265,7 @@ export default function BiometricLock() {
               {attempts < MAX_ATTEMPTS && (
                 <button
                   onClick={() => { setMode("biometric"); setError(""); setPin(""); handleBiometric(); }}
-                  className="mt-1 h-10 px-6 rounded-full flex items-center justify-center text-sm font-semibold text-foreground/70 hover:text-foreground hover:bg-muted transition-colors active:scale-95"
+                  className="mt-1 h-11 px-6 rounded-full flex items-center justify-center text-sm font-semibold text-foreground/70 hover:text-foreground hover:bg-muted transition-colors active:scale-95"
                 >
                   Use biometrics instead
                 </button>
