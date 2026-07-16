@@ -9,10 +9,7 @@ import { useAuth } from "@/lib/auth-context";
 import { getListTransactionsQueryKey, getGetDashboardSummaryQueryKey, getGetSpendingByCategoryQueryKey, getGetTopExpensesQueryKey } from "@workspace/api-client-react";
 import { cn } from "@/lib/utils";
 import { useBiometric } from "@/lib/biometric-context";
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger
-} from "@/components/ui/alert-dialog";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { getApiUrl } from "@/lib/api-config";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -396,8 +393,8 @@ export default function Settings() {
                 right={<ChevronRight className="h-4 w-4 text-muted-foreground" />}
               />
             </Link>
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
+            <ConfirmDialog
+              trigger={
                 <div>
                   <SettingItem
                     icon={Trash2}
@@ -407,20 +404,14 @@ export default function Settings() {
                     right={<ChevronRight className="h-4 w-4 text-destructive" />}
                   />
                 </div>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Erase all transactions?</AlertDialogTitle>
-                  <AlertDialogDescription>This will permanently delete every transaction. This cannot be undone.</AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleEraseAll} disabled={erasing} className="bg-destructive text-destructive-foreground hover:bg-destructive/90 border-0">
-                    {erasing ? "Erasing..." : "Yes, erase all"}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+              }
+              icon={Trash2}
+              title="Erase all transactions?"
+              description="This will permanently delete every transaction. This cannot be undone."
+              confirmLabel={erasing ? "Erasing..." : "Yes, erase all"}
+              disabled={erasing}
+              onConfirm={handleEraseAll}
+            />
           </Section>
         </div>
 
@@ -454,8 +445,8 @@ export default function Settings() {
         <div id="section-account" className={cn("space-y-2", !showSec("account") && "hidden")}>
           <SectionTitle title="Account" />
           <Section>
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
+            <ConfirmDialog
+              trigger={
                 <div>
                   <SettingItem
                     icon={LogOut}
@@ -464,23 +455,18 @@ export default function Settings() {
                     right={<ChevronRight className="h-4 w-4 text-muted-foreground" />}
                   />
                 </div>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Log out?</AlertDialogTitle>
-                  <AlertDialogDescription>You will need to log in again to access your data.</AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleSignOut} disabled={signingOut} className="bg-[#A8FF3E] text-black hover:bg-[#9bfe32] border-0">
-                    {signingOut ? "Logging out..." : "Log Out"}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+              }
+              icon={LogOut}
+              variant="neutral"
+              title="Log out?"
+              description="You will need to log in again to access your data."
+              confirmLabel={signingOut ? "Logging out..." : "Log Out"}
+              disabled={signingOut}
+              onConfirm={handleSignOut}
+            />
 
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
+            <ConfirmDialog
+              trigger={
                 <div>
                   <SettingItem
                     icon={UserX}
@@ -489,20 +475,14 @@ export default function Settings() {
                     right={<ChevronRight className="h-4 w-4 text-destructive" />}
                   />
                 </div>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Delete your account?</AlertDialogTitle>
-                  <AlertDialogDescription>This will permanently delete your account, all transactions, and all categories. This action cannot be undone.</AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleDeleteAccount} disabled={deletingAccount} className="bg-destructive text-destructive-foreground hover:bg-destructive/90 border-0">
-                    {deletingAccount ? "Deleting..." : "Yes, delete account"}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+              }
+              icon={UserX}
+              title="Delete your account?"
+              description="This will permanently delete your account, all transactions, and all categories. This action cannot be undone."
+              confirmLabel={deletingAccount ? "Deleting..." : "Yes, delete account"}
+              disabled={deletingAccount}
+              onConfirm={handleDeleteAccount}
+            />
           </Section>
         </div>
       </div>

@@ -22,7 +22,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn, categoryTextColor, compositeHex, LIGHT_CARD_BG, DARK_CARD_BG } from "@/lib/utils";
 
 const PILL_TINT_ALPHA = 0x1f / 255;
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 
 // Gastos: rojo → violeta, sin amarillos ni naranjas (se sacaron a propósito).
 // Fríos para ingresos — 8 y 8, en orden tonal ascendente.
@@ -134,7 +134,7 @@ function FloatingModal({ open, onClose, title, children }: { open: boolean; onCl
       onClick={onClose}
     >
       <div
-        className="bg-black/80 animate-in fade-in-0 duration-200"
+        className="bg-black/80"
         style={{
           position: 'fixed',
           top: '-10vh', left: '-10vw', right: '-10vw', bottom: '-10vh',
@@ -320,33 +320,24 @@ function CategoryForm({
 
         <div className="flex gap-2 pt-1">
           <button type="button" onClick={onCancel} className="flex-1 py-2.5 rounded-2xl bg-muted text-foreground text-sm font-semibold border-0">Cancel</button>
-          <button type="submit" disabled={isPending} className="flex-1 py-2.5 rounded-2xl bg-[#A8FF3E] text-black text-sm font-bold border-0 disabled:opacity-60">
+          <button type="submit" disabled={isPending} className="flex-1 py-2.5 rounded-2xl bg-black text-white text-sm font-bold border-0 disabled:opacity-60">
             {isPending ? "Saving..." : submitLabel}
           </button>
         </div>
 
         {onDelete && (
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
+          <ConfirmDialog
+            trigger={
               <button type="button" className="w-full py-1.5 text-xs font-semibold text-destructive/70 hover:text-destructive transition-colors">
                 Delete category
               </button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Delete Category</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This cannot be undone, and will fail if any transactions use this category.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={onDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90 border-0">
-                  Delete
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+            }
+            icon={Trash2}
+            title="Delete Category"
+            description="This cannot be undone, and will fail if any transactions use this category."
+            confirmLabel="Delete"
+            onConfirm={onDelete}
+          />
         )}
       </form>
     </Form>
@@ -549,8 +540,8 @@ export default function Categories() {
                           >
                             <Pencil className="h-3 w-3 text-white" />
                           </button>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
+                          <ConfirmDialog
+                            trigger={
                               <button
                                 onClick={(e) => e.stopPropagation()}
                                 className="h-6 w-6 flex items-center justify-center rounded-lg active:scale-90 transition-transform"
@@ -558,25 +549,13 @@ export default function Categories() {
                               >
                                 <Trash2 className="h-3 w-3 text-white" />
                               </button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Delete Category</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Delete "{cat.name}"? This cannot be undone, and will fail if any transactions use this category.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={() => handleDelete(cat.id)}
-                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90 border-0"
-                                >
-                                  Delete
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
+                            }
+                            icon={Trash2}
+                            title="Delete Category"
+                            description={`Delete "${cat.name}"? This cannot be undone, and will fail if any transactions use this category.`}
+                            confirmLabel="Delete"
+                            onConfirm={() => handleDelete(cat.id)}
+                          />
                         </div>
                       </div>
                       {/* Base — solo el nombre, limpio */}

@@ -1,17 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Form,
   FormControl,
@@ -22,9 +15,10 @@ import {
 } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
+import { cn, categoryTextColor } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { useCurrency, CURRENCY_INFO } from "@/lib/currency-context";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -37,10 +31,10 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
-  Plus, X, Check, Pencil, Trash2, Flame, ChevronLeft, ChevronRight,
+  Plus, X, Check, Pencil, Trash2, Flame, ChevronLeft, ChevronRight, ChevronDown,
   Target, PiggyBank, Wallet, Ban, Coffee, ShoppingBag, Utensils, Candy,
   Dumbbell, Cigarette, Beer, Car, Gamepad2, Shirt, Smartphone, Plane,
-  Home, Gift, BookOpen, Music, CreditCard, Sparkles,
+  Home, Gift, BookOpen, Music, CreditCard, Zap, Wifi, Landmark, Tv, Droplet,
 } from "lucide-react";
 import {
   useCreateTransaction,
@@ -129,6 +123,7 @@ interface Bill {
   createdAt: string;
   logs: string[]; // "YYYY-MM"
   paidThisMonth: boolean;
+  linkedTransactionCount: number;
 }
 
 /* ------------------------------------------------------------------ */
@@ -163,9 +158,20 @@ const ICONS: Record<string, React.ComponentType<{ className?: string; style?: Re
   gift: Gift,
   book: BookOpen,
   music: Music,
+  creditcard: CreditCard,
+  zap: Zap,
+  wifi: Wifi,
+  landmark: Landmark,
+  tv: Tv,
+  droplet: Droplet,
 };
 
-const ICON_KEYS = Object.keys(ICONS);
+// Listas curadas por feature — se solapan un poco a propósito (siguen siendo la
+// misma "familia" del picker), pero cada una tiene su propio carácter en vez de
+// compartir el mismo set de 20 íconos entre Goals/Habits/Bills.
+const GOAL_ICON_KEYS = ["target", "piggybank", "wallet", "home", "plane", "car", "gift", "book", "music", "gamepad"];
+const HABIT_ICON_KEYS = ["dumbbell", "coffee", "cigarette", "beer", "candy", "ban", "utensils", "shirt", "book", "music"];
+const BILL_ICON_KEYS = ["creditcard", "home", "car", "smartphone", "wallet", "zap", "wifi", "landmark", "tv", "droplet"];
 
 const COLOR_OPTIONS: { hex: string; name: string }[] = [
   { hex: "#A8FF3E", name: "Flow Green" },
@@ -175,7 +181,6 @@ const COLOR_OPTIONS: { hex: string; name: string }[] = [
   { hex: "#6366f1", name: "Midnight Neon" },
   { hex: "#a855f7", name: "Cosmic Grape" },
   { hex: "#ec4899", name: "Neon Flamingo" },
-  { hex: "#e6b3e7", name: "Orchid Bloom" },
   { hex: "#ef4444", name: "Lava Burst" },
   { hex: "#f97316", name: "Sunset Blaze" },
   { hex: "#eab308", name: "Liquid Gold" },
@@ -194,6 +199,29 @@ function toKey(d: Date): string {
 
 function fmtMoney(n: number): string {
   return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+/** "1,234,567.89" -> "1.23M" — solo para números que ya no entrarían cómodos
+ * en la caja en reposo; en foco siempre se edita el valor completo. */
+function fmtAbbrev(n: number): string {
+  const trim = (s: string) => s.replace(/\.?0+$/, "");
+  // Number(...).toLocaleString() en vez de concatenar el string directo — si el
+  // coeficiente llega a 1000+ (ej. mil millones), sigue llevando sus comas.
+  if (n >= 1_000_000) return `${Number(trim((n / 1_000_000).toFixed(2))).toLocaleString()}M`;
+  if (n >= 1_000) return `${Number(trim((n / 1_000).toFixed(1))).toLocaleString()}K`;
+  return fmtMoney(n);
+}
+
+/** Muestra completo si entra cómodo, abreviado si no — el umbral es el mismo
+ * punto en el que el número empezaba a desbordar la caja. */
+function fmtAtRest(n: number): string {
+  const full = fmtMoney(n);
+  return full.length > 9 ? fmtAbbrev(n) : full;
+}
+
+/** Clase de tamaño según cantidad de caracteres a mostrar — más largo = texto más chico. */
+function amountSizeClass(len: number): string {
+  return len <= 9 ? "text-xl" : len <= 12 ? "text-lg" : "text-base";
 }
 
 /** Formatea lo que se escribe agregando comas de miles, respetando decimales en progreso */
@@ -232,14 +260,16 @@ function currentMonthKey(): string {
   return monthKeyOf(new Date());
 }
 
-/** Los últimos `n` meses, terminando en el actual — para el heatmap de Bills */
-function buildMonths(n: number): string[] {
-  const now = new Date();
-  const months: string[] = [];
-  for (let i = n - 1; i >= 0; i--) {
-    months.push(monthKeyOf(new Date(now.getFullYear(), now.getMonth() - i, 1)));
-  }
-  return months;
+/** "2026-07" -> "Jul 2026" — usa MONTHS, definido más abajo (seguro: solo se llama en render) */
+function fmtMonthLabel(ym: string): string {
+  const [y, m] = ym.split("-").map(Number);
+  return `${MONTHS[m - 1]} ${y}`;
+}
+
+/** Ene→Dic de un año calendario fijo — la celda N SIEMPRE es el mes N (mayo = 5ta celda),
+ * no una ventana relativa "últimos 12 meses" (eso confundía: el actual quedaba siempre última). */
+function monthsOfYear(year: number): string[] {
+  return Array.from({ length: 12 }, (_, i) => `${year}-${String(i + 1).padStart(2, "0")}`);
 }
 
 function buildWeeks(numWeeks: number): string[][] {
@@ -308,7 +338,7 @@ function FloatingModal({
       onClick={onClose}
     >
       <div
-        className="bg-black/80 animate-in fade-in-0 duration-200"
+        className="bg-black/80"
         style={{
           position: "fixed",
           top: "-10vh", left: "-10vw", right: "-10vw", bottom: "-10vh",
@@ -337,33 +367,62 @@ function FloatingModal({
 /* ------------------------------------------------------------------ */
 
 function ColorSelect({ value, onChange }: { value: string; onChange: (c: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const current = COLOR_OPTIONS.find((c) => c.hex === value);
+
   return (
-    <Select value={value} onValueChange={onChange}>
-      <SelectTrigger className="rounded-2xl">
-        <SelectValue placeholder="Pick a color" />
-      </SelectTrigger>
-      <SelectContent className="max-h-64">
-        {COLOR_OPTIONS.map((c) => (
-          <SelectItem key={c.hex} value={c.hex}>
-            <span className="flex items-center gap-2">
-              <span className="w-4 h-4 rounded-full shrink-0" style={{ backgroundColor: c.hex }} />
-              {c.name}
-            </span>
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-full bg-muted text-sm font-bold"
+      >
+        <span className="w-3.5 h-3.5 rounded-full shrink-0" style={{ backgroundColor: value }} />
+        {current?.name ?? "Pick a color"}
+        <ChevronDown className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform", open && "rotate-180")} />
+      </button>
+
+      {open && (
+        <>
+          {/* Cierra el popover al tocar afuera */}
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div className="absolute top-[calc(100%+0.5rem)] left-0 right-0 z-20 rounded-2xl bg-card border border-border shadow-xl p-3.5">
+            <div className="grid grid-cols-5 gap-2.5">
+              {COLOR_OPTIONS.map((c) => {
+                const active = c.hex === value;
+                return (
+                  <button
+                    key={c.hex}
+                    type="button"
+                    onClick={() => { onChange(c.hex); setOpen(false); }}
+                    aria-label={c.name}
+                    className="aspect-square rounded-full flex items-center justify-center transition-transform active:scale-90"
+                    style={{ backgroundColor: c.hex, boxShadow: active ? "inset 0 0 0 2px rgba(0,0,0,0.45)" : undefined }}
+                  >
+                    {active && <Check className="h-3.5 w-3.5 text-black" strokeWidth={3} />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 
-function IconPicker({ value, onChange, color }: { value: string; onChange: (i: string) => void; color: string }) {
+function IconPicker({
+  value, onChange, color, iconKeys,
+}: {
+  value: string; onChange: (i: string) => void; color: string; iconKeys: string[];
+}) {
   return (
     <div className="relative">
       <div
         className="flex gap-2 overflow-x-auto py-1 px-0.5"
         style={{ scrollbarWidth: "none", WebkitOverflowScrolling: "touch" }}
       >
-        {ICON_KEYS.map((key) => {
+        {iconKeys.map((key) => {
           const Comp = ICONS[key];
           const active = value === key;
           return (
@@ -388,6 +447,61 @@ function IconPicker({ value, onChange, color }: { value: string; onChange: (i: s
       <div
         className="absolute top-0 right-0 h-full w-10 pointer-events-none rounded-r-lg"
         style={{ background: "linear-gradient(to right, transparent, hsl(var(--card)))" }}
+      />
+    </div>
+  );
+}
+
+/** Input de monto grande y centrado — siempre muestra 2 decimales al perder foco
+ * (no todos los pagos son montos redondos), pero no fuerza el ".00" mientras se
+ * está tipeando (rompería poder escribir "450.50" natural). */
+function AmountInput({
+  value, onChange, symbol,
+}: {
+  value: number | undefined;
+  onChange: (n: number) => void;
+  symbol: string;
+}) {
+  const [text, setText] = useState(value ? fmtAtRest(value) : "");
+  const lastValue = useRef(value);
+
+  useEffect(() => {
+    if (value !== lastValue.current) {
+      setText(value ? fmtAtRest(value) : "");
+      lastValue.current = value;
+    }
+  }, [value]);
+
+  // El abreviado en reposo casi nunca necesita encoger ("1.23M" es corto) — pero
+  // mientras se edita, el número completo sí puede ser largo y no entrar; ahí la
+  // fuente encoge para que nunca se salga de la caja.
+  const sizeClass = amountSizeClass(text.length);
+
+  return (
+    <div className="rounded-2xl bg-muted py-3.5 flex items-center justify-center gap-1 px-2 overflow-hidden">
+      <span className={cn("font-bold text-muted-foreground shrink-0", sizeClass === "text-xl" ? "text-sm" : "text-xs")}>{symbol}</span>
+      <input
+        type="text"
+        inputMode="decimal"
+        placeholder="0.00"
+        className={cn("font-number font-bold bg-transparent border-0 outline-none text-center min-w-0 w-full", sizeClass)}
+        value={text}
+        onFocus={(e) => {
+          // Al foco se edita el valor real, no el abreviado
+          if (value) setText(fmtMoney(value));
+          e.target.select();
+        }}
+        onChange={(e) => {
+          const formatted = formatAmountInput(e.target.value);
+          setText(formatted);
+          const n = parseAmountInput(formatted);
+          lastValue.current = n;
+          onChange(n);
+        }}
+        onBlur={() => {
+          const n = parseAmountInput(text);
+          setText(n ? fmtAtRest(n) : "");
+        }}
       />
     </div>
   );
@@ -436,67 +550,62 @@ function GoalForm({
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
+        {/* Nombre escrito directo sobre el color elegido — misma línea que Bill */}
+        <div className="rounded-2xl overflow-hidden relative" style={{ background: color }}>
+          <div className="absolute -top-6 -right-4 w-16 h-16 rounded-full pointer-events-none" style={{ background: "rgba(255,255,255,0.28)" }} />
+          <div className="relative px-3.5 py-3.5">
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => {
+                const whiteReadable = categoryTextColor("#ffffff", color).toLowerCase() === "#ffffff";
+                return (
+                  <FormItem>
+                    <FormControl>
+                      <input
+                        placeholder="e.g. Vacation fund"
+                        autoComplete="off"
+                        className="w-full bg-transparent border-0 outline-none font-title text-lg leading-tight text-white placeholder:[color:var(--ph)]"
+                        style={{
+                          textShadow: "0 1px 3px rgba(0,0,0,0.25)",
+                          "--ph": whiteReadable ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.4)",
+                        } as React.CSSProperties}
+                        {...field}
+                      />
+                    </FormControl>
+                  </FormItem>
+                );
+              }}
+            />
+          </div>
+        </div>
+
         <FormField
           control={form.control}
-          name="name"
+          name="targetAmount"
           render={({ field }) => (
             <FormItem>
-              <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Name</FormLabel>
+              <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Target</FormLabel>
               <FormControl>
-                <Input placeholder="e.g. Vacation fund" className="rounded-2xl" {...field} />
+                <AmountInput value={field.value} onChange={field.onChange} symbol={symbol} />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
-        <div className="grid grid-cols-2 gap-3">
-          <FormField
-            control={form.control}
-            name="targetAmount"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Target</FormLabel>
-                <FormControl>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-muted-foreground pointer-events-none">{symbol}</span>
-                    <Input
-                      type="text"
-                      inputMode="decimal"
-                      placeholder="5,000.00"
-                      className="rounded-2xl pl-8"
-                      value={field.value ? formatAmountInput(String(field.value)) : ""}
-                      onChange={(e) => field.onChange(parseAmountInput(formatAmountInput(e.target.value)))}
-                    />
-                  </div>
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="currentAmount"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Saved so far</FormLabel>
-                <FormControl>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-muted-foreground pointer-events-none">{symbol}</span>
-                    <Input
-                      type="text"
-                      inputMode="decimal"
-                      placeholder="0.00"
-                      className="rounded-2xl pl-8"
-                      value={field.value ? formatAmountInput(String(field.value)) : ""}
-                      onChange={(e) => field.onChange(parseAmountInput(formatAmountInput(e.target.value)))}
-                    />
-                  </div>
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
+        <FormField
+          control={form.control}
+          name="currentAmount"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Saved so far</FormLabel>
+              <FormControl>
+                <AmountInput value={field.value} onChange={field.onChange} symbol={symbol} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
         <FormField
           control={form.control}
           name="color"
@@ -513,11 +622,11 @@ function GoalForm({
           render={({ field }) => (
             <FormItem>
               <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Icon</FormLabel>
-              <IconPicker value={field.value} onChange={field.onChange} color={color} />
+              <IconPicker value={field.value} onChange={field.onChange} color={color} iconKeys={GOAL_ICON_KEYS} />
             </FormItem>
           )}
         />
-        <Button type="submit" disabled={isPending} className="w-full bg-[#A8FF3E] text-black hover:bg-[#9bfe32] border-0 rounded-2xl">
+        <Button type="submit" disabled={isPending} className="w-full bg-black text-white hover:bg-black/85 border-0 rounded-2xl font-bold">
           {submitLabel}
         </Button>
       </form>
@@ -537,19 +646,36 @@ function HabitForm({
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
-        <FormField
-          control={form.control}
-          name="name"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Name</FormLabel>
-              <FormControl>
-                <Input placeholder="e.g. No delivery" className="rounded-2xl" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        {/* Nombre escrito directo sobre el color elegido — misma línea que Bill/Goal */}
+        <div className="rounded-2xl overflow-hidden relative" style={{ background: color }}>
+          <div className="absolute -top-6 -right-4 w-16 h-16 rounded-full pointer-events-none" style={{ background: "rgba(255,255,255,0.28)" }} />
+          <div className="relative px-3.5 py-3.5">
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => {
+                const whiteReadable = categoryTextColor("#ffffff", color).toLowerCase() === "#ffffff";
+                return (
+                  <FormItem>
+                    <FormControl>
+                      <input
+                        placeholder="e.g. No delivery"
+                        autoComplete="off"
+                        className="w-full bg-transparent border-0 outline-none font-title text-lg leading-tight text-white placeholder:[color:var(--ph)]"
+                        style={{
+                          textShadow: "0 1px 3px rgba(0,0,0,0.25)",
+                          "--ph": whiteReadable ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.4)",
+                        } as React.CSSProperties}
+                        {...field}
+                      />
+                    </FormControl>
+                  </FormItem>
+                );
+              }}
+            />
+          </div>
+        </div>
+
         <FormField
           control={form.control}
           name="color"
@@ -566,11 +692,11 @@ function HabitForm({
           render={({ field }) => (
             <FormItem>
               <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Icon</FormLabel>
-              <IconPicker value={field.value} onChange={field.onChange} color={color} />
+              <IconPicker value={field.value} onChange={field.onChange} color={color} iconKeys={HABIT_ICON_KEYS} />
             </FormItem>
           )}
         />
-        <Button type="submit" disabled={isPending} className="w-full bg-[#A8FF3E] text-black hover:bg-[#9bfe32] border-0 rounded-2xl">
+        <Button type="submit" disabled={isPending} className="w-full bg-black text-white hover:bg-black/85 border-0 rounded-2xl font-bold">
           {submitLabel}
         </Button>
       </form>
@@ -590,67 +716,94 @@ function BillForm({
 }) {
   const color = form.watch("color");
   const autoSave = form.watch("autoSave");
+  const categoryId = form.watch("categoryId");
+  const selectedCategory = categories.find((c) => c.id === categoryId);
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
-        <FormField
-          control={form.control}
-          name="name"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Name</FormLabel>
-              <FormControl>
-                <Input placeholder="e.g. Insurance" className="rounded-2xl" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        {/* Nombre escrito directo sobre el color elegido — no input genérico.
+            El texto ya escrito siempre es blanco (a propósito), pero el placeholder
+            en blanco tenue se vuelve ilegible contra colores claros como Flow Green —
+            ahí, y solo ahí, el hint pasa a un tinte oscuro. */}
+        <div className="rounded-2xl overflow-hidden relative" style={{ background: color }}>
+          <div className="absolute -top-6 -right-4 w-16 h-16 rounded-full pointer-events-none" style={{ background: "rgba(255,255,255,0.28)" }} />
+          <div className="relative px-3.5 pt-3 pb-3">
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => {
+                const whiteReadable = categoryTextColor("#ffffff", color).toLowerCase() === "#ffffff";
+                return (
+                  <FormItem>
+                    <FormControl>
+                      <input
+                        placeholder="e.g. Insurance"
+                        autoComplete="off"
+                        className="w-full bg-transparent border-0 outline-none font-title text-lg leading-tight text-white placeholder:[color:var(--ph)]"
+                        style={{
+                          textShadow: "0 1px 3px rgba(0,0,0,0.25)",
+                          "--ph": whiteReadable ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.4)",
+                        } as React.CSSProperties}
+                        {...field}
+                      />
+                    </FormControl>
+                  </FormItem>
+                );
+              }}
+            />
+            <p className="text-[11px] font-bold uppercase tracking-wide text-white/85 mt-0.5" style={{ textShadow: "0 1px 3px rgba(0,0,0,0.25)" }}>
+              {selectedCategory ? selectedCategory.name : "Pick a category below"}
+            </p>
+          </div>
+        </div>
+
+        {/* Monto — display grande centrado, siempre con decimales (no todos los pagos son redondos) */}
         <FormField
           control={form.control}
           name="amount"
           render={({ field }) => (
             <FormItem>
-              <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Expected amount (optional)</FormLabel>
               <FormControl>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-muted-foreground pointer-events-none">{symbol}</span>
-                  <Input
-                    type="text"
-                    inputMode="decimal"
-                    placeholder="0.00"
-                    className="rounded-2xl pl-8"
-                    value={field.value ? formatAmountInput(String(field.value)) : ""}
-                    onChange={(e) => field.onChange(parseAmountInput(formatAmountInput(e.target.value)))}
-                  />
-                </div>
+                <AmountInput value={field.value} onChange={field.onChange} symbol={symbol} />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
+
+        {/* Categoría — pills simples, sin color (acá no aporta) */}
         <FormField
           control={form.control}
           name="categoryId"
           render={({ field }) => (
             <FormItem>
               <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Category</FormLabel>
-              <Select value={field.value ? String(field.value) : ""} onValueChange={(v) => field.onChange(Number(v))}>
-                <FormControl>
-                  <SelectTrigger className="rounded-2xl">
-                    <SelectValue placeholder="Pick a category" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {categories.map((c) => (
-                    <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex gap-1.5 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+                {categories.map((c) => {
+                  const isSelected = field.value === c.id;
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => field.onChange(c.id)}
+                      className={cn(
+                        "flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-2 text-[13px] font-bold transition-colors",
+                        isSelected ? "bg-foreground text-background" : "bg-muted text-foreground"
+                      )}
+                    >
+                      {isSelected && <Check className="h-3 w-3 shrink-0" strokeWidth={3} />}
+                      {c.name}
+                    </button>
+                  );
+                })}
+              </div>
               <FormMessage />
             </FormItem>
           )}
         />
+
+        {/* Auto-save — fila chica, siempre Flow Green */}
         <FormField
           control={form.control}
           name="autoSave"
@@ -659,12 +812,9 @@ function BillForm({
               <button
                 type="button"
                 onClick={() => field.onChange(!field.value)}
-                className="w-full flex items-center justify-between px-3.5 py-3 rounded-2xl bg-muted"
+                className="w-full flex items-center justify-between py-1"
               >
-                <span className="text-left">
-                  <span className="block text-sm font-bold">Auto-save to Transactions</span>
-                  <span className="block text-[11px] text-muted-foreground">Marking it paid asks the amount and logs a real expense</span>
-                </span>
+                <span className="text-sm font-bold text-left">Auto-save to Transactions</span>
                 <span
                   className="relative w-10 h-6 rounded-full shrink-0 transition-colors"
                   style={{ background: field.value ? "#A8FF3E" : "hsl(var(--border))" }}
@@ -678,9 +828,11 @@ function BillForm({
             </FormItem>
           )}
         />
-        {autoSave && !form.watch("categoryId") && (
+        {autoSave && !categoryId && (
           <p className="text-[11px] text-amber-600 -mt-1">Pick a category above so auto-save knows where to file it.</p>
         )}
+
+        {/* Color — dropdown básico, como Goal/Habit */}
         <FormField
           control={form.control}
           name="color"
@@ -691,17 +843,24 @@ function BillForm({
             </FormItem>
           )}
         />
+
+        {/* Icon */}
         <FormField
           control={form.control}
           name="icon"
           render={({ field }) => (
             <FormItem>
               <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Icon</FormLabel>
-              <IconPicker value={field.value} onChange={field.onChange} color={color} />
+              <IconPicker value={field.value} onChange={field.onChange} color={color} iconKeys={BILL_ICON_KEYS} />
             </FormItem>
           )}
         />
-        <Button type="submit" disabled={isPending} className="w-full bg-[#A8FF3E] text-black hover:bg-[#9bfe32] border-0 rounded-2xl">
+
+        <Button
+          type="submit"
+          disabled={isPending}
+          className="w-full bg-black text-white hover:bg-black/85 border-0 rounded-2xl font-bold"
+        >
           {submitLabel}
         </Button>
       </form>
@@ -758,21 +917,45 @@ function Heatmap({
 /* en vez de día: 12 celdas fijas, no semanas/columnas.                */
 /* ------------------------------------------------------------------ */
 
+/** Preview NO interactivo — mismo rol que el <Heatmap compact /> de Habits en la lista.
+ * La edición real vive en BillDetail (grid mensual con nav de año), evitando además
+ * anidar un <button> clickeable dentro del <button> que abre el detalle. */
 function MonthHeatmap({ months, logged, color }: { months: string[]; logged: Set<string>; color: string }) {
   const current = currentMonthKey();
   return (
-    <div className="grid grid-cols-12 gap-1">
-      {months.map((m) => {
-        const isFuture = m > current;
-        const isDone = logged.has(m);
-        return (
-          <div
-            key={m}
-            className="aspect-square rounded"
-            style={{ backgroundColor: isFuture ? "transparent" : isDone ? color : `${color}26` }}
-          />
-        );
-      })}
+    <div className="space-y-0.5">
+      <div className="grid grid-cols-12 gap-1">
+        {months.map((m) => {
+          const isFuture = m > current;
+          const isDone = logged.has(m);
+          const isCurrent = m === current;
+          return (
+            <div
+              key={m}
+              className="aspect-square rounded"
+              style={{
+                backgroundColor: isFuture ? "transparent" : isDone ? color : `${color}26`,
+                boxShadow: isCurrent ? `0 0 0 1.5px ${color}` : undefined,
+              }}
+            />
+          );
+        })}
+      </div>
+      <div className="grid grid-cols-12 gap-1">
+        {months.map((m) => {
+          const isCurrent = m === current;
+          const letter = MONTHS[Number(m.split("-")[1]) - 1][0];
+          return (
+            <p
+              key={m}
+              className="text-center text-[8px] leading-none font-semibold"
+              style={{ color: isCurrent ? color : "hsl(var(--muted-foreground))" }}
+            >
+              {letter}
+            </p>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -839,27 +1022,18 @@ function HabitDetail({
             <button onClick={onEdit} className="h-8 w-8 flex items-center justify-center rounded-xl bg-muted text-muted-foreground hover:text-foreground transition-all">
               <Pencil className="h-3.5 w-3.5" />
             </button>
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
+            <ConfirmDialog
+              trigger={
                 <button className="h-8 w-8 flex items-center justify-center rounded-xl bg-muted text-muted-foreground hover:text-destructive transition-all">
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Delete Habit</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Delete "{habit.name}" and all its history? This cannot be undone.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={onDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90 border-0">
-                    Delete
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+              }
+              icon={Trash2}
+              title="Delete Habit"
+              description={`Delete "${habit.name}" and all its history? This cannot be undone.`}
+              confirmLabel="Delete"
+              onConfirm={onDelete}
+            />
           </div>
         </div>
 
@@ -914,6 +1088,257 @@ function HabitDetail({
   );
 }
 
+/** Confirmación de borrar bill — variante especial del ConfirmDialog genérico:
+ * si el bill tiene transacciones reales vinculadas (auto-save), ofrece un
+ * checkbox para borrarlas también. Sin eso, el borrado del bill nunca toca
+ * las transacciones — son un movimiento de plata real, no algo que desaparece
+ * solo porque se borró el tracker recurrente. */
+function DeleteBillDialog({
+  trigger, bill, onConfirm,
+}: {
+  trigger: React.ReactNode;
+  bill: Bill;
+  onConfirm: (deleteTransactions: boolean) => void;
+}) {
+  const [deleteTx, setDeleteTx] = useState(false);
+  const hasLinked = bill.linkedTransactionCount > 0;
+
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>{trigger}</AlertDialogTrigger>
+      <AlertDialogContent className="max-w-xs rounded-3xl border-0 p-6 gap-0">
+        <div className="flex flex-col items-center text-center gap-3 mb-1">
+          <div className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0" style={{ background: "rgba(239,68,68,0.12)" }}>
+            <Trash2 className="h-5 w-5" style={{ color: "hsl(var(--destructive))" }} />
+          </div>
+          <AlertDialogHeader className="items-center text-center space-y-1.5">
+            <AlertDialogTitle className="text-base font-bold">Delete Bill</AlertDialogTitle>
+            <AlertDialogDescription className="text-sm text-center leading-relaxed">
+              Delete "{bill.name}" and all its history? This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+        </div>
+
+        {hasLinked && (
+          <button
+            type="button"
+            onClick={() => setDeleteTx((v) => !v)}
+            className="w-full flex items-center gap-2.5 rounded-2xl bg-muted px-3.5 py-3 mt-1 mb-1 text-left"
+          >
+            <span
+              className="w-5 h-5 rounded-md flex items-center justify-center shrink-0 transition-colors"
+              style={{
+                backgroundColor: deleteTx ? "hsl(var(--destructive))" : "transparent",
+                boxShadow: deleteTx ? "none" : "inset 0 0 0 1.5px hsl(var(--border))",
+              }}
+            >
+              {deleteTx && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
+            </span>
+            <span className="text-xs font-semibold leading-tight">
+              Also delete {bill.linkedTransactionCount} linked transaction{bill.linkedTransactionCount === 1 ? "" : "s"}
+            </span>
+          </button>
+        )}
+
+        <AlertDialogFooter className="flex-col-reverse gap-2 pt-2 sm:flex-col-reverse">
+          <AlertDialogCancel className="w-full rounded-2xl border-0 bg-muted font-semibold hover:bg-muted/80">
+            Cancel
+          </AlertDialogCancel>
+          <AlertDialogAction
+            onClick={() => onConfirm(deleteTx)}
+            className="w-full rounded-2xl font-bold border-0 bg-destructive text-white hover:bg-destructive/90"
+          >
+            Delete
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Detalle de bill — mismo lenguaje que HabitDetail, grano mensual:    */
+/* grid de 12 meses (3x4) con nav de AÑO en vez de calendario diario   */
+/* con nav de mes.                                                     */
+/* ------------------------------------------------------------------ */
+
+function BillDetail({
+  bill, onClose, onToggleMonth, onEdit, onDelete, category, symbol,
+}: {
+  bill: Bill;
+  onClose: () => void;
+  onToggleMonth: (month: string) => void;
+  onEdit: () => void;
+  onDelete: (deleteTransactions: boolean) => void;
+  category: { name: string } | undefined;
+  symbol: string;
+}) {
+  const [year, setYear] = useState(new Date().getFullYear());
+  const color = bill.color ?? "#A8FF3E";
+  const logged = useMemo(() => new Set(bill.logs), [bill.logs]);
+  const months = useMemo(() => monthsOfYear(year), [year]);
+  const overviewMonths = useMemo(() => monthsOfYear(new Date().getFullYear()), []);
+  const current = currentMonthKey();
+  const paidThisYear = bill.logs.filter((m) => m.startsWith(String(year))).length;
+
+  const prevYear = () => setYear((y) => y - 1);
+  const nextYear = () => setYear((y) => y + 1);
+
+  return (
+    <FloatingModal open onClose={onClose} title="">
+      <div className="-mt-8 space-y-3">
+        <div className="flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${color}25` }}>
+            <HabitIcon icon={bill.icon} className="h-4 w-4" style={{ color }} />
+          </div>
+          <div className="min-w-0">
+            <p className="font-bold text-base leading-tight uppercase tracking-wide truncate">{bill.name}</p>
+            <p className="text-[11px] text-muted-foreground leading-tight truncate">
+              {bill.amount ? `${symbol} ${fmtMoney(bill.amount)}` : category?.name ?? "No category"}
+              {bill.autoSave && " · Auto-save"}
+            </p>
+          </div>
+        </div>
+
+        <MonthHeatmap months={overviewMonths} logged={logged} color={color} />
+
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-muted">
+            <span className="text-sm font-bold">{paidThisYear}</span>
+            <span className="text-[11px] text-muted-foreground">/12 paid in {year}</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <button onClick={onEdit} className="h-8 w-8 flex items-center justify-center rounded-xl bg-muted text-muted-foreground hover:text-foreground transition-all">
+              <Pencil className="h-3.5 w-3.5" />
+            </button>
+            <DeleteBillDialog
+              trigger={
+                <button className="h-8 w-8 flex items-center justify-center rounded-xl bg-muted text-muted-foreground hover:text-destructive transition-all">
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              }
+              bill={bill}
+              onConfirm={onDelete}
+            />
+          </div>
+        </div>
+
+        <div className="h-px bg-border" />
+
+        <div>
+          <div className="grid grid-cols-3 gap-2">
+            {months.map((m, i) => {
+              const isFuture = m > current;
+              const isDone = logged.has(m);
+              const isCurrent = m === current;
+              return (
+                <button
+                  key={m}
+                  disabled={isFuture}
+                  onClick={() => onToggleMonth(m)}
+                  className={cn(
+                    "rounded-lg py-3 text-xs font-bold transition-all active:scale-90",
+                    isFuture && "opacity-30"
+                  )}
+                  style={{
+                    backgroundColor: isDone ? color : "hsl(var(--muted) / 0.5)",
+                    color: isDone ? "#000" : undefined,
+                    boxShadow: isCurrent ? `0 0 0 2px ${color}` : undefined,
+                  }}
+                >
+                  {MONTHS[i]}
+                </button>
+              );
+            })}
+          </div>
+          <div className="flex items-center justify-between mt-2.5">
+            <p className="text-sm font-bold">{year}</p>
+            <div className="flex items-center gap-1.5">
+              <button onClick={prevYear} className="h-7 w-7 flex items-center justify-center rounded-xl bg-muted">
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <button onClick={nextYear} className="h-7 w-7 flex items-center justify-center rounded-xl bg-muted">
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </FloatingModal>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Detalle de goal — mismo lenguaje que HabitDetail/BillDetail: header,   */
+/* "preview" (acá la barra de progreso en vez de heatmap/calendario),     */
+/* resumen + edit/delete. No hay grid interactivo porque no aplica.       */
+/* ------------------------------------------------------------------ */
+
+function GoalDetail({
+  goal, onClose, onAddMoney, onEdit, onDelete, symbol,
+}: {
+  goal: Goal;
+  onClose: () => void;
+  onAddMoney: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+  symbol: string;
+}) {
+  const color = goal.color ?? "#A8FF3E";
+  const pct = goal.targetAmount > 0 ? Math.min(100, (goal.currentAmount / goal.targetAmount) * 100) : 0;
+  const remaining = Math.max(0, goal.targetAmount - goal.currentAmount);
+
+  return (
+    <FloatingModal open onClose={onClose} title="">
+      <div className="-mt-8 space-y-3">
+        <div className="flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${color}25` }}>
+            <HabitIcon icon={goal.icon} className="h-4 w-4" style={{ color }} />
+          </div>
+          <p className="font-bold text-base leading-tight uppercase tracking-wide truncate">{goal.name}</p>
+        </div>
+
+        {/* Reencuadre: lo que falta, no lo que ya se ve en la lista */}
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Still needed</p>
+          <p className="font-number text-3xl leading-tight" style={{ color }}>{symbol} {fmtMoney(remaining)}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {symbol} {fmtMoney(goal.currentAmount)} saved of {symbol} {fmtMoney(goal.targetAmount)} · {Math.round(pct)}%
+          </p>
+          <div className="h-2 rounded-full overflow-hidden mt-2" style={{ background: `${color}22` }}>
+            <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: color }} />
+          </div>
+        </div>
+
+        <Button onClick={onAddMoney} className="w-full bg-black text-white hover:bg-black/85 border-0 rounded-2xl font-bold">
+          <Plus className="h-4 w-4" strokeWidth={3} />
+          Add money
+        </Button>
+
+        <div className="flex items-center gap-2">
+          <button onClick={onEdit} className="flex-1 h-10 flex items-center justify-center gap-1.5 rounded-xl bg-muted text-sm font-semibold text-muted-foreground hover:text-foreground transition-all">
+            <Pencil className="h-3.5 w-3.5" />
+            Edit
+          </button>
+          <ConfirmDialog
+            trigger={
+              <button className="flex-1 h-10 w-full flex items-center justify-center gap-1.5 rounded-xl bg-muted text-sm font-semibold text-muted-foreground hover:text-destructive transition-all">
+                <Trash2 className="h-3.5 w-3.5" />
+                Delete
+              </button>
+            }
+            icon={Trash2}
+            title="Delete Goal"
+            description={`Delete "${goal.name}"? This cannot be undone.`}
+            confirmLabel="Delete"
+            onConfirm={onDelete}
+          />
+        </div>
+      </div>
+    </FloatingModal>
+  );
+}
+
 /* ------------------------------------------------------------------ */
 /* Página                                                              */
 /* ------------------------------------------------------------------ */
@@ -926,12 +1351,15 @@ export default function Goals() {
   const [habitModal, setHabitModal] = useState<"create" | number | null>(null);
   const [billModal, setBillModal] = useState<"create" | number | null>(null);
   const [detailId, setDetailId] = useState<number | null>(null);
+  const [billDetailId, setBillDetailId] = useState<number | null>(null);
+  const [goalDetailId, setGoalDetailId] = useState<number | null>(null);
   const [addMoneyGoal, setAddMoneyGoal] = useState<Goal | null>(null);
   const [addAmount, setAddAmount] = useState("");
   const [activeTab, setActiveTab] = useState<"savings" | "habits" | "bills">(
     () => (new URLSearchParams(window.location.search).get("tab") === "bills" ? "bills" : "savings")
   );
   const [payBill, setPayBill] = useState<Bill | null>(null);
+  const [payMonth, setPayMonth] = useState<string | null>(null);
   const [payAmount, setPayAmount] = useState("");
 
   // Símbolo de la moneda elegida en settings (Q, $, €, ...)
@@ -1159,6 +1587,7 @@ export default function Goals() {
         createdAt: new Date().toISOString(),
         logs: [],
         paidThisMonth: false,
+        linkedTransactionCount: 0,
       };
       queryClient.setQueryData<Bill[]>(["bills"], (old) => [temp, ...(old ?? [])]);
       return { prev };
@@ -1190,16 +1619,20 @@ export default function Goals() {
   });
 
   const deleteBill = useMutation({
-    mutationFn: (id: number) => api(`/bills/${id}`, { method: "DELETE" }),
-    onMutate: async (id) => {
+    mutationFn: ({ id, deleteTransactions }: { id: number; deleteTransactions: boolean }) =>
+      api(`/bills/${id}${deleteTransactions ? "?deleteTransactions=true" : ""}`, { method: "DELETE" }),
+    onMutate: async ({ id }) => {
       await queryClient.cancelQueries({ queryKey: ["bills"] });
       const prev = queryClient.getQueryData<Bill[]>(["bills"]);
       queryClient.setQueryData<Bill[]>(["bills"], (old) => (old ?? []).filter((b) => b.id !== id));
       return { prev };
     },
-    onError: (_e, _id, ctx) => {
+    onError: (_e, _v, ctx) => {
       if (ctx?.prev) queryClient.setQueryData(["bills"], ctx.prev);
       toast({ title: "Failed to delete bill", variant: "destructive" });
+    },
+    onSuccess: (_data, { deleteTransactions }) => {
+      if (deleteTransactions) invalidateTransactions();
     },
     onSettled: () => invalidateBills(),
   });
@@ -1281,17 +1714,17 @@ export default function Goals() {
 
   const billForm = useForm<BillFormValues>({
     resolver: zodResolver(billSchema),
-    defaultValues: { name: "", icon: "creditcard", color: "#e6b3e7", amount: undefined, categoryId: undefined, autoSave: false },
+    defaultValues: { name: "", icon: "creditcard", color: "#A8FF3E", amount: undefined, categoryId: undefined, autoSave: false },
   });
 
   const openCreateBill = () => {
-    billForm.reset({ name: "", icon: "creditcard", color: "#e6b3e7", amount: undefined, categoryId: undefined, autoSave: false });
+    billForm.reset({ name: "", icon: "creditcard", color: "#A8FF3E", amount: undefined, categoryId: undefined, autoSave: false });
     setBillModal("create");
   };
 
   const openEditBill = (b: Bill) => {
     billForm.reset({
-      name: b.name, icon: b.icon ?? "creditcard", color: b.color ?? "#e6b3e7",
+      name: b.name, icon: b.icon ?? "creditcard", color: b.color ?? "#A8FF3E",
       amount: b.amount ?? undefined, categoryId: b.categoryId ?? undefined, autoSave: b.autoSave,
     });
     setBillModal(b.id);
@@ -1302,18 +1735,21 @@ export default function Goals() {
     else if (typeof billModal === "number") updateBill.mutate({ id: billModal, data });
   };
 
-  // Al desmarcar no hace falta preguntar nada — solo se borra el "pagado" de este mes.
-  // Al marcar: si el bill tiene auto-save, se pide el monto real y se crea la transacción
-  // antes de loguear el mes como pagado (para poder linkear transactionId).
-  const handleTogglePaid = (b: Bill) => {
+  // Al desmarcar no hace falta preguntar nada — solo se borra el "pagado" de ese mes.
+  // Al marcar (cualquier mes del heatmap, no solo el actual): si el bill tiene auto-save,
+  // se pide el monto real y se crea la transacción antes de loguear el mes como pagado
+  // (para poder linkear transactionId). Sin auto-save, solo se loguea el mes.
+  const handleToggleBillMonth = (b: Bill, month: string) => {
     if (b.id < 0) return;
-    const month = currentMonthKey();
-    if (b.paidThisMonth) {
+    const isPaid = new Set(b.logs).has(month);
+    if (isPaid) {
       toggleBillLog.mutate({ id: b.id, month });
       return;
     }
     if (b.autoSave && b.categoryId) {
+      setBillDetailId(null);
       setPayBill(b);
+      setPayMonth(month);
       setPayAmount(b.amount ? formatAmountInput(String(b.amount)) : "");
       return;
     }
@@ -1321,17 +1757,17 @@ export default function Goals() {
   };
 
   const handlePaySubmit = () => {
-    if (!payBill) return;
-    const month = currentMonthKey();
+    if (!payBill || !payMonth) return;
     const numeric = parseAmountInput(payAmount);
     if (!numeric || numeric <= 0 || !payBill.categoryId) return;
     createTransaction.mutate(
-      { data: { type: "expense", amount: numeric, description: payBill.name, categoryId: payBill.categoryId, date: `${month}-01` } },
+      { data: { type: "expense", amount: numeric, description: payBill.name, categoryId: payBill.categoryId, date: `${payMonth}-01` } },
       {
         onSuccess: (tx: any) => {
           invalidateTransactions();
-          toggleBillLog.mutate({ id: payBill.id, month, amountPaid: numeric, transactionId: tx?.id });
+          toggleBillLog.mutate({ id: payBill.id, month: payMonth, amountPaid: numeric, transactionId: tx?.id });
           setPayBill(null);
+          setPayMonth(null);
           toast({ title: `${payBill.name} marked as paid` });
         },
         onError: () => toast({ title: "Failed to save transaction", variant: "destructive" }),
@@ -1345,9 +1781,11 @@ export default function Goals() {
   const habits = habitsQuery.data ?? [];
   const bills = billsQuery.data ?? [];
   const heatmapWeeks = useMemo(() => buildWeeks(30), []);
-  const billMonths = useMemo(() => buildMonths(12), []);
+  const billMonths = useMemo(() => monthsOfYear(new Date().getFullYear()), []);
   const today = todayKey();
   const detailHabit = detailId !== null ? habits.find((h) => h.id === detailId) ?? null : null;
+  const detailBill = billDetailId !== null ? bills.find((b) => b.id === billDetailId) ?? null : null;
+  const detailGoal = goalDetailId !== null ? goals.find((g) => g.id === goalDetailId) ?? null : null;
   const isLoading = goalsQuery.isLoading || habitsQuery.isLoading || billsQuery.isLoading;
 
   // Resumen para las cards pastel de zona
@@ -1384,8 +1822,18 @@ export default function Goals() {
         </div>
       )}
 
-      {/* Pill switcher — Goals / Habits / Bills */}
-      <div className="flex gap-1 p-1 rounded-2xl bg-muted w-fit">
+      {/* Switcher — Goals / Habits / Bills, mismo lenguaje que RangeSwitch del dashboard */}
+      <div className="relative grid grid-cols-3 rounded-full bg-muted p-1">
+        <span
+          aria-hidden="true"
+          className="absolute inset-y-1 rounded-full transition-transform duration-300 ease-out"
+          style={{
+            width: "calc(33.333% - 0.1667rem)",
+            transform:
+              activeTab === "habits" ? "translateX(100%)" : activeTab === "bills" ? "translateX(200%)" : "translateX(0)",
+            background: "#A8FF3E",
+          }}
+        />
         {([
           { key: "savings", label: "Goals" },
           { key: "habits", label: "Habits" },
@@ -1395,8 +1843,8 @@ export default function Goals() {
             key={t.key}
             onClick={() => setActiveTab(t.key)}
             className={cn(
-              "px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all",
-              activeTab === t.key ? "bg-card shadow-sm" : "text-muted-foreground"
+              "relative z-10 py-2.5 text-sm font-bold transition-colors duration-300",
+              activeTab === t.key ? "text-black" : "text-muted-foreground"
             )}
           >
             {t.label}
@@ -1437,57 +1885,39 @@ export default function Goals() {
                 {goals.map((g) => {
                   const color = g.color ?? "#A8FF3E";
                   const pct = g.targetAmount > 0 ? Math.min(100, (g.currentAmount / g.targetAmount) * 100) : 0;
+                  const isPending = g.id < 0;
                   return (
-                    <div key={g.id} className="rounded-2xl px-3.5 py-3" style={{ background: `${color}14` }}>
+                    <div key={g.id} className={cn("rounded-2xl px-3.5 py-3 transition-opacity", isPending && "opacity-50")} style={{ background: `${color}14` }}>
                       <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2.5 min-w-0">
+                        <button onClick={() => setGoalDetailId(g.id)} className="flex items-center gap-2.5 min-w-0 flex-1 text-left">
                           <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${color}25` }}>
                             <HabitIcon icon={g.icon} className="h-4 w-4" style={{ color }} />
                           </div>
                           <div className="min-w-0">
-                            <p className="text-sm font-bold leading-tight truncate">{g.name}</p>
+                            <div className="flex items-center gap-1.5">
+                              <p className="text-sm font-bold leading-tight truncate">{g.name}</p>
+                              {isPending && <span className="text-[10px] font-semibold text-muted-foreground shrink-0">Saving…</span>}
+                            </div>
                             <p className="text-[11px] text-muted-foreground leading-tight">
                               {symbol} {fmtMoney(g.currentAmount)} <span className="opacity-60">/ {symbol} {fmtMoney(g.targetAmount)}</span>
                             </p>
                           </div>
-                        </div>
-                        <div className="flex items-center gap-1 shrink-0">
-                          <span className="text-xs font-bold" style={{ color }}>{Math.round(pct)}%</span>
-                          <button
-                            onClick={() => { if (g.id < 0) return; setAddMoneyGoal(g); setAddAmount(""); }}
-                            className="h-7 px-2 flex items-center gap-0.5 rounded-lg text-black text-[11px] font-bold active:scale-90 transition-transform"
-                            style={{ backgroundColor: color }}
-                          >
-                            <Plus className="h-3 w-3" strokeWidth={3} />
-                            {symbol}
-                          </button>
-                          <button onClick={() => { if (g.id < 0) return; openEditGoal(g); }} className="h-6 w-6 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-all">
-                            <Pencil className="h-3 w-3" />
-                          </button>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <button className="h-6 w-6 flex items-center justify-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all">
-                                <Trash2 className="h-3 w-3" />
-                              </button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Delete Goal</AlertDialogTitle>
-                                <AlertDialogDescription>Delete "{g.name}"? This cannot be undone.</AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => deleteGoal.mutate(g.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90 border-0">
-                                  Delete
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </div>
+                        </button>
+                        <button
+                          onClick={() => { if (isPending) return; setAddMoneyGoal(g); setAddAmount(""); }}
+                          disabled={isPending}
+                          className="h-9 px-3 flex items-center gap-1 rounded-lg text-black text-xs font-bold active:scale-90 transition-transform shrink-0"
+                          style={{ backgroundColor: color }}
+                        >
+                          <Plus className="h-3.5 w-3.5" strokeWidth={3} />
+                          {symbol}
+                        </button>
                       </div>
-                      <div className="mt-2 h-2 rounded-full overflow-hidden" style={{ background: `${color}22` }}>
-                        <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: color }} />
-                      </div>
+                      <button onClick={() => setGoalDetailId(g.id)} className="w-full mt-2" disabled={isPending}>
+                        <div className="h-2 rounded-full overflow-hidden" style={{ background: `${color}22` }}>
+                          <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: color }} />
+                        </div>
+                      </button>
                     </div>
                   );
                 })}
@@ -1541,7 +1971,7 @@ export default function Goals() {
                         </button>
                         <button
                           onClick={() => { if (h.id < 0) return; toggleLog.mutate({ id: h.id, date: today }); }}
-                          className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-all active:scale-90"
+                          className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-all active:scale-90"
                           style={{ backgroundColor: doneToday ? color : `${color}30` }}
                         >
                           <Check className="h-4 w-4" style={{ color: doneToday ? "#000" : color }} strokeWidth={3} />
@@ -1563,11 +1993,11 @@ export default function Goals() {
           <div>
             <div className="flex items-center justify-between mb-1.5 px-1">
               <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: "#e6b3e7" }} />
+                <div className="w-2 h-2 rounded-full bg-[#A8FF3E]" />
                 <p className="text-xs font-bold uppercase tracking-widest text-foreground">Bills</p>
                 <span className="text-xs text-muted-foreground">({bills.length})</span>
               </div>
-              <button onClick={openCreateBill} className="h-7 px-2.5 flex items-center gap-1 rounded-lg text-black text-xs font-bold active:scale-95 transition-transform" style={{ backgroundColor: "#e6b3e7" }}>
+              <button onClick={openCreateBill} className="h-7 px-2.5 flex items-center gap-1 rounded-lg bg-[#A8FF3E] text-black text-xs font-bold active:scale-95 transition-transform">
                 <Plus className="h-3.5 w-3.5" strokeWidth={3} />
                 New
               </button>
@@ -1581,60 +2011,40 @@ export default function Goals() {
             ) : (
               <div className="space-y-1.5">
                 {bills.map((b) => {
-                  const color = b.color ?? "#e6b3e7";
+                  const color = b.color ?? "#A8FF3E";
                   const logged = new Set(b.logs);
                   const category = expenseCategories.find((c: any) => c.id === b.categoryId);
+                  const isPending = b.id < 0;
                   return (
-                    <div key={b.id} className="rounded-2xl px-3.5 py-3 space-y-2" style={{ background: `${color}18` }}>
+                    <div key={b.id} className={cn("rounded-2xl px-3.5 py-3 space-y-2 transition-opacity", isPending && "opacity-50")} style={{ background: `${color}10` }}>
                       <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                          <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${color}30` }}>
+                        <button onClick={() => setBillDetailId(b.id)} className="flex items-center gap-2.5 min-w-0 flex-1 text-left">
+                          <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${color}25` }}>
                             <HabitIcon icon={b.icon} className="h-4 w-4" style={{ color }} />
                           </div>
                           <div className="min-w-0">
                             <div className="flex items-center gap-1.5">
                               <p className="text-xs font-bold uppercase tracking-wide leading-tight truncate">{b.name}</p>
-                              {b.autoSave && <Sparkles className="h-3 w-3 shrink-0" style={{ color }} />}
+                              {isPending && <span className="text-[10px] font-semibold text-muted-foreground shrink-0">Saving…</span>}
                             </div>
                             <p className="text-[11px] text-muted-foreground leading-tight truncate">
                               {b.amount ? `${symbol} ${fmtMoney(b.amount)}` : category?.name ?? "No category"}
+                              {b.autoSave && " · Auto-save"}
                             </p>
                           </div>
-                        </div>
-                        <div className="flex items-center gap-1 shrink-0">
-                          <button
-                            onClick={() => handleTogglePaid(b)}
-                            className="h-9 px-3 rounded-xl flex items-center gap-1 text-xs font-bold transition-all active:scale-90"
-                            style={{ backgroundColor: b.paidThisMonth ? color : `${color}30`, color: b.paidThisMonth ? "#000" : color }}
-                          >
-                            <Check className="h-3.5 w-3.5" strokeWidth={3} />
-                            {b.paidThisMonth ? "Paid" : "Mark paid"}
-                          </button>
-                          <button onClick={() => { if (b.id < 0) return; openEditBill(b); }} className="h-6 w-6 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-all">
-                            <Pencil className="h-3 w-3" />
-                          </button>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <button className="h-6 w-6 flex items-center justify-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all">
-                                <Trash2 className="h-3 w-3" />
-                              </button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Delete Bill</AlertDialogTitle>
-                                <AlertDialogDescription>Delete "{b.name}" and all its history? This cannot be undone.</AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => deleteBill.mutate(b.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90 border-0">
-                                  Delete
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </div>
+                        </button>
+                        <button
+                          onClick={() => handleToggleBillMonth(b, currentMonthKey())}
+                          disabled={isPending}
+                          className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-all active:scale-90"
+                          style={{ backgroundColor: b.paidThisMonth ? color : `${color}30` }}
+                        >
+                          <Check className="h-4 w-4" style={{ color: b.paidThisMonth ? "#000" : color }} strokeWidth={3} />
+                        </button>
                       </div>
-                      <MonthHeatmap months={billMonths} logged={logged} color={color} />
+                      <button onClick={() => setBillDetailId(b.id)} className="w-full" disabled={isPending}>
+                        <MonthHeatmap months={billMonths} logged={logged} color={color} />
+                      </button>
                     </div>
                   );
                 })}
@@ -1687,7 +2097,7 @@ export default function Goals() {
                 if (!addMoneyGoal || Number.isNaN(n) || n <= 0) return;
                 addToGoal.mutate({ id: addMoneyGoal.id, newAmount: addMoneyGoal.currentAmount + n });
               }}
-              className="w-full bg-[#A8FF3E] text-black hover:bg-[#9bfe32] border-0 rounded-2xl"
+              className="w-full bg-black text-white hover:bg-black/85 border-0 rounded-2xl font-bold"
             >
               Add {symbol} {addAmount || "0"}
             </Button>
@@ -1715,8 +2125,12 @@ export default function Goals() {
       </FloatingModal>
 
       {/* Marcar bill como pagado — pide el monto real para auto-save */}
-      <FloatingModal open={payBill !== null} onClose={() => setPayBill(null)} title={payBill ? `Mark "${payBill.name}" as paid` : ""}>
-        {payBill && (
+      <FloatingModal
+        open={payBill !== null}
+        onClose={() => { setPayBill(null); setPayMonth(null); }}
+        title={payBill && payMonth ? `Mark "${payBill.name}" as paid` : ""}
+      >
+        {payBill && payMonth && (
           <div className="space-y-3">
             <div className="relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-bold text-muted-foreground">{symbol}</span>
@@ -1726,18 +2140,21 @@ export default function Goals() {
                 placeholder="0.00"
                 value={payAmount}
                 onChange={(e) => setPayAmount(formatAmountInput(e.target.value))}
+                onBlur={() => {
+                  const n = parseAmountInput(payAmount);
+                  setPayAmount(n ? fmtMoney(n) : "");
+                }}
                 className="rounded-2xl pl-10 text-lg font-bold"
                 autoFocus
               />
             </div>
             <p className="text-xs text-muted-foreground text-center">
-              This creates a real expense in Transactions for this month.
+              This creates a real expense in Transactions for {fmtMonthLabel(payMonth)}.
             </p>
             <Button
               onClick={handlePaySubmit}
               disabled={createTransaction.isPending || !parseAmountInput(payAmount)}
-              className="w-full text-black hover:opacity-90 border-0 rounded-2xl"
-              style={{ backgroundColor: "#e6b3e7" }}
+              className="w-full bg-black text-white hover:bg-black/85 border-0 rounded-2xl font-bold"
             >
               Confirm {symbol} {payAmount || "0"}
             </Button>
@@ -1752,6 +2169,29 @@ export default function Goals() {
           onToggleDay={(date) => { if (detailHabit.id < 0) return; toggleLog.mutate({ id: detailHabit.id, date }); }}
           onEdit={() => { setDetailId(null); openEditHabit(detailHabit); }}
           onDelete={() => deleteHabit.mutate(detailHabit.id)}
+        />
+      )}
+
+      {detailBill && (
+        <BillDetail
+          bill={detailBill}
+          category={expenseCategories.find((c: any) => c.id === detailBill.categoryId)}
+          symbol={symbol}
+          onClose={() => setBillDetailId(null)}
+          onToggleMonth={(month) => handleToggleBillMonth(detailBill, month)}
+          onEdit={() => { setBillDetailId(null); openEditBill(detailBill); }}
+          onDelete={(deleteTransactions) => { setBillDetailId(null); deleteBill.mutate({ id: detailBill.id, deleteTransactions }); }}
+        />
+      )}
+
+      {detailGoal && (
+        <GoalDetail
+          goal={detailGoal}
+          symbol={symbol}
+          onClose={() => setGoalDetailId(null)}
+          onAddMoney={() => { setGoalDetailId(null); setAddMoneyGoal(detailGoal); setAddAmount(""); }}
+          onEdit={() => { setGoalDetailId(null); openEditGoal(detailGoal); }}
+          onDelete={() => { setGoalDetailId(null); deleteGoal.mutate(detailGoal.id); }}
         />
       )}
     </div>

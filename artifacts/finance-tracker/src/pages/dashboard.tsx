@@ -21,7 +21,26 @@ const BILLS_COLOR = "#e6b3e7";
 function BillsWidget() {
   const { data: bills, isLoading } = useQuery(billsQueryOptions);
 
-  if (isLoading || !bills || bills.length === 0) return null;
+  if (isLoading) return null;
+
+  if (!bills || bills.length === 0) {
+    return (
+      <Link href="/goals?tab=bills" className="mt-8 block">
+        <button className="w-full rounded-2xl border p-4 text-left transition-opacity active:opacity-80" style={{ borderColor: `${BILLS_COLOR}40`, background: `${BILLS_COLOR}10` }}>
+          <div className="flex items-center gap-3">
+            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl" style={{ background: `${BILLS_COLOR}30` }}>
+              <CreditCard className="h-4.5 w-4.5" style={{ color: BILLS_COLOR }} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-bold leading-tight text-foreground">Track your monthly bills</p>
+              <p className="truncate text-[11px] text-muted-foreground">Insurance, rent, subscriptions — mark them paid each month</p>
+            </div>
+            <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={2} />
+          </div>
+        </button>
+      </Link>
+    );
+  }
 
   const paid = bills.filter((b) => b.paidThisMonth).length;
   const total = bills.length;
@@ -35,28 +54,17 @@ function BillsWidget() {
 
   return (
     <Link href="/goals?tab=bills" className="mt-8 block">
-      <button className="w-full rounded-2xl border p-4 text-left transition-opacity active:opacity-80" style={{ borderColor: `${BILLS_COLOR}40`, background: `${BILLS_COLOR}10` }}>
-        <div className="flex items-center justify-between">
-          <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest" style={{ color: BILLS_COLOR }}>
-            <CreditCard className="h-3.5 w-3.5" />
-            Monthly bills
-          </span>
-          <ChevronRight className="h-4 w-4 text-muted-foreground" strokeWidth={2} />
+      <button className="flex w-full items-center gap-3 rounded-2xl border p-4 text-left transition-opacity active:opacity-80" style={{ borderColor: `${BILLS_COLOR}40`, background: `${BILLS_COLOR}10` }}>
+        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl" style={{ background: `${BILLS_COLOR}30` }}>
+          <CreditCard className="h-4.5 w-4.5" style={{ color: BILLS_COLOR }} />
         </div>
-        <p className="font-number mt-2 text-2xl leading-none text-foreground">
-          {paid}
-          <span className="text-sm text-muted-foreground">/{total} paid</span>
-        </p>
-        <div className="mt-3 flex gap-1">
-          {bills.map((b) => (
-            <div
-              key={b.id}
-              className="h-2 flex-1 rounded-full"
-              style={{ background: b.paidThisMonth ? BILLS_COLOR : "hsl(var(--foreground) / 0.08)" }}
-            />
-          ))}
+        <div className="min-w-0 flex-1">
+          <p className="font-number text-lg leading-tight text-foreground">
+            {paid}<span className="text-xs text-muted-foreground">/{total} paid</span>
+          </p>
+          <p className="truncate text-[11px] text-muted-foreground">{caption}</p>
         </div>
-        <p className="mt-2 truncate text-[11px] text-muted-foreground">{caption}</p>
+        <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={2} />
       </button>
     </Link>
   );

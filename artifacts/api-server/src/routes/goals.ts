@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { goalsTable, habitsTable, habitLogsTable, billsTable, billLogsTable } from "@workspace/db";
+import { goalsTable, habitsTable, habitLogsTable, billsTable, billLogsTable, transactionsTable } from "@workspace/db";
 import { eq, and, gte, lte, desc, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { authMiddleware } from "../middlewares/auth";
@@ -340,7 +340,7 @@ router.get("/bills", async (req, res) => {
 
   const billIds = bills.map((b) => b.id);
   const allLogs = await db
-    .select({ billId: billLogsTable.billId, month: billLogsTable.month })
+    .select({ billId: billLogsTable.billId, month: billLogsTable.month, transactionId: billLogsTable.transactionId })
     .from(billLogsTable)
     .where(inArray(billLogsTable.billId, billIds));
 
@@ -353,6 +353,7 @@ router.get("/bills", async (req, res) => {
       createdAt: b.createdAt.toISOString(),
       logs: allLogs.filter((l) => l.billId === b.id).map((l) => l.month),
       paidThisMonth: allLogs.some((l) => l.billId === b.id && l.month === thisMonth),
+      linkedTransactionCount: allLogs.filter((l) => l.billId === b.id && l.transactionId !== null).length,
     })),
   );
 });
@@ -384,6 +385,7 @@ router.post("/bills", async (req, res) => {
     createdAt: row.createdAt.toISOString(),
     logs: [],
     paidThisMonth: false,
+    linkedTransactionCount: 0,
   });
 });
 
@@ -431,6 +433,21 @@ router.delete("/bills/:id", async (req, res) => {
     .where(and(eq(billsTable.id, id), eq(billsTable.userId, userId)))
     .limit(1);
   if (!bill) return res.status(404).json({ error: "Not found" });
+
+  // Si el front pide borrar también las transacciones reales creadas por auto-save
+  // (?deleteTransactions=true), las recolectamos ANTES de borrar los logs (que las
+  // referencian) — son transacciones de este mismo usuario porque nacieron de un
+  // bill suyo, no hace falta re-validar userId por transacción.
+  if (req.query.deleteTransactions === "true") {
+    const logsWithTx = await db
+      .select({ transactionId: billLogsTable.transactionId })
+      .from(billLogsTable)
+      .where(eq(billLogsTable.billId, id));
+    const txIds = logsWithTx.map((l) => l.transactionId).filter((t): t is number => t !== null);
+    if (txIds.length > 0) {
+      await db.delete(transactionsTable).where(inArray(transactionsTable.id, txIds));
+    }
+  }
 
   await db.delete(billLogsTable).where(eq(billLogsTable.billId, id));
   await db.delete(billsTable).where(eq(billsTable.id, id));
