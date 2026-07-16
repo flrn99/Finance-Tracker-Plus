@@ -80,11 +80,11 @@ function HomeScreen({ onLogin, onGoogle, onRegister, isGoogleLoading }: {
         >
           <img
             src={slide.image}
-            alt="Flow Finance"
+            alt="Flow!"
             className="w-full h-full object-cover object-top transition-opacity duration-500"
           />
           <div className="absolute bottom-0 left-0 right-0 p-6" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 100%)" }}>
-            <h1 className="text-white font-serif font-bold text-3xl leading-tight whitespace-pre-line" style={{ textTransform: "none" }}>{slide.title}</h1>
+            <h1 className="font-display text-white text-3xl leading-tight whitespace-pre-line">{slide.title}</h1>
             <p className="text-white/80 text-sm mt-1">{slide.sub}</p>
           </div>
           <div className="absolute bottom-4 right-5 flex gap-1.5">
@@ -163,11 +163,11 @@ function LoginForm({ mode, onBack, onForgot, onRegister, onSubmit, isLoading,
       <div className="flex-1 flex flex-col justify-center px-6 max-w-sm w-full mx-auto space-y-6">
         {/* Title */}
         <div>
-          <h1 className="text-3xl font-serif font-bold text-foreground normal-case" style={{ textTransform: "none" }}>
+          <h1 className="font-display text-3xl text-foreground whitespace-pre-line">
             {mode === "login" ? "Welcome\nback" : "Create\naccount"}
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {mode === "login" ? "Sign in to Flow Finance" : "Start tracking your finances"}
+            {mode === "login" ? "Sign in to Flow!" : "Start tracking your finances"}
           </p>
         </div>
 
@@ -267,7 +267,7 @@ function ForgotForm({ onBack, isLoading, email, setEmail, onSubmit }: {
       </div>
       <div className="flex-1 flex flex-col justify-center px-6 max-w-sm w-full mx-auto space-y-6">
         <div>
-          <h1 className="text-3xl font-serif font-bold text-foreground normal-case" style={{ textTransform: "none" }}>Reset\npassword</h1>
+          <h1 className="font-display text-3xl text-foreground whitespace-pre-line">{"Reset\npassword"}</h1>
           <p className="text-sm text-muted-foreground mt-1">We'll send a reset link to your email.</p>
         </div>
         <div className="relative">

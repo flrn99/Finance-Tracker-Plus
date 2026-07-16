@@ -40,7 +40,7 @@ export default function ResetPassword({ onDone }: { onDone: () => void }) {
     <div className="min-h-screen bg-background flex flex-col p-6" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 24px)' }}>
       <div className="flex-1 flex flex-col justify-center max-w-sm w-full mx-auto space-y-5">
         <div className="mb-2">
-          <h1 className="text-2xl font-serif font-bold text-foreground">New Password</h1>
+          <h1 className="font-display text-2xl text-foreground">New Password</h1>
           <p className="text-sm text-muted-foreground mt-1">Enter your new password below.</p>
         </div>
 

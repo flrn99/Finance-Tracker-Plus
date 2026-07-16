@@ -163,10 +163,10 @@ function ProfileMenu() {
         onClick={() => setOpen((v) => !v)}
         className={cn(
           "absolute z-30 w-10 h-10 rounded-full flex items-center justify-center active:scale-90 transition-transform overflow-hidden",
-          // En insights el panel azul tiene esquinas y padding grandes:
-          // más inset para quedar DENTRO del recuadro. En las demás páginas,
+          // En insights el hero ahora es compacto — pegado a la esquina del
+          // recuadro, no flotando a mitad del título. En las demás páginas,
           // a ras del borde del contenido, alineado con las cards.
-          location.startsWith("/insights") ? "top-4 right-4" : "top-0 right-0"
+          location.startsWith("/insights") ? "top-2 right-2" : "top-0 right-0"
         )}
         style={{
           background: "hsl(var(--card))",
@@ -382,7 +382,7 @@ export default function Layout({ children }: LayoutProps) {
             <div className="w-8 h-8 rounded-2xl bg-sidebar-primary flex items-center justify-center shrink-0">
               <DollarSign className="h-4 w-4 text-white" />
             </div>
-            <span className="text-base font-serif font-bold text-sidebar-foreground tracking-tight">FinanceFlow</span>
+            <span className="font-display text-base text-sidebar-foreground tracking-tight">Flow!</span>
           </div>
         </div>
 

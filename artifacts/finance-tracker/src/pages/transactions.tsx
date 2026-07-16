@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, type CSSProperties } from "react";
 import { Link } from "wouter";
 import {
   useListTransactions,
@@ -17,7 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { Plus, Search, FilterX, FolderPlus, ChevronDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { cn } from "@/lib/utils";
+import { cn, categoryTextColor, LIGHT_PAGE_BG, DARK_PAGE_BG } from "@/lib/utils";
 import MonthSelect from "@/components/month-select";
 import { EntrySheet } from "@/components/dashboard/entry-sheet";
 
@@ -131,14 +131,22 @@ function TransactionRow({
         <span className="min-w-0 flex-1">
           <span className="block truncate text-sm font-bold leading-tight text-foreground">{tx.description}</span>
           <span className="mt-0.5 block truncate text-xs">
-            <span className="font-semibold" style={{ color: tx.categoryColor }}>{tx.categoryName}</span>
+            <span
+              className="cat-name-text font-semibold"
+              style={{
+                "--cat-text-light": categoryTextColor(tx.categoryColor, LIGHT_PAGE_BG),
+                "--cat-text-dark": categoryTextColor(tx.categoryColor, DARK_PAGE_BG),
+              } as CSSProperties}
+            >
+              {tx.categoryName}
+            </span>
             <span className="text-muted-foreground/60"> · {new Date(tx.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
           </span>
         </span>
 
         <span
           className={cn(
-            "shrink-0 font-serif text-[15px] leading-none tabular-nums",
+            "font-number shrink-0 text-[15px] leading-none",
             isExpense ? "text-[#7F1D1D] dark:text-[#FFA3A3]" : "text-[#00432C] dark:text-[#6EE7B7]"
           )}
         >
@@ -325,7 +333,7 @@ export default function Transactions() {
 
   return (
     <div className="space-y-3 animate-in fade-in duration-500">
-      <h2 className="text-2xl font-bold tracking-tight text-foreground pr-14 min-h-10 flex items-center">Transactions</h2>
+      <h2 className="font-title text-3xl text-foreground pr-14 min-h-10 flex items-center">Transactions</h2>
 
       {/* Filters */}
       <div className="bg-card rounded-2xl shadow-sm p-3 space-y-2.5">

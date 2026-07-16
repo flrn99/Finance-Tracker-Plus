@@ -287,7 +287,7 @@ export default function VoiceCapture({
             </div>
           </div>
 
-          <p className="text-white font-serif font-bold text-xl mb-1">Listening…</p>
+          <p className="font-display text-white text-xl mb-1">Listening…</p>
           <p className="text-white/50 text-sm mb-6 text-center px-4">
             Say something like <span className="text-white/80">"spent 50 on lunch"</span>
           </p>
@@ -314,7 +314,7 @@ export default function VoiceCapture({
             <div className="absolute w-20 h-20 rounded-full animate-ping" style={{ background: `${FLOW}22` }} />
             <Loader2 className="h-10 w-10 animate-spin" style={{ color: FLOW }} />
           </div>
-          <p className="text-white font-serif font-bold text-lg">Understanding…</p>
+          <p className="font-display text-white text-lg">Understanding…</p>
           <p className="text-white/50 text-sm mt-1">Reading your transaction</p>
         </div>
       )}

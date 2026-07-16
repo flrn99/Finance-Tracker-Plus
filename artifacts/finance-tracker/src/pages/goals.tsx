@@ -40,8 +40,18 @@ import {
   Plus, X, Check, Pencil, Trash2, Flame, ChevronLeft, ChevronRight,
   Target, PiggyBank, Wallet, Ban, Coffee, ShoppingBag, Utensils, Candy,
   Dumbbell, Cigarette, Beer, Car, Gamepad2, Shirt, Smartphone, Plane,
-  Home, Gift, BookOpen, Music,
+  Home, Gift, BookOpen, Music, CreditCard, Sparkles,
 } from "lucide-react";
+import {
+  useCreateTransaction,
+  useListCategories,
+  getListCategoriesQueryKey,
+  getListTransactionsQueryKey,
+  getGetDashboardSummaryQueryKey,
+  getGetSpendingByCategoryQueryKey,
+  getGetMonthlyTrendQueryKey,
+  getGetTopExpensesQueryKey,
+} from "@workspace/api-client-react";
 
 /* ------------------------------------------------------------------ */
 /* API                                                                 */
@@ -92,6 +102,11 @@ export const habitsQueryOptions = {
   queryFn: () => api<Habit[]>("/habits"),
   staleTime: 30_000,
 };
+export const billsQueryOptions = {
+  queryKey: ["bills"] as const,
+  queryFn: () => api<Bill[]>("/bills"),
+  staleTime: 30_000,
+};
 
 interface Habit {
   id: number;
@@ -103,6 +118,19 @@ interface Habit {
   streak: number;
 }
 
+interface Bill {
+  id: number;
+  name: string;
+  icon: string | null;
+  color: string | null;
+  amount: number | null;
+  categoryId: number | null;
+  autoSave: boolean;
+  createdAt: string;
+  logs: string[]; // "YYYY-MM"
+  paidThisMonth: boolean;
+}
+
 /* ------------------------------------------------------------------ */
 /* Icons & colors                                                      */
 /* ------------------------------------------------------------------ */
@@ -111,6 +139,7 @@ interface Habit {
 export function prefetchGoalsData(queryClient: QueryClient) {
   queryClient.prefetchQuery({ queryKey: ["goals"], queryFn: () => api<Goal[]>("/goals") });
   queryClient.prefetchQuery({ queryKey: ["habits"], queryFn: () => api<Habit[]>("/habits") });
+  queryClient.prefetchQuery({ queryKey: ["bills"], queryFn: () => api<Bill[]>("/bills") });
 }
 
 const ICONS: Record<string, React.ComponentType<{ className?: string; style?: React.CSSProperties }>> = {
@@ -146,6 +175,7 @@ const COLOR_OPTIONS: { hex: string; name: string }[] = [
   { hex: "#6366f1", name: "Midnight Neon" },
   { hex: "#a855f7", name: "Cosmic Grape" },
   { hex: "#ec4899", name: "Neon Flamingo" },
+  { hex: "#e6b3e7", name: "Orchid Bloom" },
   { hex: "#ef4444", name: "Lava Burst" },
   { hex: "#f97316", name: "Sunset Blaze" },
   { hex: "#eab308", name: "Liquid Gold" },
@@ -192,6 +222,24 @@ function parseAmountInput(formatted: string): number {
 
 function todayKey(): string {
   return toKey(new Date());
+}
+
+function monthKeyOf(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function currentMonthKey(): string {
+  return monthKeyOf(new Date());
+}
+
+/** Los últimos `n` meses, terminando en el actual — para el heatmap de Bills */
+function buildMonths(n: number): string[] {
+  const now = new Date();
+  const months: string[] = [];
+  for (let i = n - 1; i >= 0; i--) {
+    months.push(monthKeyOf(new Date(now.getFullYear(), now.getMonth() - i, 1)));
+  }
+  return months;
 }
 
 function buildWeeks(numWeeks: number): string[][] {
@@ -365,6 +413,16 @@ const habitSchema = z.object({
 });
 type HabitFormValues = z.infer<typeof habitSchema>;
 
+const billSchema = z.object({
+  name: z.string().min(2, "Name is required"),
+  icon: z.string(),
+  color: z.string(),
+  amount: z.coerce.number().min(0, "Cannot be negative").optional(),
+  categoryId: z.coerce.number().optional(),
+  autoSave: z.boolean().optional(),
+});
+type BillFormValues = z.infer<typeof billSchema>;
+
 function GoalForm({
   form, onSubmit, isPending, submitLabel, symbol,
 }: {
@@ -520,6 +578,137 @@ function HabitForm({
   );
 }
 
+function BillForm({
+  form, onSubmit, isPending, submitLabel, symbol, categories,
+}: {
+  form: ReturnType<typeof useForm<BillFormValues>>;
+  onSubmit: (data: BillFormValues) => void;
+  isPending: boolean;
+  submitLabel: string;
+  symbol: string;
+  categories: { id: number; name: string }[];
+}) {
+  const color = form.watch("color");
+  const autoSave = form.watch("autoSave");
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
+        <FormField
+          control={form.control}
+          name="name"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Name</FormLabel>
+              <FormControl>
+                <Input placeholder="e.g. Insurance" className="rounded-2xl" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="amount"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Expected amount (optional)</FormLabel>
+              <FormControl>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-muted-foreground pointer-events-none">{symbol}</span>
+                  <Input
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="0.00"
+                    className="rounded-2xl pl-8"
+                    value={field.value ? formatAmountInput(String(field.value)) : ""}
+                    onChange={(e) => field.onChange(parseAmountInput(formatAmountInput(e.target.value)))}
+                  />
+                </div>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="categoryId"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Category</FormLabel>
+              <Select value={field.value ? String(field.value) : ""} onValueChange={(v) => field.onChange(Number(v))}>
+                <FormControl>
+                  <SelectTrigger className="rounded-2xl">
+                    <SelectValue placeholder="Pick a category" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {categories.map((c) => (
+                    <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="autoSave"
+          render={({ field }) => (
+            <FormItem>
+              <button
+                type="button"
+                onClick={() => field.onChange(!field.value)}
+                className="w-full flex items-center justify-between px-3.5 py-3 rounded-2xl bg-muted"
+              >
+                <span className="text-left">
+                  <span className="block text-sm font-bold">Auto-save to Transactions</span>
+                  <span className="block text-[11px] text-muted-foreground">Marking it paid asks the amount and logs a real expense</span>
+                </span>
+                <span
+                  className="relative w-10 h-6 rounded-full shrink-0 transition-colors"
+                  style={{ background: field.value ? "#A8FF3E" : "hsl(var(--border))" }}
+                >
+                  <span
+                    className="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform"
+                    style={{ transform: field.value ? "translateX(16px)" : "translateX(0)" }}
+                  />
+                </span>
+              </button>
+            </FormItem>
+          )}
+        />
+        {autoSave && !form.watch("categoryId") && (
+          <p className="text-[11px] text-amber-600 -mt-1">Pick a category above so auto-save knows where to file it.</p>
+        )}
+        <FormField
+          control={form.control}
+          name="color"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Color</FormLabel>
+              <ColorSelect value={field.value} onChange={field.onChange} />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="icon"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Icon</FormLabel>
+              <IconPicker value={field.value} onChange={field.onChange} color={color} />
+            </FormItem>
+          )}
+        />
+        <Button type="submit" disabled={isPending} className="w-full bg-[#A8FF3E] text-black hover:bg-[#9bfe32] border-0 rounded-2xl">
+          {submitLabel}
+        </Button>
+      </form>
+    </Form>
+  );
+}
+
 /* ------------------------------------------------------------------ */
 /* Heatmap                                                             */
 /* ------------------------------------------------------------------ */
@@ -560,6 +749,30 @@ function Heatmap({
           );
         })
       )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Heatmap mensual (Bills) — mismo lenguaje que Heatmap, grano de mes  */
+/* en vez de día: 12 celdas fijas, no semanas/columnas.                */
+/* ------------------------------------------------------------------ */
+
+function MonthHeatmap({ months, logged, color }: { months: string[]; logged: Set<string>; color: string }) {
+  const current = currentMonthKey();
+  return (
+    <div className="grid grid-cols-12 gap-1">
+      {months.map((m) => {
+        const isFuture = m > current;
+        const isDone = logged.has(m);
+        return (
+          <div
+            key={m}
+            className="aspect-square rounded"
+            style={{ backgroundColor: isFuture ? "transparent" : isDone ? color : `${color}26` }}
+          />
+        );
+      })}
     </div>
   );
 }
@@ -711,9 +924,15 @@ export default function Goals() {
 
   const [goalModal, setGoalModal] = useState<"create" | number | null>(null);
   const [habitModal, setHabitModal] = useState<"create" | number | null>(null);
+  const [billModal, setBillModal] = useState<"create" | number | null>(null);
   const [detailId, setDetailId] = useState<number | null>(null);
   const [addMoneyGoal, setAddMoneyGoal] = useState<Goal | null>(null);
   const [addAmount, setAddAmount] = useState("");
+  const [activeTab, setActiveTab] = useState<"savings" | "habits" | "bills">(
+    () => (new URLSearchParams(window.location.search).get("tab") === "bills" ? "bills" : "savings")
+  );
+  const [payBill, setPayBill] = useState<Bill | null>(null);
+  const [payAmount, setPayAmount] = useState("");
 
   // Símbolo de la moneda elegida en settings (Q, $, €, ...)
   const { currency } = useCurrency();
@@ -721,9 +940,23 @@ export default function Goals() {
 
   const goalsQuery = useQuery(goalsQueryOptions);
   const habitsQuery = useQuery(habitsQueryOptions);
+  const billsQuery = useQuery(billsQueryOptions);
+  const { data: rawCategories } = useListCategories({ query: { queryKey: getListCategoriesQueryKey() } });
+  const expenseCategories = useMemo(
+    () => (rawCategories ?? []).filter((c: any) => c.type === "expense" || c.type === "both"),
+    [rawCategories]
+  );
 
   const invalidateGoals = () => queryClient.invalidateQueries({ queryKey: ["goals"] });
   const invalidateHabits = () => queryClient.invalidateQueries({ queryKey: ["habits"] });
+  const invalidateBills = () => queryClient.invalidateQueries({ queryKey: ["bills"] });
+  const invalidateTransactions = () => {
+    queryClient.invalidateQueries({ queryKey: getListTransactionsQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey({}) });
+    queryClient.invalidateQueries({ queryKey: getGetSpendingByCategoryQueryKey({}) });
+    queryClient.invalidateQueries({ queryKey: getGetMonthlyTrendQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getGetTopExpensesQueryKey({ limit: 5 }) });
+  };
 
   /* ---------- mutations: goals ---------- */
 
@@ -902,6 +1135,105 @@ export default function Goals() {
     onSettled: () => invalidateHabits(),
   });
 
+  /* ---------- mutations: bills ---------- */
+
+  const billPayload = (data: BillFormValues) => JSON.stringify({
+    ...data,
+    amount: data.amount != null ? String(data.amount) : undefined,
+  });
+
+  const createBill = useMutation({
+    mutationFn: (data: BillFormValues) => api("/bills", { method: "POST", body: billPayload(data) }),
+    onMutate: async (data) => {
+      setBillModal(null);
+      await queryClient.cancelQueries({ queryKey: ["bills"] });
+      const prev = queryClient.getQueryData<Bill[]>(["bills"]);
+      const temp: Bill = {
+        id: -Date.now(),
+        name: data.name,
+        icon: data.icon,
+        color: data.color,
+        amount: data.amount ?? null,
+        categoryId: data.categoryId ?? null,
+        autoSave: data.autoSave ?? false,
+        createdAt: new Date().toISOString(),
+        logs: [],
+        paidThisMonth: false,
+      };
+      queryClient.setQueryData<Bill[]>(["bills"], (old) => [temp, ...(old ?? [])]);
+      return { prev };
+    },
+    onError: (e, _d, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(["bills"], ctx.prev);
+      toast({ title: "Failed to create bill", description: String(e), variant: "destructive" });
+    },
+    onSettled: () => invalidateBills(),
+  });
+
+  const updateBill = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: BillFormValues }) =>
+      api(`/bills/${id}`, { method: "PATCH", body: billPayload(data) }),
+    onMutate: async ({ id, data }) => {
+      setBillModal(null);
+      await queryClient.cancelQueries({ queryKey: ["bills"] });
+      const prev = queryClient.getQueryData<Bill[]>(["bills"]);
+      queryClient.setQueryData<Bill[]>(["bills"], (old) =>
+        (old ?? []).map((b) => (b.id === id ? { ...b, ...data, amount: data.amount ?? null, categoryId: data.categoryId ?? null, autoSave: data.autoSave ?? false } : b))
+      );
+      return { prev };
+    },
+    onError: (e, _v, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(["bills"], ctx.prev);
+      toast({ title: "Failed to update bill", description: String(e), variant: "destructive" });
+    },
+    onSettled: () => invalidateBills(),
+  });
+
+  const deleteBill = useMutation({
+    mutationFn: (id: number) => api(`/bills/${id}`, { method: "DELETE" }),
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: ["bills"] });
+      const prev = queryClient.getQueryData<Bill[]>(["bills"]);
+      queryClient.setQueryData<Bill[]>(["bills"], (old) => (old ?? []).filter((b) => b.id !== id));
+      return { prev };
+    },
+    onError: (_e, _id, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(["bills"], ctx.prev);
+      toast({ title: "Failed to delete bill", variant: "destructive" });
+    },
+    onSettled: () => invalidateBills(),
+  });
+
+  // ⚡ Toggle optimista del mes actual — igual patrón que toggleLog de habits
+  const toggleBillLog = useMutation({
+    mutationFn: ({ id, month, amountPaid, transactionId }: { id: number; month: string; amountPaid?: number; transactionId?: number }) =>
+      api(`/bills/${id}/logs/${month}`, {
+        method: "PUT",
+        body: JSON.stringify({ amountPaid, transactionId }),
+      }),
+    onMutate: async ({ id, month }) => {
+      await queryClient.cancelQueries({ queryKey: ["bills"] });
+      const prev = queryClient.getQueryData<Bill[]>(["bills"]);
+      queryClient.setQueryData<Bill[]>(["bills"], (old) =>
+        (old ?? []).map((b) => {
+          if (b.id !== id) return b;
+          const set = new Set(b.logs);
+          if (set.has(month)) set.delete(month);
+          else set.add(month);
+          return { ...b, logs: Array.from(set), paidThisMonth: set.has(currentMonthKey()) };
+        })
+      );
+      return { prev };
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(["bills"], ctx.prev);
+      toast({ title: "Failed to update bill", variant: "destructive" });
+    },
+    onSettled: () => invalidateBills(),
+  });
+
+  const createTransaction = useCreateTransaction();
+
   /* ---------- forms ---------- */
 
   const goalForm = useForm<GoalFormValues>({
@@ -947,26 +1279,89 @@ export default function Goals() {
     else if (typeof habitModal === "number") updateHabit.mutate({ id: habitModal, data });
   };
 
+  const billForm = useForm<BillFormValues>({
+    resolver: zodResolver(billSchema),
+    defaultValues: { name: "", icon: "creditcard", color: "#e6b3e7", amount: undefined, categoryId: undefined, autoSave: false },
+  });
+
+  const openCreateBill = () => {
+    billForm.reset({ name: "", icon: "creditcard", color: "#e6b3e7", amount: undefined, categoryId: undefined, autoSave: false });
+    setBillModal("create");
+  };
+
+  const openEditBill = (b: Bill) => {
+    billForm.reset({
+      name: b.name, icon: b.icon ?? "creditcard", color: b.color ?? "#e6b3e7",
+      amount: b.amount ?? undefined, categoryId: b.categoryId ?? undefined, autoSave: b.autoSave,
+    });
+    setBillModal(b.id);
+  };
+
+  const onBillSubmit = (data: BillFormValues) => {
+    if (billModal === "create") createBill.mutate(data);
+    else if (typeof billModal === "number") updateBill.mutate({ id: billModal, data });
+  };
+
+  // Al desmarcar no hace falta preguntar nada — solo se borra el "pagado" de este mes.
+  // Al marcar: si el bill tiene auto-save, se pide el monto real y se crea la transacción
+  // antes de loguear el mes como pagado (para poder linkear transactionId).
+  const handleTogglePaid = (b: Bill) => {
+    if (b.id < 0) return;
+    const month = currentMonthKey();
+    if (b.paidThisMonth) {
+      toggleBillLog.mutate({ id: b.id, month });
+      return;
+    }
+    if (b.autoSave && b.categoryId) {
+      setPayBill(b);
+      setPayAmount(b.amount ? formatAmountInput(String(b.amount)) : "");
+      return;
+    }
+    toggleBillLog.mutate({ id: b.id, month });
+  };
+
+  const handlePaySubmit = () => {
+    if (!payBill) return;
+    const month = currentMonthKey();
+    const numeric = parseAmountInput(payAmount);
+    if (!numeric || numeric <= 0 || !payBill.categoryId) return;
+    createTransaction.mutate(
+      { data: { type: "expense", amount: numeric, description: payBill.name, categoryId: payBill.categoryId, date: `${month}-01` } },
+      {
+        onSuccess: (tx: any) => {
+          invalidateTransactions();
+          toggleBillLog.mutate({ id: payBill.id, month, amountPaid: numeric, transactionId: tx?.id });
+          setPayBill(null);
+          toast({ title: `${payBill.name} marked as paid` });
+        },
+        onError: () => toast({ title: "Failed to save transaction", variant: "destructive" }),
+      }
+    );
+  };
+
   /* ---------- derived ---------- */
 
   const goals = goalsQuery.data ?? [];
   const habits = habitsQuery.data ?? [];
+  const bills = billsQuery.data ?? [];
   const heatmapWeeks = useMemo(() => buildWeeks(30), []);
+  const billMonths = useMemo(() => buildMonths(12), []);
   const today = todayKey();
   const detailHabit = detailId !== null ? habits.find((h) => h.id === detailId) ?? null : null;
-  const isLoading = goalsQuery.isLoading || habitsQuery.isLoading;
+  const isLoading = goalsQuery.isLoading || habitsQuery.isLoading || billsQuery.isLoading;
 
   // Resumen para las cards pastel de zona
   const totalSaved = goals.reduce((s, g) => s + g.currentAmount, 0);
   const totalTarget = goals.reduce((s, g) => s + g.targetAmount, 0);
   const activeStreaks = habits.filter((h) => h.streak > 0).length;
   const bestStreak = habits.reduce((m, h) => Math.max(m, h.streak), 0);
+  const billsPaidThisMonth = bills.filter((b) => b.paidThisMonth).length;
 
   /* ---------- render ---------- */
 
   return (
     <div className="space-y-4 animate-in fade-in duration-500">
-      <h2 className="font-title text-3xl font-bold pr-14 min-h-10 flex items-center">Goals</h2>
+      <h2 className="font-title text-3xl pr-14 min-h-10 flex items-center">Goals</h2>
 
       {/* Resumen — pasteles de zona (verde=ahorro, ambar=rachas) */}
       {!isLoading && (goals.length > 0 || habits.length > 0) && (
@@ -974,7 +1369,7 @@ export default function Goals() {
           <div className="rounded-3xl px-4 py-3.5 relative overflow-hidden" style={{ background: "linear-gradient(145deg, #F0FFD6 0%, #D6F9A4 100%)" }}>
             <div className="absolute -top-8 -right-8 w-20 h-20 rounded-full pointer-events-none" style={{ background: "rgba(255,255,255,0.45)" }} />
             <p className="text-[10px] font-bold uppercase tracking-widest relative" style={{ color: "#4D7C0F" }}>Total saved</p>
-            <p className="font-serif font-bold text-xl mt-1 relative leading-tight" style={{ color: "#1A2E05" }}>{symbol} {fmtMoney(totalSaved)}</p>
+            <p className="font-number text-xl mt-1 relative leading-tight" style={{ color: "#1A2E05" }}>{symbol} {fmtMoney(totalSaved)}</p>
             <p className="text-[11px] relative" style={{ color: "rgba(26,46,5,0.55)" }}>of {symbol} {fmtMoney(totalTarget)}</p>
           </div>
           <div className="rounded-3xl px-4 py-3.5 relative overflow-hidden" style={{ background: "linear-gradient(145deg, #FFF6DA 0%, #FFE7A8 100%)" }}>
@@ -982,12 +1377,32 @@ export default function Goals() {
             <p className="text-[10px] font-bold uppercase tracking-widest relative" style={{ color: "#B45309" }}>Active streaks</p>
             <div className="flex items-center gap-1.5 mt-1 relative">
               <Flame className="h-5 w-5" style={{ color: "#F59E0B" }} />
-              <p className="font-serif font-bold text-xl leading-tight" style={{ color: "#451A03" }}>{activeStreaks}</p>
+              <p className="font-number text-xl leading-tight" style={{ color: "#451A03" }}>{activeStreaks}</p>
             </div>
             <p className="text-[11px] relative" style={{ color: "rgba(69,26,3,0.55)" }}>{bestStreak > 0 ? `best ${bestStreak} days` : "start one today"}</p>
           </div>
         </div>
       )}
+
+      {/* Pill switcher — Goals / Habits / Bills */}
+      <div className="flex gap-1 p-1 rounded-2xl bg-muted w-fit">
+        {([
+          { key: "savings", label: "Goals" },
+          { key: "habits", label: "Habits" },
+          { key: "bills", label: "Bills" },
+        ] as const).map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setActiveTab(t.key)}
+            className={cn(
+              "px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all",
+              activeTab === t.key ? "bg-card shadow-sm" : "text-muted-foreground"
+            )}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
 
       {isLoading ? (
         <div className="space-y-2">
@@ -998,6 +1413,7 @@ export default function Goals() {
       ) : (
         <>
           {/* ------------------ SAVINGS ------------------ */}
+          {activeTab === "savings" && (
           <div>
             <div className="flex items-center justify-between mb-1.5 px-1">
               <div className="flex items-center gap-2">
@@ -1078,8 +1494,10 @@ export default function Goals() {
               </div>
             )}
           </div>
+          )}
 
           {/* ------------------ HABITS ------------------ */}
+          {activeTab === "habits" && (
           <div>
             <div className="flex items-center justify-between mb-1.5 px-1">
               <div className="flex items-center gap-2">
@@ -1138,6 +1556,92 @@ export default function Goals() {
               </div>
             )}
           </div>
+          )}
+
+          {/* ------------------ BILLS ------------------ */}
+          {activeTab === "bills" && (
+          <div>
+            <div className="flex items-center justify-between mb-1.5 px-1">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: "#e6b3e7" }} />
+                <p className="text-xs font-bold uppercase tracking-widest text-foreground">Bills</p>
+                <span className="text-xs text-muted-foreground">({bills.length})</span>
+              </div>
+              <button onClick={openCreateBill} className="h-7 px-2.5 flex items-center gap-1 rounded-lg text-black text-xs font-bold active:scale-95 transition-transform" style={{ backgroundColor: "#e6b3e7" }}>
+                <Plus className="h-3.5 w-3.5" strokeWidth={3} />
+                New
+              </button>
+            </div>
+
+            {bills.length === 0 ? (
+              <div className="bg-card rounded-2xl shadow-sm flex flex-col items-center justify-center py-8 text-muted-foreground gap-1.5">
+                <CreditCard className="h-7 w-7 opacity-30" />
+                <p className="text-sm">No recurring bills yet.</p>
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                {bills.map((b) => {
+                  const color = b.color ?? "#e6b3e7";
+                  const logged = new Set(b.logs);
+                  const category = expenseCategories.find((c: any) => c.id === b.categoryId);
+                  return (
+                    <div key={b.id} className="rounded-2xl px-3.5 py-3 space-y-2" style={{ background: `${color}18` }}>
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                          <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${color}30` }}>
+                            <HabitIcon icon={b.icon} className="h-4 w-4" style={{ color }} />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <p className="text-xs font-bold uppercase tracking-wide leading-tight truncate">{b.name}</p>
+                              {b.autoSave && <Sparkles className="h-3 w-3 shrink-0" style={{ color }} />}
+                            </div>
+                            <p className="text-[11px] text-muted-foreground leading-tight truncate">
+                              {b.amount ? `${symbol} ${fmtMoney(b.amount)}` : category?.name ?? "No category"}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            onClick={() => handleTogglePaid(b)}
+                            className="h-9 px-3 rounded-xl flex items-center gap-1 text-xs font-bold transition-all active:scale-90"
+                            style={{ backgroundColor: b.paidThisMonth ? color : `${color}30`, color: b.paidThisMonth ? "#000" : color }}
+                          >
+                            <Check className="h-3.5 w-3.5" strokeWidth={3} />
+                            {b.paidThisMonth ? "Paid" : "Mark paid"}
+                          </button>
+                          <button onClick={() => { if (b.id < 0) return; openEditBill(b); }} className="h-6 w-6 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-all">
+                            <Pencil className="h-3 w-3" />
+                          </button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <button className="h-6 w-6 flex items-center justify-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all">
+                                <Trash2 className="h-3 w-3" />
+                              </button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete Bill</AlertDialogTitle>
+                                <AlertDialogDescription>Delete "{b.name}" and all its history? This cannot be undone.</AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => deleteBill.mutate(b.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90 border-0">
+                                  Delete
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
+                      </div>
+                      <MonthHeatmap months={billMonths} logged={logged} color={color} />
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+          )}
         </>
       )}
 
@@ -1197,6 +1701,48 @@ export default function Goals() {
 
       <FloatingModal open={habitModal !== null} onClose={() => setHabitModal(null)} title={habitModal === "create" ? "New Habit" : "Edit Habit"}>
         <HabitForm form={habitForm} onSubmit={onHabitSubmit} isPending={createHabit.isPending || updateHabit.isPending} submitLabel={habitModal === "create" ? "Create" : "Save"} />
+      </FloatingModal>
+
+      <FloatingModal open={billModal !== null} onClose={() => setBillModal(null)} title={billModal === "create" ? "New Bill" : "Edit Bill"}>
+        <BillForm
+          form={billForm}
+          onSubmit={onBillSubmit}
+          isPending={createBill.isPending || updateBill.isPending}
+          submitLabel={billModal === "create" ? "Create" : "Save"}
+          symbol={symbol}
+          categories={expenseCategories}
+        />
+      </FloatingModal>
+
+      {/* Marcar bill como pagado — pide el monto real para auto-save */}
+      <FloatingModal open={payBill !== null} onClose={() => setPayBill(null)} title={payBill ? `Mark "${payBill.name}" as paid` : ""}>
+        {payBill && (
+          <div className="space-y-3">
+            <div className="relative">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-bold text-muted-foreground">{symbol}</span>
+              <Input
+                type="text"
+                inputMode="decimal"
+                placeholder="0.00"
+                value={payAmount}
+                onChange={(e) => setPayAmount(formatAmountInput(e.target.value))}
+                className="rounded-2xl pl-10 text-lg font-bold"
+                autoFocus
+              />
+            </div>
+            <p className="text-xs text-muted-foreground text-center">
+              This creates a real expense in Transactions for this month.
+            </p>
+            <Button
+              onClick={handlePaySubmit}
+              disabled={createTransaction.isPending || !parseAmountInput(payAmount)}
+              className="w-full text-black hover:opacity-90 border-0 rounded-2xl"
+              style={{ backgroundColor: "#e6b3e7" }}
+            >
+              Confirm {symbol} {payAmount || "0"}
+            </Button>
+          </div>
+        )}
       </FloatingModal>
 
       {detailHabit && (

@@ -1,10 +1,11 @@
 import { useState, useMemo, useRef, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   useGetDashboardSummary, getGetDashboardSummaryQueryKey,
   useGetSpendingByCategory, getGetSpendingByCategoryQueryKey,
 } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeftRight, ChevronRight } from "lucide-react";
+import { ArrowLeftRight, ChevronRight, CreditCard } from "lucide-react";
 import { Link } from "wouter";
 import { useCurrency } from "@/lib/currency-context";
 import { BalanceHero } from "@/components/dashboard/balance-hero";
@@ -13,6 +14,53 @@ import { EntryLauncher } from "@/components/dashboard/entry-launcher";
 import { EntrySheet } from "@/components/dashboard/entry-sheet";
 import { SpendingBreakdown } from "@/components/dashboard/spending-breakdown";
 import VoiceCapture, { type ParsedVoiceTx } from "@/components/voice-capture";
+import { billsQueryOptions } from "@/pages/goals";
+
+const BILLS_COLOR = "#e6b3e7";
+
+function BillsWidget() {
+  const { data: bills, isLoading } = useQuery(billsQueryOptions);
+
+  if (isLoading || !bills || bills.length === 0) return null;
+
+  const paid = bills.filter((b) => b.paidThisMonth).length;
+  const total = bills.length;
+  const paidNames = bills.filter((b) => b.paidThisMonth).map((b) => b.name);
+  const caption =
+    paid === 0
+      ? `${total} bill${total === 1 ? "" : "s"} to pay this month`
+      : paid === total
+        ? "All bills paid this month"
+        : `${paidNames.slice(0, 2).join(", ")}${paidNames.length > 2 ? " & more" : ""} paid this month`;
+
+  return (
+    <Link href="/goals?tab=bills" className="mt-8 block">
+      <button className="w-full rounded-2xl border p-4 text-left transition-opacity active:opacity-80" style={{ borderColor: `${BILLS_COLOR}40`, background: `${BILLS_COLOR}10` }}>
+        <div className="flex items-center justify-between">
+          <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest" style={{ color: BILLS_COLOR }}>
+            <CreditCard className="h-3.5 w-3.5" />
+            Monthly bills
+          </span>
+          <ChevronRight className="h-4 w-4 text-muted-foreground" strokeWidth={2} />
+        </div>
+        <p className="font-number mt-2 text-2xl leading-none text-foreground">
+          {paid}
+          <span className="text-sm text-muted-foreground">/{total} paid</span>
+        </p>
+        <div className="mt-3 flex gap-1">
+          {bills.map((b) => (
+            <div
+              key={b.id}
+              className="h-2 flex-1 rounded-full"
+              style={{ background: b.paidThisMonth ? BILLS_COLOR : "hsl(var(--foreground) / 0.08)" }}
+            />
+          ))}
+        </div>
+        <p className="mt-2 truncate text-[11px] text-muted-foreground">{caption}</p>
+      </button>
+    </Link>
+  );
+}
 
 function todayYM() {
   const now = new Date();
@@ -84,9 +132,7 @@ export default function Dashboard() {
 
   return (
     <div className="pb-4">
-      {/* Antes: font-title (Geist 800 uppercase tracked) — gritaba sobre un sistema que ahora es quieto.
-          El kicker de período en BalanceHero ya orienta; esto queda como landmark semántico chico, no como titular. */}
-      <h2 className="flex min-h-10 items-center pr-14 text-lg font-bold text-foreground">Dashboard</h2>
+      <h2 className="font-title flex min-h-10 items-center pr-14 text-3xl text-foreground">Dashboard</h2>
 
       {/* New entry launcher */}
       <div className="mt-6">
@@ -129,6 +175,9 @@ export default function Dashboard() {
           <ChevronRight className="h-5 w-5 shrink-0 text-background/60 transition-transform group-hover:translate-x-1" strokeWidth={2} />
         </button>
       </Link>
+
+      {/* Monthly bills widget */}
+      <BillsWidget />
 
       {/* Spending breakdown */}
       <div className="mt-8">

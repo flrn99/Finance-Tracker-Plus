@@ -18,7 +18,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/lib/currency-context";
 import { formatDate } from "@/lib/format";
-import { cn, readableTextColor } from "@/lib/utils";
+import { cn, categoryTextColor } from "@/lib/utils";
 
 export type EntryType = "expense" | "income";
 
@@ -345,7 +345,7 @@ export function EntrySheet({
               </span>
               <span
                 className={cn(
-                  "font-serif font-bold leading-none tracking-tight tabular-nums",
+                  "font-entry-amount leading-none tracking-tight",
                   numeric > 0
                     ? isExpense
                       ? "text-[#E11D48] dark:text-[#FFA3A3]"
@@ -383,6 +383,9 @@ export function EntrySheet({
             >
               {filteredCategories.map((c: any) => {
                 const isSelected = categoryId === c.id;
+                // El color de categoría solo aparece al seleccionar — sin seleccionar
+                // queda neutro (muted), con un puntito del color real como indicador.
+                const textColor = categoryTextColor("#f9f8f8", c.color);
                 return (
                   <button
                     key={c.id}
@@ -391,7 +394,10 @@ export function EntrySheet({
                     className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-2 text-[13px] font-bold transition-colors"
                     style={{
                       background: isSelected ? c.color : "hsl(var(--muted))",
-                      color: isSelected ? readableTextColor(c.color) : "hsl(var(--foreground))",
+                      color: isSelected ? textColor : "hsl(var(--foreground))",
+                      // El shadow del treemap solo tiene sentido cuando el resultado sigue
+                      // siendo blanco — sobre un gris oscuro no aporta nada.
+                      textShadow: isSelected && textColor === "#f9f8f8" ? "0 1px 4px rgba(0,0,0,.45)" : undefined,
                     }}
                   >
                     {isSelected ? (

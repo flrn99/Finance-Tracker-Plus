@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { goalsTable, habitsTable, habitLogsTable } from "@workspace/db";
+import { goalsTable, habitsTable, habitLogsTable, billsTable, billLogsTable } from "@workspace/db";
 import { eq, and, gte, lte, desc, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { authMiddleware } from "../middlewares/auth";
@@ -10,6 +10,7 @@ const router = Router();
 router.use(authMiddleware);
 
 const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+const monthSchema = z.string().regex(/^\d{4}-\d{2}$/);
 
 const goalBodySchema = z.object({
   name: z.string().min(1),
@@ -24,6 +25,25 @@ const habitBodySchema = z.object({
   icon: z.string().nullish(),
   color: z.string().nullish(),
 });
+
+const billBodySchema = z.object({
+  name: z.string().min(1),
+  icon: z.string().nullish(),
+  color: z.string().nullish(),
+  amount: z.coerce.number().nonnegative().nullish(),
+  categoryId: z.coerce.number().int().positive().nullish(),
+  autoSave: z.boolean().optional(),
+});
+
+const billLogBodySchema = z.object({
+  amountPaid: z.coerce.number().nonnegative().nullish(),
+  transactionId: z.coerce.number().int().positive().nullish(),
+});
+
+function currentMonthKey(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
 
 function computeStreak(dates: string[]): number {
   const set = new Set(dates);
@@ -303,6 +323,189 @@ router.put("/habits/:id/logs/:date", async (req, res) => {
 
   await db.insert(habitLogsTable).values({ habitId: id, date });
   return res.json({ date, completed: true });
+});
+
+// ---------- BILLS ----------
+
+router.get("/bills", async (req, res) => {
+  const userId = (req as any).userId;
+
+  const bills = await db
+    .select()
+    .from(billsTable)
+    .where(eq(billsTable.userId, userId))
+    .orderBy(desc(billsTable.createdAt));
+
+  if (bills.length === 0) return res.json([]);
+
+  const billIds = bills.map((b) => b.id);
+  const allLogs = await db
+    .select({ billId: billLogsTable.billId, month: billLogsTable.month })
+    .from(billLogsTable)
+    .where(inArray(billLogsTable.billId, billIds));
+
+  const thisMonth = currentMonthKey();
+
+  return res.json(
+    bills.map((b) => ({
+      ...b,
+      amount: b.amount !== null ? parseFloat(b.amount) : null,
+      createdAt: b.createdAt.toISOString(),
+      logs: allLogs.filter((l) => l.billId === b.id).map((l) => l.month),
+      paidThisMonth: allLogs.some((l) => l.billId === b.id && l.month === thisMonth),
+    })),
+  );
+});
+
+router.post("/bills", async (req, res) => {
+  const parsed = billBodySchema.safeParse(req.body);
+  if (!parsed.success)
+    return res.status(400).json({ error: "Invalid body", details: parsed.error.issues });
+
+  const userId = (req as any).userId;
+  const { name, icon, color, amount, categoryId, autoSave } = parsed.data;
+
+  const [row] = await db
+    .insert(billsTable)
+    .values({
+      name,
+      icon: icon ?? null,
+      color: color ?? null,
+      amount: amount != null ? String(amount) : null,
+      categoryId: categoryId ?? null,
+      autoSave: autoSave ?? false,
+      userId,
+    })
+    .returning();
+
+  return res.status(201).json({
+    ...row,
+    amount: row.amount !== null ? parseFloat(row.amount) : null,
+    createdAt: row.createdAt.toISOString(),
+    logs: [],
+    paidThisMonth: false,
+  });
+});
+
+router.patch("/bills/:id", async (req, res) => {
+  const id = Number(req.params.id);
+  if (Number.isNaN(id)) return res.status(400).json({ error: "Invalid id" });
+
+  const parsed = billBodySchema.partial().safeParse(req.body);
+  if (!parsed.success)
+    return res.status(400).json({ error: "Invalid body", details: parsed.error.issues });
+
+  const userId = (req as any).userId;
+  const { name, icon, color, amount, categoryId, autoSave } = parsed.data;
+  const updates: Record<string, unknown> = {};
+  if (name !== undefined) updates.name = name;
+  if (icon !== undefined) updates.icon = icon;
+  if (color !== undefined) updates.color = color;
+  if (amount !== undefined) updates.amount = amount != null ? String(amount) : null;
+  if (categoryId !== undefined) updates.categoryId = categoryId;
+  if (autoSave !== undefined) updates.autoSave = autoSave;
+
+  const [row] = await db
+    .update(billsTable)
+    .set(updates)
+    .where(and(eq(billsTable.id, id), eq(billsTable.userId, userId)))
+    .returning();
+
+  if (!row) return res.status(404).json({ error: "Not found" });
+
+  return res.json({
+    ...row,
+    amount: row.amount !== null ? parseFloat(row.amount) : null,
+    createdAt: row.createdAt.toISOString(),
+  });
+});
+
+router.delete("/bills/:id", async (req, res) => {
+  const id = Number(req.params.id);
+  if (Number.isNaN(id)) return res.status(400).json({ error: "Invalid id" });
+
+  const userId = (req as any).userId;
+  const [bill] = await db
+    .select()
+    .from(billsTable)
+    .where(and(eq(billsTable.id, id), eq(billsTable.userId, userId)))
+    .limit(1);
+  if (!bill) return res.status(404).json({ error: "Not found" });
+
+  await db.delete(billLogsTable).where(eq(billLogsTable.billId, id));
+  await db.delete(billsTable).where(eq(billsTable.id, id));
+  return res.status(204).send();
+});
+
+router.get("/bills/:id/logs", async (req, res) => {
+  const id = Number(req.params.id);
+  if (Number.isNaN(id)) return res.status(400).json({ error: "Invalid id" });
+
+  const userId = (req as any).userId;
+  const [bill] = await db
+    .select()
+    .from(billsTable)
+    .where(and(eq(billsTable.id, id), eq(billsTable.userId, userId)))
+    .limit(1);
+  if (!bill) return res.status(404).json({ error: "Not found" });
+
+  const conditions = [eq(billLogsTable.billId, id)];
+  if (typeof req.query.from === "string" && monthSchema.safeParse(req.query.from).success)
+    conditions.push(gte(billLogsTable.month, req.query.from));
+  if (typeof req.query.to === "string" && monthSchema.safeParse(req.query.to).success)
+    conditions.push(lte(billLogsTable.month, req.query.to));
+
+  const logs = await db
+    .select()
+    .from(billLogsTable)
+    .where(and(...conditions));
+
+  return res.json({ months: logs.map((l) => l.month) });
+});
+
+// Marca/desmarca un mes como pagado. Al marcar, opcionalmente guarda el monto real
+// pagado y el id de la transacción creada (si el front la generó vía auto-save).
+// Al desmarcar, solo se borra el registro de "pagado" — la transacción real, si
+// existe, no se toca: es un movimiento de plata de verdad, no algo que desaparece
+// porque se destildó un checkbox.
+router.put("/bills/:id/logs/:month", async (req, res) => {
+  const id = Number(req.params.id);
+  if (Number.isNaN(id)) return res.status(400).json({ error: "Invalid id" });
+
+  const monthParsed = monthSchema.safeParse(req.params.month);
+  if (!monthParsed.success)
+    return res.status(400).json({ error: "Invalid month, expected YYYY-MM" });
+  const month = monthParsed.data;
+
+  const userId = (req as any).userId;
+  const [bill] = await db
+    .select()
+    .from(billsTable)
+    .where(and(eq(billsTable.id, id), eq(billsTable.userId, userId)))
+    .limit(1);
+  if (!bill) return res.status(404).json({ error: "Not found" });
+
+  const [existing] = await db
+    .select()
+    .from(billLogsTable)
+    .where(and(eq(billLogsTable.billId, id), eq(billLogsTable.month, month)))
+    .limit(1);
+
+  if (existing) {
+    await db.delete(billLogsTable).where(eq(billLogsTable.id, existing.id));
+    return res.json({ month, paid: false });
+  }
+
+  const bodyParsed = billLogBodySchema.safeParse(req.body ?? {});
+  const { amountPaid, transactionId } = bodyParsed.success ? bodyParsed.data : {};
+
+  await db.insert(billLogsTable).values({
+    billId: id,
+    month,
+    amountPaid: amountPaid != null ? String(amountPaid) : null,
+    transactionId: transactionId ?? null,
+  });
+  return res.json({ month, paid: true });
 });
 
 export default router;

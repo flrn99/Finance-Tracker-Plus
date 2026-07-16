@@ -116,7 +116,7 @@ export default function ImportReview({ transactions: initial, categories, onDone
             <ArrowLeft className="h-4 w-4" />
           </button>
           <div className="flex-1 min-w-0">
-            <h2 className="text-xl font-serif font-bold">Review Transactions</h2>
+            <h2 className="font-display text-xl">Review Transactions</h2>
             <div className="flex items-center gap-2">
               <p className="text-xs text-muted-foreground">{selectedCount} of {txs.length} selected</p>
               <span className="text-muted-foreground/40 text-xs">·</span>

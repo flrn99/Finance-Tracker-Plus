@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import {
   useListCategories,
   getListCategoriesQueryKey,
@@ -19,7 +19,9 @@ import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Check, X, TrendingDown, TrendingUp, Pencil, Trash2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
+import { cn, categoryTextColor, compositeHex, LIGHT_CARD_BG, DARK_CARD_BG } from "@/lib/utils";
+
+const PILL_TINT_ALPHA = 0x1f / 255;
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 // Gastos: rojo → violeta, sin amarillos ni naranjas (se sacaron a propósito).
@@ -283,17 +285,26 @@ function CategoryForm({
                 <div className="grid grid-cols-2 gap-1.5">
                   {palette.map((color) => {
                     const active = field.value === color;
+                    // Vuelve al tinte pastel (más "cool" que el bloque sólido), pero el
+                    // texto ya no es el color a full intensidad — es la variante más
+                    // cercana que sigue pasando 4.5:1 contra el tinte compuesto real
+                    // (mismo hue, ajustado en OKLCH), calculada para cada tema.
+                    const tintLight = compositeHex(color, LIGHT_CARD_BG, PILL_TINT_ALPHA);
+                    const tintDark = compositeHex(color, DARK_CARD_BG, PILL_TINT_ALPHA);
+                    const textLight = categoryTextColor(color, tintLight);
+                    const textDark = categoryTextColor(color, tintDark);
                     return (
                       <button
                         key={color}
                         type="button"
                         onClick={() => field.onChange(color)}
-                        className="flex items-center justify-between px-3 py-2 rounded-xl text-sm font-bold transition-all active:scale-[0.96]"
+                        className="cat-name-text flex items-center justify-between px-3 py-2 rounded-xl text-sm font-bold transition-all active:scale-[0.96]"
                         style={{
                           background: `${color}1F`,
-                          color,
                           boxShadow: active ? `inset 0 0 0 1.5px ${color}` : "none",
-                        }}
+                          "--cat-text-light": textLight,
+                          "--cat-text-dark": textDark,
+                        } as CSSProperties}
                       >
                         {colorLabel(color)}
                         {active && <Check className="h-3.5 w-3.5" />}
@@ -451,7 +462,7 @@ export default function Categories() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="font-title text-3xl font-bold pr-14 min-h-10 flex items-center">Categories</h2>
+          <h2 className="font-title text-3xl pr-14 min-h-10 flex items-center">Categories</h2>
         </div>
 
         <Button className="gap-2 w-full sm:w-auto bg-[#A8FF3E] text-black hover:bg-[#9bfe32] border-0" onClick={() => openCreate("expense")}>

@@ -93,7 +93,7 @@ async function requestBiometricAuth(): Promise<boolean> {
   try {
     const { BiometricAuth } = await import("@aparajita/capacitor-biometric-auth");
     await BiometricAuth.authenticate({
-      reason: "Verify your identity to access Flow Finance",
+      reason: "Verify your identity to access Flow!",
       cancelTitle: "Use PIN instead",
       allowDeviceCredential: false,
       iosFallbackTitle: "Use PIN instead",

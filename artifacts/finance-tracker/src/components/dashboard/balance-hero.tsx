@@ -27,7 +27,7 @@ export function BalanceHero({
           }}
         />
         <p
-          className="relative z-10 font-serif font-bold leading-none tracking-tight text-foreground"
+          className="font-number relative z-10 leading-none tracking-tight text-foreground"
           style={{ fontSize: "3.1rem" }}
         >
           {balance}
@@ -35,9 +35,9 @@ export function BalanceHero({
       </div>
 
       <p className="mt-3.5 text-sm font-semibold text-muted-foreground">
-        <span className="font-extrabold text-[#7F1D1D] dark:text-[#FFA3A3]">↓ {expenseAmount}</span> out
+        <span className="font-number text-[#7F1D1D] dark:text-[#FFA3A3]">↓ {expenseAmount}</span> out
         <span className="mx-1.5 opacity-50">·</span>
-        <span className="font-extrabold text-[#00432C] dark:text-[#6EE7B7]">↑ {incomeAmount}</span> in
+        <span className="font-number text-[#00432C] dark:text-[#6EE7B7]">↑ {incomeAmount}</span> in
       </p>
     </section>
   );

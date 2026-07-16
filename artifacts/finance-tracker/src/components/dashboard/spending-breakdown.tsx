@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type RefObject } from "react";
 import { TrendingDown, TrendingUp } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, categoryTextColor } from "@/lib/utils";
 import { useCurrency } from "@/lib/currency-context";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -185,7 +185,7 @@ export function SpendingBreakdown({
       <div className="mb-5 flex items-center justify-between gap-2">
         <div>
           <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{periodLabel}</p>
-          <p className="font-serif text-2xl font-bold tabular-nums text-foreground leading-tight">{formatAmount(total)}</p>
+          <p className="font-entry-amount text-2xl text-foreground leading-tight">{formatAmount(total)}</p>
         </div>
 
         {/* Toggle — flat, el color es indicador de estado (product register) */}
@@ -245,6 +245,12 @@ export function SpendingBreakdown({
                 // el % pegado a la esquina en tiles chicos (4px de aire y una letra
                 // de 7px se leía como si se estuviera saliendo del tile).
                 const padding = 8;
+                // Mismo truco que categoryTextColor en transactions.tsx, pero arrancando
+                // desde blanco: ajusta luminosidad (mismo H/C) hasta pasar 4.5:1 contra
+                // el color real del tile. El shadow solo tiene sentido si el resultado
+                // sigue siendo blanco — sobre un gris oscuro no aporta nada.
+                const tileTextColor = categoryTextColor("#f9f8f8", t.categoryColor);
+                const tileTextShadow = tileTextColor === "#f9f8f8" ? WHITE_TEXT_SHADOW : undefined;
                 return (
                   <div
                     key={t.categoryId}
@@ -262,7 +268,7 @@ export function SpendingBreakdown({
                         inset: 2,
                         borderRadius: 14,
                         background: t.categoryColor,
-                        color: "#f9f8f8",
+                        color: tileTextColor,
                         padding,
                         opacity: grown ? 1 : 0,
                         transform: grown ? "scale(1)" : "scale(0.85)",
@@ -275,13 +281,13 @@ export function SpendingBreakdown({
                         <>
                           <div
                             className="line-clamp-3 font-extrabold uppercase tracking-wide leading-[1.15] opacity-90"
-                            style={{ fontSize: t.nameFontSize, overflowWrap: "anywhere", textShadow: WHITE_TEXT_SHADOW }}
+                            style={{ fontSize: t.nameFontSize, overflowWrap: "anywhere", textShadow: tileTextShadow }}
                           >
                             {t.categoryName}
                           </div>
                           <span
-                            className="font-serif font-bold leading-[0.9] tracking-tight"
-                            style={{ fontSize: t.pctFontSize, textShadow: WHITE_TEXT_SHADOW }}
+                            className="font-entry-amount leading-[0.9] tracking-tight"
+                            style={{ fontSize: t.pctFontSize, textShadow: tileTextShadow }}
                           >
                             {Math.round(t.percentage)}%
                           </span>

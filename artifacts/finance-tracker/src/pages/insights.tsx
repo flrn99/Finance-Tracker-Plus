@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Capacitor } from "@capacitor/core";
 import { FilePicker } from "@capawesome/capacitor-file-picker";
-import { Sparkles, Upload, Loader2, AlertCircle, X, TrendingDown } from "lucide-react";
+import { Sparkles, Upload, Loader2, AlertCircle, X, Zap } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useCurrency, CURRENCY_INFO } from "@/lib/currency-context";
 import { getApiUrl } from "@/lib/api-config";
@@ -30,9 +30,76 @@ interface TopCategory {
   count: number;
 }
 
+interface Anomaly {
+  categoryName: string;
+  categoryColor: string;
+  thisMonth: number;
+  average: number;
+  multiplier: number;
+}
+
 interface LastAnalysis {
   date: string;
   score: string | null;
+  quickTakes: string[];
+}
+
+// Gasto por categoría de un mes dado — misma llamada que ya usaba "Top spending",
+// factoreada para poder pedir varios meses (mes actual + históricos para la anomalía).
+async function fetchCategorySpending(month: string, token: string | undefined): Promise<TopCategory[]> {
+  try {
+    const r = await fetch(getApiUrl(`/api/categories/spending?type=expense&month=${month}`), {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const d = await r.json();
+    const data = d.data || d;
+    if (Array.isArray(data) && data.length > 0) {
+      return data.map((c: any) => ({
+        categoryName: c.categoryName || c.name,
+        categoryColor: c.categoryColor || c.color,
+        total: c.total || c.amount,
+        count: c.count || c.transactionCount || 1,
+      }));
+    }
+  } catch {}
+  // Fallback: agrupar desde el endpoint de transacciones directamente
+  try {
+    const r = await fetch(getApiUrl(`/api/transactions?month=${month}`), {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const d = await r.json();
+    const txs = d.data || d;
+    if (!Array.isArray(txs)) return [];
+    const expenses = txs.filter((t: any) => t.type === "expense");
+    const grouped: Record<string, TopCategory> = {};
+    for (const tx of expenses) {
+      const key = tx.categoryId || tx.category?.id || "unknown";
+      if (!grouped[key]) {
+        grouped[key] = {
+          categoryName: tx.categoryName || tx.category?.name || "Other",
+          categoryColor: tx.categoryColor || tx.category?.color || "#888",
+          total: 0,
+          count: 0,
+        };
+      }
+      grouped[key].total += tx.amount;
+      grouped[key].count += 1;
+    }
+    return Object.values(grouped);
+  } catch {
+    return [];
+  }
+}
+
+// Saca 1-2 frases cortas del texto de Gemini para mostrarlas fijas en la página
+// (antes solo vivían en el modal, detrás del tap en "Refresh analysis").
+function extractQuickTakes(text: string): string[] {
+  const bullets = [...text.matchAll(/^(?:[-*]|\d+\.)\s+(.+)$/gm)].map(m => m[1]);
+  const source = bullets.length > 0 ? bullets : text.split(/(?<=[.!?])\s+/);
+  return source
+    .map(s => s.replace(/\*\*/g, "").replace(/[_`#]/g, "").trim())
+    .filter(s => s.length > 12 && s.length < 160)
+    .slice(0, 2);
 }
 
 function InsightsModal({ insights, onClose }: { insights: string; onClose: () => void }) {
@@ -57,7 +124,7 @@ function InsightsModal({ insights, onClose }: { insights: string; onClose: () =>
             <p className="font-bold text-sm">Your Financial Report</p>
             <p className="text-xs font-light text-muted-foreground">Powered by Gemini</p>
           </div>
-          <button onClick={onClose} className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center">
+          <button onClick={onClose} aria-label="Close" className="w-11 h-11 rounded-lg bg-muted flex items-center justify-center">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -87,7 +154,7 @@ export default function Insights() {
   const [insights, setInsights] = useState<string | null>(null);
   const [editableTxs, setEditableTxs] = useState<EditableTx[] | null>(null);
   const [categories, setCategories] = useState<any[]>([]);
-  const [topCategories, setTopCategories] = useState<TopCategory[]>([]);
+  const [anomaly, setAnomaly] = useState<Anomaly | null>(null);
   const [lastAnalysis, setLastAnalysis] = useState<LastAnalysis | null>(() => {
     try {
       const saved = localStorage.getItem("ff-last-analysis");
@@ -98,62 +165,44 @@ export default function Insights() {
 
   useEffect(() => {
     if (!session) return;
-    fetch(getApiUrl("/api/categories"), {
-      headers: { Authorization: `Bearer ${session?.access_token}` },
-    })
+    const token = session?.access_token;
+
+    fetch(getApiUrl("/api/categories"), { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json())
       .then(d => setCategories(d.data || d))
       .catch(() => {});
 
-    // Fetch spending by category for current month
     const now = new Date();
-    const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-    fetch(getApiUrl(`/api/categories/spending?type=expense&month=${month}`), {
-      headers: { Authorization: `Bearer ${session?.access_token}` },
-    })
-      .then(r => r.json())
-      .then(d => {
-        const data = d.data || d;
-        if (Array.isArray(data) && data.length > 0) {
-          setTopCategories(data.slice(0, 3).map((c: any) => ({
-            categoryName: c.categoryName || c.name,
-            categoryColor: c.categoryColor || c.color,
-            total: c.total || c.amount,
-            count: c.count || c.transactionCount || 1,
-          })));
+    const monthKey = (offset: number) => {
+      const d = new Date(now.getFullYear(), now.getMonth() + offset, 1);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    };
+
+    fetchCategorySpending(monthKey(0), token).then(data => {
+      // Anomalía: comparar cada categoría de este mes contra su promedio de los
+      // últimos 3 meses. Solo se muestra si hay historial real y el salto es
+      // grande — si no, se queda en null y la card ni aparece.
+      Promise.all([1, 2, 3].map(o => fetchCategorySpending(monthKey(-o), token))).then(pastMonths => {
+        const history: Record<string, { sum: number; color: string }> = {};
+        for (const monthData of pastMonths) {
+          for (const c of monthData) {
+            if (!history[c.categoryName]) history[c.categoryName] = { sum: 0, color: c.categoryColor };
+            history[c.categoryName].sum += c.total;
+          }
         }
-      })
-      .catch(() => {
-        // fallback: use transactions endpoint directly
-        fetch(getApiUrl(`/api/transactions?month=${month}`), {
-          headers: { Authorization: `Bearer ${session?.access_token}` },
-        })
-          .then(r => r.json())
-          .then(d => {
-            const txs = d.data || d;
-            if (!Array.isArray(txs)) return;
-            const expenses = txs.filter((t: any) => t.type === "expense");
-            const grouped: Record<string, any> = {};
-            for (const tx of expenses) {
-              const key = tx.categoryId || tx.category?.id || "unknown";
-              if (!grouped[key]) {
-                grouped[key] = {
-                  categoryName: tx.categoryName || tx.category?.name || "Other",
-                  categoryColor: tx.categoryColor || tx.category?.color || "#888",
-                  total: 0,
-                  count: 0,
-                };
-              }
-              grouped[key].total += tx.amount;
-              grouped[key].count += 1;
-            }
-            const sorted = Object.values(grouped)
-              .sort((a: any, b: any) => b.total - a.total)
-              .slice(0, 3);
-            setTopCategories(sorted);
-          })
-          .catch(() => {});
+        let best: Anomaly | null = null;
+        for (const c of data) {
+          const hist = history[c.categoryName];
+          const average = hist ? hist.sum / 3 : 0;
+          if (average < 5) continue;
+          const multiplier = c.total / average;
+          if (multiplier >= 1.5 && (!best || multiplier > best.multiplier)) {
+            best = { categoryName: c.categoryName, categoryColor: c.categoryColor, thisMonth: c.total, average, multiplier };
+          }
+        }
+        setAnomaly(best);
       });
+    });
   }, [session]);
 
   // Extract score from insights text
@@ -189,6 +238,7 @@ export default function Insights() {
       const analysis: LastAnalysis = {
         date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
         score: extractScore(text),
+        quickTakes: extractQuickTakes(text),
       };
       setLastAnalysis(analysis);
       try { localStorage.setItem("ff-last-analysis", JSON.stringify(analysis)); } catch {}
@@ -289,178 +339,138 @@ export default function Insights() {
   return (
     <div className="space-y-3 animate-in fade-in duration-500">
 
-      {/* Hero — sky pastel, sistema de cards de Flow */}
-      <div
-        className="relative overflow-hidden rounded-3xl px-5 pt-5 pb-5"
-        style={{ background: "linear-gradient(145deg, #E3F4FF 0%, #BFE7FD 55%, #A5DCFB 100%)" }}
-      >
-        {/* Blobs decorativos suaves */}
-        <div className="absolute -top-16 -right-12 w-52 h-52 rounded-full pointer-events-none" style={{ background: "rgba(255,255,255,0.4)" }} />
-        <div className="absolute -bottom-16 -left-10 w-44 h-44 rounded-full pointer-events-none" style={{ background: "rgba(14,165,233,0.12)" }} />
+      {/* Hero — gradiente sky pastel (vuelta a la composición original), con su propia
+          variante oscura esta vez y contraste real verificado en los dos temas. */}
+      <div className="insights-hero relative overflow-hidden rounded-3xl px-4 pt-4 pb-4">
+        {/* Badge */}
+        <div className="insights-hero-badge inline-flex items-center gap-1.5 mb-2.5 px-2.5 py-1 rounded-lg">
+          <Sparkles className="h-3 w-3" style={{ color: ACCENT }} />
+          <span className="text-[10px] font-bold tracking-widest uppercase">
+            AI Powered
+          </span>
+        </div>
 
-        <div className="relative">
-          {/* Badge */}
-          <div
-            className="inline-flex items-center gap-1.5 mb-3 px-2.5 py-1 rounded-lg"
-            style={{ background: "rgba(255,255,255,0.6)" }}
-          >
-            <Sparkles className="h-3 w-3" style={{ color: ACCENT }} />
-            <span className="text-[10px] font-bold tracking-widest uppercase" style={{ color: "#0369A1" }}>
-              AI Powered
-            </span>
-          </div>
+        {/* Titulo */}
+        <h2 className="insights-hero-title font-title text-xl leading-tight">
+          Financial <span className="insights-hero-title-accent">Insights</span>
+        </h2>
+        <p className="insights-hero-muted text-xs mt-1">
+          Understand your money. Make smarter decisions.
+        </p>
 
-          {/* Titulo */}
-          <h2 className="text-2xl font-serif font-bold leading-tight" style={{ color: "#082F49", letterSpacing: "0.05em" }}>
-            Financial <span style={{ color: "#0284C7" }}>Insights</span>
-          </h2>
-          <p className="text-xs mt-1" style={{ color: "rgba(12,74,110,0.6)" }}>
-            Understand your money. Make smarter decisions.
+        {/* Health score — numero grande + medidor segmentado */}
+        <div className="mt-3">
+          <p className="insights-hero-muted text-[10px] font-bold uppercase tracking-widest mb-1">
+            Financial health score
           </p>
-
-          {/* Health score — numero grande + medidor segmentado */}
-          <div className="mt-4">
-            <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: "#0369A1" }}>
-              Financial health score
+          <div className="flex items-end gap-3">
+            <p className="insights-hero-title font-number leading-none" style={{ fontSize: "2.2rem" }}>
+              {scoreNum ? lastAnalysis?.score : "—"}
+              <span className="insights-hero-muted text-sm font-bold ml-1">/10</span>
             </p>
-            <div className="flex items-end gap-3">
-              <p className="font-serif font-bold leading-none" style={{ color: "#082F49", fontSize: "2.6rem" }}>
-                {scoreNum ? lastAnalysis?.score : "—"}
-                <span className="text-base font-bold ml-1" style={{ color: "rgba(8,47,73,0.4)" }}>/10</span>
-              </p>
-            </div>
-            {/* Medidor de 10 segmentos — ADN heatmap de Flow */}
-            <div className="flex gap-1 mt-2.5">
-              {Array.from({ length: 10 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="flex-1 h-2.5 rounded-full transition-all duration-500"
-                  style={{
-                    background: scoreNum && i < Math.round(scoreNum)
-                      ? ACCENT
-                      : "rgba(8,47,73,0.10)",
-                    transitionDelay: `${i * 40}ms`,
-                  }}
-                />
+          </div>
+          {/* Medidor de 10 segmentos — ADN heatmap de Flow */}
+          <div className="flex gap-1 mt-2">
+            {Array.from({ length: 10 }).map((_, i) => (
+              <div
+                key={i}
+                className={cn("flex-1 h-2 rounded-full transition-all duration-500", !(scoreNum && i < Math.round(scoreNum)) && "insights-hero-meter-off")}
+                style={{
+                  background: scoreNum && i < Math.round(scoreNum) ? ACCENT : undefined,
+                  transitionDelay: `${i * 40}ms`,
+                }}
+              />
+            ))}
+          </div>
+          <p className="insights-hero-muted text-[11px] mt-1.5">
+            {lastAnalysis ? `Last analysis · ${lastAnalysis.date} · Gemini` : "Run your first analysis to get your score"}
+          </p>
+        </div>
+
+        {/* Acciones */}
+        <div className="flex gap-2 mt-3">
+          <button
+            onClick={analyzeFinances}
+            disabled={isAnalyzing}
+            className="insights-hero-btn-primary flex-[1.4] rounded-2xl py-2.5 px-3 flex items-center justify-center gap-1.5 text-[13px] font-bold active:scale-[0.97] transition-transform disabled:opacity-70 border-0 min-w-0 whitespace-nowrap"
+          >
+            {isAnalyzing ? (
+              <><Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" /><span className="truncate text-xs">{analyzePhase}</span></>
+            ) : (
+              <><Sparkles className="h-3.5 w-3.5 shrink-0" /><span>{lastAnalysis ? "Refresh analysis" : "Analyze"}</span></>
+            )}
+          </button>
+          <button
+            onClick={handleUpload}
+            disabled={isImporting}
+            className="insights-hero-btn-secondary flex-1 rounded-2xl py-2.5 px-3 flex items-center justify-center gap-1.5 text-[13px] font-bold active:scale-[0.97] transition-transform disabled:opacity-70 relative overflow-hidden min-w-0 whitespace-nowrap"
+          >
+            {isImporting ? (
+              <><Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" /><span className="text-xs">{importProgress}%</span></>
+            ) : (
+              <><Upload className="h-3.5 w-3.5 shrink-0" /><span>Import PDF</span></>
+            )}
+            {isImporting && (
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-black/10">
+                <div className="h-full transition-all duration-300" style={{ width: `${importProgress}%`, background: ACCENT }} />
+              </div>
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* Quick take — 1-2 frases del último análisis, fijas en la página en vez de
+          escondidas atrás del modal. Reemplaza el viejo "Top spending" (redundante
+          con el treemap del dashboard). */}
+      <div className="bg-card border border-card-border rounded-3xl px-5 py-4">
+        <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-foreground/80 mb-3">
+          <Sparkles className="h-3.5 w-3.5" style={{ color: ACCENT }} />
+          Quick take
+        </p>
+        {(lastAnalysis?.quickTakes?.length ?? 0) > 0 ? (
+          <>
+            <div className="space-y-2.5">
+              {lastAnalysis!.quickTakes.map((take, i) => (
+                <div key={i} className="flex gap-2.5">
+                  <span className="mt-1.5 h-1.5 w-1.5 rounded-full shrink-0" style={{ background: ACCENT }} />
+                  <p className="text-sm text-foreground leading-relaxed">{take}</p>
+                </div>
               ))}
             </div>
-            <p className="text-[11px] mt-2" style={{ color: "rgba(12,74,110,0.55)" }}>
-              {lastAnalysis ? `Last analysis · ${lastAnalysis.date} · Gemini` : "Run your first analysis to get your score"}
-            </p>
-          </div>
-
-          {/* Acciones */}
-          <div className="flex gap-2 mt-4">
-            <button
-              onClick={analyzeFinances}
-              disabled={isAnalyzing}
-              className="flex-[1.4] rounded-2xl py-3 px-3 flex items-center justify-center gap-2 text-sm font-bold active:scale-[0.97] transition-transform disabled:opacity-70 border-0 min-w-0"
-              style={{ background: "#082F49", color: "#fff" }}
-            >
-              {isAnalyzing ? (
-                <><Loader2 className="h-4 w-4 animate-spin shrink-0" /><span className="truncate text-xs">{analyzePhase}</span></>
-              ) : (
-                <><Sparkles className="h-4 w-4 shrink-0" /><span>{lastAnalysis ? "Refresh analysis" : "Analyze"}</span></>
-              )}
-            </button>
-            <button
-              onClick={handleUpload}
-              disabled={isImporting}
-              className="flex-1 rounded-2xl py-3 px-3 flex items-center justify-center gap-2 text-sm font-bold active:scale-[0.97] transition-transform disabled:opacity-70 relative overflow-hidden min-w-0"
-              style={{ background: "rgba(255,255,255,0.65)", color: "#0369A1" }}
-            >
-              {isImporting ? (
-                <><Loader2 className="h-4 w-4 animate-spin shrink-0" /><span className="text-xs">{importProgress}%</span></>
-              ) : (
-                <><Upload className="h-4 w-4 shrink-0" /><span>Import PDF</span></>
-              )}
-              {isImporting && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5" style={{ background: "rgba(14,165,233,0.2)" }}>
-                  <div className="h-full transition-all duration-300" style={{ width: `${importProgress}%`, background: ACCENT }} />
-                </div>
-              )}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Top spending categories */}
-      <div className="bg-card border border-card-border rounded-3xl overflow-hidden">
-        <div className="px-5 pt-4 pb-2 flex items-start justify-between gap-3">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-widest text-foreground/80">Top spending this month</p>
-            <p className="text-xs font-light text-muted-foreground mt-0.5">Your highest expense categories</p>
-          </div>
-          {topCategories.length > 0 && (
-            <div className="shrink-0 px-2.5 py-1 rounded-lg bg-muted">
-              <p className="text-xs font-bold text-foreground">
-                {formatAmount(topCategories.reduce((sum, c) => sum + c.total, 0))}
-              </p>
-            </div>
-          )}
-        </div>
-        {topCategories.length > 0 ? (
-          <div className="px-4 pt-1 pb-4 space-y-2">
-            {(() => {
-              const sorted = [...topCategories].sort((a, b) => b.total - a.total);
-              const grandTotal = sorted.reduce((sum, c) => sum + c.total, 0);
-              return sorted.map((cat, i) => {
-                const share = grandTotal > 0 ? Math.round((cat.total / grandTotal) * 100) : 0;
-                const rankOpacity = i === 0 ? 1 : i === 1 ? 0.6 : 0.35;
-                return (
-                  <div
-                    key={i}
-                    className="rounded-2xl px-3.5 py-3 bg-muted/40 animate-in fade-in slide-in-from-bottom-1"
-                    style={{ animationDuration: "400ms", animationDelay: `${i * 80}ms`, animationFillMode: "backwards" }}
-                  >
-                    <div className="flex items-center justify-between gap-3 mb-2">
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <div
-                          className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 font-serif text-sm font-bold"
-                          style={{ background: ACCENT, opacity: rankOpacity, color: "#FFFFFF" }}
-                        >
-                          {i + 1}
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-sm font-bold text-foreground leading-tight truncate">{cat.categoryName}</p>
-                          <p className="text-[11px] text-muted-foreground leading-tight">
-                            {cat.count} {cat.count === 1 ? "transaction" : "transactions"}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <p className="text-sm font-bold leading-tight text-foreground">{formatAmount(cat.total)}</p>
-                        <p className="text-[11px] font-semibold text-muted-foreground leading-tight">{share}%</p>
-                      </div>
-                    </div>
-                    <div className="h-2 w-full rounded-full overflow-hidden bg-muted">
-                      <div
-                        className="h-full rounded-full transition-all duration-700"
-                        style={{
-                          backgroundColor: ACCENT,
-                          opacity: rankOpacity,
-                          width: `${Math.round((cat.total / sorted[0].total) * 100)}%`,
-                          transitionDelay: `${i * 120}ms`,
-                        }}
-                      />
-                    </div>
-                  </div>
-                );
-              });
-            })()}
-          </div>
+            <p className="text-[11px] text-muted-foreground mt-3">Based on your last analysis · {lastAnalysis!.date}</p>
+          </>
         ) : (
-          <div className="px-5 py-5 flex items-start gap-3">
-            <div className="w-8 h-8 rounded-2xl bg-muted flex items-center justify-center shrink-0">
-              <TrendingDown className="h-4 w-4 text-muted-foreground/50" />
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-muted-foreground">No spending data yet</p>
-              <p className="text-xs font-light text-muted-foreground/60 mt-0.5 leading-relaxed">Add some expense transactions this month and your top categories will appear here.</p>
-            </div>
-          </div>
+          <p className="text-xs text-muted-foreground leading-relaxed">Run your first analysis above to get personalized takes on your spending.</p>
         )}
       </div>
+
+      {/* Anomalía — compara cada categoría de este mes contra su promedio de los
+          últimos 3 meses. Solo aparece si el salto es real (>=1.5x). */}
+      {anomaly && (
+        <div className="bg-card border border-card-border rounded-3xl px-5 py-4">
+          <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "#B45309" }}>
+            <Zap className="h-3.5 w-3.5" />
+            Biggest surprise this month
+          </p>
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: anomaly.categoryColor }} />
+              <p className="text-sm font-bold text-foreground truncate">{anomaly.categoryName}</p>
+            </div>
+            <p className="font-number text-base shrink-0" style={{ color: "#B45309" }}>{anomaly.multiplier.toFixed(1)}×</p>
+          </div>
+          <div className="flex items-end gap-4">
+            <div className="flex-1 flex flex-col items-center gap-1.5">
+              <div className="w-full rounded-t bg-muted" style={{ height: Math.max(4, Math.round(40 * (anomaly.average / anomaly.thisMonth))) }} />
+              <span className="text-[10px] text-muted-foreground">avg {formatAmount(anomaly.average)}</span>
+            </div>
+            <div className="flex-1 flex flex-col items-center gap-1.5">
+              <div className="w-full rounded-t" style={{ height: 40, background: anomaly.categoryColor }} />
+              <span className="text-[10px] text-muted-foreground">now {formatAmount(anomaly.thisMonth)}</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Error */}
       {error && (
