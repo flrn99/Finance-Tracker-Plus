@@ -15,7 +15,7 @@ import { useCurrency } from "@/lib/currency-context";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, Search, FilterX, FolderPlus, ChevronDown, Trash2 } from "lucide-react";
+import { Plus, Search, FilterX, FolderPlus, ChevronDown, ChevronLeft, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn, categoryTextColor, LIGHT_PAGE_BG, DARK_PAGE_BG } from "@/lib/utils";
 import { PeriodWheelPicker } from "@/components/period-wheel-picker";
@@ -383,6 +383,16 @@ export default function Transactions() {
 
   return (
     <div className="space-y-3 animate-in fade-in duration-500">
+      {/* iOS no tiene botón de "atrás" físico como Android — esta página se
+          entra siempre desde Dashboard, así que el destino es fijo. */}
+      <Link
+        href="/"
+        className="inline-flex items-center gap-1.5 text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors"
+      >
+        <ChevronLeft className="h-4 w-4" />
+        Dashboard
+      </Link>
+
       <h2 className="font-title text-2xl text-foreground pr-14 min-h-10 flex items-center">Transactions</h2>
 
       {/* Filters — sección plana con hairline, sin card ni sombra (mismo lenguaje que el resto del app) */}

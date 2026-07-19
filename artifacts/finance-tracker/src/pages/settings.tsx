@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Sun, Moon, Monitor, Trash2, LogOut, UserX, Download, ChevronRight, DollarSign, User, Plus, Fingerprint, ShieldCheck, AlertTriangle } from "lucide-react";
+import { Sun, Moon, Monitor, Trash2, LogOut, UserX, Download, ChevronRight, ChevronLeft, DollarSign, User, Plus, Fingerprint, ShieldCheck, AlertTriangle } from "lucide-react";
 import { useLocation } from "wouter";
 import { useTheme, type Theme } from "@/lib/theme-context";
 import { useCurrency, type Currency, CURRENCY_INFO } from "@/lib/currency-context";
@@ -184,6 +184,17 @@ export default function Settings() {
         "space-y-7 animate-in fade-in duration-500 max-w-lg transition-all",
         bio.isGhostShieldActive && "pointer-events-none select-none"
       )}>
+        {/* iOS no tiene botón de "atrás" físico como Android — Settings se
+            entra desde el avatar en cualquiera de las 4 pestañas, así que
+            vuelve a donde estabas en vez de a un destino fijo. */}
+        <button
+          onClick={() => window.history.back()}
+          className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ChevronLeft className="h-4 w-4" />
+          Back
+        </button>
+
         {/* Profile header */}
         <div className="flex flex-col items-center justify-center py-4 gap-2 w-full">
           <div className="relative" onClick={() => setShowAvatarPicker(true)}>

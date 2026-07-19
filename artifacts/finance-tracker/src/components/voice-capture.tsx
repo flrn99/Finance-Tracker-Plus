@@ -339,10 +339,19 @@ export default function VoiceCapture({
         audioCtxRef.current = audioCtx;
         const source = audioCtx.createMediaStreamSource(stream);
         const analyser = audioCtx.createAnalyser();
-        analyser.fftSize = 128;
+        analyser.fftSize = 1024;
         analyser.smoothingTimeConstant = 0.75;
         source.connect(analyser);
         analyserRef.current = analyser;
+        // El RMS de detección de voz solo mira las bins de ~4kHz para abajo
+        // (donde vive el habla) — promediar todo el espectro (fftSize chico,
+        // 64 bins) diluía la energía real de la voz con bins agudas casi
+        // silenciosas, y eso hacía que voces más graves o suaves nunca
+        // cruzaran SPEECH_THRESHOLD y quedaran como "didn't catch that".
+        const voiceBinCount = Math.min(
+          analyser.frequencyBinCount,
+          Math.max(1, Math.ceil((4000 * analyser.fftSize) / audioCtx.sampleRate))
+        );
 
         // Grabadora
         const mime = MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm"
@@ -367,10 +376,10 @@ export default function VoiceCapture({
         const data = new Uint8Array(analyser.frequencyBinCount);
         const tick = () => {
           analyser.getByteFrequencyData(data);
-          // RMS aproximado
+          // RMS aproximado — solo sobre el rango de voz (ver voiceBinCount arriba)
           let sum = 0;
-          for (let i = 0; i < data.length; i++) { const v = data[i] / 255; sum += v * v; }
-          const rms = Math.sqrt(sum / data.length);
+          for (let i = 0; i < voiceBinCount; i++) { const v = data[i] / 255; sum += v * v; }
+          const rms = Math.sqrt(sum / voiceBinCount);
 
           // Actualiza barras: desplaza e inserta el nivel nuevo
           const levels = levelsRef.current;
