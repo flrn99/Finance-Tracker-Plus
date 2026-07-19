@@ -1983,7 +1983,7 @@ export default function Goals() {
         </div>
       )}
 
-      {/* Switcher — Savings / Habits / Bills, track plano + thumb verde (mismo lenguaje que RangeSwitch del dashboard) */}
+      {/* Switcher — Flows / Savings / Habits, track plano + thumb verde (mismo lenguaje que RangeSwitch del dashboard) */}
       <div className="relative grid grid-cols-3 rounded-full bg-muted p-1">
         <span
           aria-hidden="true"
@@ -1991,15 +1991,15 @@ export default function Goals() {
           style={{
             width: "calc(33.333% - 0.1667rem)",
             transform:
-              activeTab === "habits" ? "translateX(100%)" : activeTab === "bills" ? "translateX(200%)" : "translateX(0)",
+              activeTab === "savings" ? "translateX(100%)" : activeTab === "habits" ? "translateX(200%)" : "translateX(0)",
             background: "linear-gradient(135deg, #CAFA01 0%, #7CB518 100%)",
             boxShadow: "inset 0 1px 1px rgba(255,255,255,0.55), 0 4px 10px -2px rgba(124,181,24,0.45)",
           }}
         />
         {([
+          { key: "bills", label: "Flows" },
           { key: "savings", label: "Savings" },
           { key: "habits", label: "Habits" },
-          { key: "bills", label: "Flows" },
         ] as const).map((t) => (
           <button
             key={t.key}
