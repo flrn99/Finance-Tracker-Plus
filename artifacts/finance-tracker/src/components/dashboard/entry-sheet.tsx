@@ -79,12 +79,17 @@ export function EntrySheet({
   const touchStart = useRef<{ x: number; y: number } | null>(null);
   const deleteTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const deleteInterval = useRef<ReturnType<typeof setInterval> | null>(null);
-  const keyStartPos = useRef<{ x: number; y: number } | null>(null);
   // Evita doble disparo entre pointer events y el click sintético que le sigue,
   // pero deja pasar el click "puro" de Enter/Espacio por teclado (sin pointerdown antes).
   const firedByPointer = useRef(false);
 
   function handleTouchStart(e: React.TouchEvent) {
+    // No armar el swipe si el toque arranca sobre un control interactivo (teclado,
+    // pills, toggle, inputs) — el touchstart/touchend de acá burbujea desde
+    // CUALQUIER hijo, y varios taps rápidos en el numpad podían acumular
+    // suficiente distancia horizontal entre un touchstart viejo y un touchend
+    // nuevo como para mal-interpretarse como swipe de expense/income.
+    if ((e.target as HTMLElement).closest("button, input")) { touchStart.current = null; return; }
     const t = e.touches[0];
     touchStart.current = { x: t.clientX, y: t.clientY };
   }
@@ -208,10 +213,10 @@ export function EntrySheet({
       if (r.includes(".") && (r.split(".")[1]?.length ?? 0) >= 2) return r;
       // Sin tope, un entero podía crecer sin límite y desbordar el ancho de la
       // hoja — ahí el body se volvía scrolleable horizontal y toda la pantalla
-      // se sentía "movible" como una página web. 9 dígitos (~999 millones)
-      // sobra para cualquier monto real.
+      // se sentía "movible" como una página web. 12 dígitos siguen entrando
+      // con el font-size más chico sin desbordar (verificado).
       const intLen = r.includes(".") ? r.split(".")[0].length : r.length;
-      if (intLen >= 9) return r;
+      if (intLen >= 12) return r;
       return r + key;
     });
   }
@@ -474,7 +479,7 @@ export function EntrySheet({
             className="mt-3 w-full rounded-2xl border-0 bg-muted px-4 py-3.5 text-base text-foreground outline-none placeholder:text-muted-foreground" />
 
           {/* Keypad — mismo flujo que el resto, sin separarlo en su propio contenedor */}
-          <div className="pb-6 pt-4" style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 1.5rem)" }}>
+          <div className="pb-6 pt-4" style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 2rem)" }}>
             {/* Antes solo "0" era 70px y el resto 58px — con margen de sobra en cada
                 columna (74.67px de columna vs. botones chicos). Al unificar todas
                 las teclas a 70px, ese margen se achicó a ~2px por lado: casi sin
@@ -492,40 +497,24 @@ export function EntrySheet({
                     aria-label={isDel ? "Delete" : isDot ? "Decimal point" : k}
                     onPointerDown={(e) => {
                       e.preventDefault();
-                      // Sin esto, si el dedo se corre un poco antes de soltar, el
-                      // pointerUp se dispara en la tecla vecina que quedó debajo (el
-                      // navegador apunta al elemento actual, no al de pointerDown) —
-                      // ahí se registraba el número de al lado en vez del tocado.
-                      // Mismo patrón que el swipe-to-delete de Transactions.
+                      // Pointer capture: asegura que el pointerUp/leave de esta MISMA
+                      // tecla resuelvan acá, no en la vecina que haya quedado debajo si
+                      // el dedo se corre un poco (mismo patrón que Transactions).
                       e.currentTarget.setPointerCapture(e.pointerId);
                       setPressedKey(k);
-                      // Haptic al tocar, no al soltar — mismo timing que el PIN de
-                      // biometric-lock (se sentía "atrasado" cuando disparaba recién
-                      // en pointerUp). El valor en sí sigue mutando en pointerUp para
-                      // los dígitos/punto, así el swipe-to-cancel de abajo no se rompe.
+                      // Commit inmediato al tocar, igual que el PIN de biometric-lock —
+                      // antes acá se esperaba al pointerUp con un umbral de arrastre para
+                      // cancelar "swipes", pero eso hacía que toques rápidos y normales se
+                      // sintieran salteados (un roce mínimo ya cancelaba el número).
                       triggerHaptic();
-                      if (isDel) {
-                        // Borrar sigue disparando al toque, para que el hold-to-delete funcione
-                        firedByPointer.current = true;
-                        press(k);
-                        startDeleteRepeat();
-                      } else {
-                        // Dígitos/punto: guardamos la posición, se confirma recién en pointerUp
-                        keyStartPos.current = { x: e.clientX, y: e.clientY };
-                      }
+                      firedByPointer.current = true;
+                      press(k);
+                      if (isDel) startDeleteRepeat();
                     }}
                     onPointerUp={(e) => {
                       setPressedKey(null);
                       if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
-                      if (isDel) { stopDeleteRepeat(); return; }
-                      const start = keyStartPos.current;
-                      keyStartPos.current = null;
-                      if (!start) return;
-                      const dx = Math.abs(e.clientX - start.x);
-                      const dy = Math.abs(e.clientY - start.y);
-                      if (dx > 12 || dy > 12) return; // fue un swipe que pasó por encima, no una tocada real
-                      firedByPointer.current = true;
-                      press(k);
+                      if (isDel) stopDeleteRepeat();
                     }}
                     onClick={() => {
                       // Camino de teclado (Enter/Espacio) — no hubo pointer events antes de esto
