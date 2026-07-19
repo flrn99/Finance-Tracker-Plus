@@ -194,10 +194,10 @@ export function EntrySheet({
   // el tamaño más grande de acá — así el achique nunca arrastra lo de abajo.
   const amountFontSize = useMemo(() => {
     const len = display.length;
-    if (len <= 6) return 72;
-    if (len <= 8) return 62;
-    if (len <= 10) return 52;
-    return 42;
+    if (len <= 8) return 72;
+    if (len <= 10) return 60;
+    if (len <= 13) return 48;
+    return 38;
   }, [display]);
 
   function press(key: string) {
@@ -351,7 +351,7 @@ export function EntrySheet({
         <div className="flex flex-1 flex-col overflow-y-auto px-5 pt-2">
           {/* Amount — superficie neutra, el color vive solo en el monto (acento puntual) */}
           <div className="flex flex-col items-center py-5">
-            <div className="flex items-end justify-center gap-1" style={{ height: AMOUNT_ROW_HEIGHT }}>
+            <div className="flex items-center justify-center gap-1" style={{ height: AMOUNT_ROW_HEIGHT }}>
               <span
                 className={cn(
                   "font-bold",
@@ -361,7 +361,7 @@ export function EntrySheet({
               >
                 {symbol}
               </span>
-              <span className="flex items-end" style={{ transition: "font-size 150ms ease-out" }}>
+              <span className="flex items-center" style={{ transition: "font-size 150ms ease-out" }}>
                 <span
                   className={cn(
                     "font-entry-amount leading-none tracking-tight",
