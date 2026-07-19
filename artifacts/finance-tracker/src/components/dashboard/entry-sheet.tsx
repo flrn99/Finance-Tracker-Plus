@@ -365,6 +365,16 @@ export function EntrySheet({
                 >
                   {displayInt}
                 </span>
+                {/* El cursor sigue a lo que se está tecleando de verdad: pegado al
+                    entero mientras no se tocó el punto, recién salta a después de
+                    los decimales una vez que sí se está escribiendo ahí. */}
+                {!hasTypedDecimal && (
+                  <span
+                    aria-hidden="true"
+                    className={cn("ml-1 inline-block shrink-0 animate-caret-blink", accentBgClass)}
+                    style={{ width: Math.max(3, amountFontSize * 0.045), height: amountFontSize * 0.78 }}
+                  />
+                )}
                 <span
                   className={cn(
                     "font-entry-amount leading-none tracking-tight",
@@ -374,11 +384,13 @@ export function EntrySheet({
                 >
                   .{displayDec}
                 </span>
-                <span
-                  aria-hidden="true"
-                  className={cn("ml-1 inline-block shrink-0 animate-caret-blink", accentBgClass)}
-                  style={{ width: Math.max(3, amountFontSize * 0.045), height: amountFontSize * 0.78 }}
-                />
+                {hasTypedDecimal && (
+                  <span
+                    aria-hidden="true"
+                    className={cn("ml-1 inline-block shrink-0 animate-caret-blink", accentBgClass)}
+                    style={{ width: Math.max(3, amountFontSize * 0.045), height: amountFontSize * 0.78 }}
+                  />
+                )}
               </span>
             </div>
             {tx && (

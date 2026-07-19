@@ -9,7 +9,8 @@ App Android de finanzas personales. Frontend web empaquetado con Capacitor.
 ## Arquitectura
 
 - **Monorepo pnpm.** Raíz: `/Users/flrn/Documents/PROJECTS/Finance-Tracker/Finance-Tracker-Plus`
-- **Frontend**: `artifacts/finance-tracker` — React + Vite + Tailwind + wouter (router) + Capacitor (Android). shadcn/ui components en `src/components/ui/`.
+- **Frontend**: `artifacts/finance-tracker` — React + Vite + Tailwind + wouter (router) + Capacitor (Android + iOS, ambas plataformas activas y verificadas en dispositivo físico). shadcn/ui components en `src/components/ui/`.
+- **iOS nativo**: `ios/App/App/BridgeViewController.swift` subclasea `CAPBridgeViewController` (wireado en `Main.storyboard`) para apagar el rebote nativo del WKWebView (`scrollView.bounces = false`, si no la app se sentía como una página web suelta) y activar el gesto estándar de "swipe desde el borde para volver atrás" (`allowsBackForwardNavigationGestures = true`) — iOS no tiene botón físico de "atrás" como Android.
 - **Backend**: `artifacts/api-server` — Express + Drizzle ORM + TypeScript. Deployado en Render: `https://finance-tracker-api-087e.onrender.com` (se mantiene despierto 24/7 con ping externo).
 - **DB**: Supabase (Postgres). Schema Drizzle en `lib/db/src/schema/`. Las tablas NO tienen RLS pero el acceso directo por REST está bloqueado (verificado); el único camino es el backend.
 - **Auth**: Supabase Auth. `artifacts/api-server/src/middlewares/auth.ts` valida tokens con `supabase.auth.getUser(token)` — NO tocar este patrón.
@@ -22,14 +23,20 @@ App Android de finanzas personales. Frontend web empaquetado con Capacitor.
 # Backend: deploy = push (Render auto-redeploya)
 git add . && git commit -m "..." && git push
 
-# Frontend web → Android
+# Frontend web → Android + iOS (sin argumento de plataforma sincroniza las dos)
 cd artifacts/finance-tracker
-rm -rf dist && pnpm run build && npx cap sync android
+rm -rf dist && pnpm run build && npx cap sync
 
-# Solo si se tocó código NATIVO (AndroidManifest, MainActivity.java):
+# Solo si se tocó código NATIVO Android (AndroidManifest, MainActivity.java):
 cd android && rm -rf app/build && ./gradlew assembleDebug
 # APK: android/app/build/outputs/apk/debug/app-debug.apk
+
+# Solo si se tocó código NATIVO iOS (Info.plist, BridgeViewController.swift, etc.):
+# abrir ios/App/App.xcodeproj en Xcode y correr desde ahí — no hay CocoaPods
+# (usa Swift Package Manager, Package.swift se regenera solo con cap sync)
 ```
+
+**Preferencia del usuario**: cada vez que se commitea y pushea un cambio de frontend, correr el build + sync de arriba en el mismo momento sin que lo pida — no dejarlo para después.
 
 **Regla de oro**: antes de dar por bueno cualquier `.tsx`, verificar sintaxis:
 ```bash
@@ -45,9 +52,10 @@ npx esbuild ARCHIVO.tsx --loader:.tsx=tsx --jsx=automatic --outfile=/dev/null
   - Expense: `#FF4D4D` (texto blanco encima)
   - New Entry launcher: `#FF66D9` (rosa)
   - Insights (zona AI): celeste `#0EA5E9`, hero sky pastel
-  - Brand Flow green: `#A8FF3E` (lock screen, botones primarios), nav activo `#7DD900`
+  - Brand Flow green: `#CAFA01` (lock screen, botones primarios, status/nav bar Android, ícono de iOS)
   - Toggle period: fondo `#020203`, texto `#f9f8f8`
-- **Tipografía**: Righteous para números/títulos display (`font-serif` en Tailwind). El usuario planea agregar Brunson.ttf SOLO para títulos de página (clase `.font-title`, pendiente de aplicar).
+  - Flows (ex-Bills): "Flow! Red" `#FF4D4D` / "Flow! Green" `#00FF9C` como color default por type, sumados a la paleta de 10 colores compartida (`COLOR_OPTIONS` en `goals.tsx`)
+- **Tipografía**: 3 fuentes reales cargadas como `@font-face` en `index.css` (`public/fonts/*.woff2`) — `Unbounded` (900, `.font-title`, mayúsculas, títulos de página), `Space Grotesk` (700, `.font-number`, tabular-nums), `Big Shoulders Display` (900, `.font-entry-amount`, montos grandes tipo EntrySheet/stepper de día). Righteous (`font-serif`) sigue de una etapa anterior, verificar antes de asumir dónde se usa todavía.
 - **Categorías**: paletas separadas por tipo — 8 cálidos para expense (fuchsia→yellow), 8 fríos para income (lime→grape), en orden tonal. Definidas en `categories.tsx`.
 - El usuario es MUY exigente con el diseño: iterar con él antes de asumir; preguntar dirección con opciones concretas; cambios de color deben ser NOTORIOS, no sutiles.
 
@@ -62,7 +70,7 @@ estructurales de verdad, no ajustes cosméticos.**
   cambiar el tono exacto, pero NO invertir el significado ni volverlos neutros.
 - **Familia tonal**: la app vive en tonos SATURADOS y luminosos (no corporativo apagado,
   no grises tristes). Cualquier paleta nueva debe sentirse viva y con energía.
-- Flow green `#A8FF3E` como color de marca en momentos clave (lock screen, primary actions).
+- Flow green `#CAFA01` como color de marca en momentos clave (lock screen, primary actions).
 - Legibilidad: contraste real; texto oscuro sobre colores claros y viceversa.
 
 ### Totalmente abierto a rediseño radical
@@ -92,9 +100,10 @@ Rediseño del dashboard recién portado desde un prototipo v0/Next.js a Vite:
 
 - **Lock screen**: aurora mesh (4 blobs animados) + card flotante angosta + logo `/logo.png` abajo (fallback a texto).
 - **Insights**: hero sky pastel con score gauge segmentado, análisis server-side.
-- **Goals**: strip resumen (Total saved verde + Active streaks ámbar), cards tintadas por color, heatmaps estilo HabitKit. Queries prefetcheadas desde `layout.tsx` (`goalsQueryOptions`/`habitsQueryOptions` exportadas de `goals.tsx`).
-- **Categories**: grid 2-col de swatches Pantone (bloque de color arriba h-9 con acciones glass encima, base solo nombre), modal con preview en vivo (nombre se escribe EN el preview) y picker de pills tintados.
-- **Transactions**: cards flotantes limpias (círculo direccional tintado ↗/↙, descripción bold, "Categoría · fecha", monto verde/rojo), secciones por mes colapsables con chip de net. NO está en el nav — se entra por botón "All transactions" del dashboard.
+- **Goals**: switcher de 3 pestañas, orden **Flows, Savings, Habits** (Flows es la default al abrir la página — no hay `?tab=` en la URL). Savings: strip resumen (Total saved verde + Active streaks ámbar), cards tintadas por color, heatmaps estilo HabitKit. Queries prefetcheadas desde `layout.tsx` (`goalsQueryOptions`/`habitsQueryOptions` exportadas de `goals.tsx`).
+  - **Flows** (ex-"Bills", internamente el código sigue usando `bill`/`bills` — solo el label de UI cambió): pagos recurrentes con `type` (expense/income) y `day` (1-31, el mes se autodetecta). Lista dividida en secciones "Money Out"/"Money In", cada una ordenada por día, cards con tinte de color propio + heatmap mensual (el ícono de cada card se reemplazó por el número de día). Modal de creación: nombre escrito sobre el color → toggle Expense/Income → monto → día como **stepper** con flechas ‹ › + swipe horizontal (no una grilla de 31 casilleros, se sacó por ocupar mucho espacio) → categoría (filtrada por el type elegido) → auto-save → color (popup dropdown `ColorSelect`, paleta de 10 + "Flow! Red" `#FF4D4D` / "Flow! Green" `#00FF9C` como default según el type). Auto-save real: si el Flow tiene monto cargado y ya llegó/pasó el día elegido este mes sin marcarse pagado, se marca solo y crea la transacción al abrir la app (sin cron en el backend — se pone al día la próxima vez que la app esté abierta, no a medianoche exacta). El widget "Money Out" del dashboard (antes "Monthly bills") filtra solo Flows de type expense.
+- **Categories**: grid 2-col de swatches Pantone (bloque de color arriba h-9 con acciones glass encima, base solo nombre), modal con preview en vivo (nombre se escribe EN el preview) y picker de pills tintados. El modal de creación (`CreateCategoryModal` en `src/components/category-form-modal.tsx`) es compartido con el picker de categorías del EntrySheet — crear una categoría desde "New Entry" no navega afuera ni pierde el monto ya tipeado, y si el type de la categoría nueva no coincide con el type del entry abierto, el entry cambia de type solo.
+- **Transactions**: cards con swipe-to-delete (no un ícono de flecha direccional — cada fila tiene una barra de color de categoría a la izquierda, descripción bold, "Categoría · fecha", monto con prefijo +/− en verde/rojo), secciones por mes colapsables con chip de net. NO está en el nav — se entra por botón "All transactions" del dashboard.
 - **Nav**: 4 items (Dashboard, Insights, Goals, Categories). Avatar del perfil: top-0 right-0 en páginas normales, top-4 right-4 en Insights.
 
 ## Seguridad (auditada — no romper)
@@ -114,11 +123,11 @@ Rediseño del dashboard recién portado desde un prototipo v0/Next.js a Vite:
 - **Suscripción** — se evaluó reemplazar one-time payment por subscripción; pausado hasta
   decidir distribución (Play Store → obliga a Google Play Billing; directa/personal → Stripe
   es más simple). Sin implementar.
-- **iOS en device físico** — la plataforma existe, compila y corre en simulador (verificado),
-  pero nunca se probó en un iPhone real: hace falta firmar con una cuenta de Apple Developer.
-- **Motion fuera de las páginas rediseñadas** — Login, Settings, Onboarding y Voice Capture
-  tienen motion real (flip de título, stagger, reveal animado); Transactions, Categories y la
-  base de Goals se quedaron con las transiciones básicas de siempre.
-- **Dashboard treemap** (`spending-breakdown.tsx`): auditado y con los hallazgos resueltos
-  (toggle con `aria-pressed` + hit area 44px, tamaño de número recalculado por lado más chico
-  del tile para que no desborde en tiles pequeños).
+- **Motion fuera de las páginas rediseñadas** — Login, Settings, Onboarding, Voice Capture y
+  ahora Flows (toggle, stepper, swipe) tienen motion real; Transactions, Categories y las
+  pestañas Savings/Habits de Goals se quedaron con las transiciones básicas de siempre.
+- **Fix del delete de Transactions sin confirmar en device** — el botón de delete revelado
+  por swipe y la fila que se corre al costado no tenían z-index explícito; se hizo
+  condicional a `dragX < 0` (ver `transactions.tsx`) para que el delete gane el toque solo
+  cuando está revelado. Aplicado a partir de un reporte de "a veces no registra el toque",
+  sin causa raíz 100% confirmada — pendiente de que el usuario lo pruebe en el teléfono.
