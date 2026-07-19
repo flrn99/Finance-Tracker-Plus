@@ -1,4 +1,4 @@
-import { useEffect, type CSSProperties } from "react";
+import { useEffect, useRef } from "react";
 import {
   useCreateCategory,
   getListCategoriesQueryKey,
@@ -11,21 +11,22 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
-import { Check, X, TrendingDown, TrendingUp, Trash2 } from "lucide-react";
-import { cn, categoryTextColor, compositeHex, LIGHT_CARD_BG, DARK_CARD_BG } from "@/lib/utils";
+import { X, TrendingDown, TrendingUp, Trash2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 
-const PILL_TINT_ALPHA = 0x1f / 255;
-
-// Gastos: rojo → violeta, sin amarillos ni naranjas (se sacaron a propósito).
-// Fríos para ingresos — 8 y 8, en orden tonal ascendente.
+// Gastos: violeta → rojo → amarillo (los amarillos se sumaron a propósito,
+// reabriendo una exclusión de una sesión anterior). Fríos para ingresos,
+// con una familia extra de azules — 12 y 12, en orden tonal ascendente.
 export const EXPENSE_COLORS = [
   "#8b5cf6", "#c084fc", "#d946ef", "#e879f9",
   "#ec4899", "#f43f5e", "#fb7185", "#ef4444",
+  "#fbbf24", "#f59e0b", "#eab308", "#ca8a04",
 ];
 export const INCOME_COLORS = [
   "#84cc16", "#22c55e", "#14b8a6", "#06b6d4",
   "#0ea5e9", "#3b82f6", "#6366f1", "#a855f7",
+  "#22d3ee", "#0284c7", "#2563eb", "#1e40af",
 ];
 
 const COLOR_NAMES: Record<string, string> = {
@@ -37,6 +38,10 @@ const COLOR_NAMES: Record<string, string> = {
   "#f43f5e": "Cherry",
   "#fb7185": "Blush",
   "#ef4444": "Red",
+  "#fbbf24": "Amber",
+  "#f59e0b": "Honey",
+  "#eab308": "Gold",
+  "#ca8a04": "Mustard",
   "#84cc16": "Lime",
   "#22c55e": "Green",
   "#14b8a6": "Teal",
@@ -45,6 +50,10 @@ const COLOR_NAMES: Record<string, string> = {
   "#3b82f6": "Blue",
   "#6366f1": "Indigo",
   "#a855f7": "Grape",
+  "#22d3ee": "Cyan",
+  "#0284c7": "Ocean",
+  "#2563eb": "Royal",
+  "#1e40af": "Navy",
 };
 
 function colorLabel(hex: string): string {
@@ -164,6 +173,12 @@ export function CategoryForm({
   const watchedType = form.watch("type");
   const palette = watchedType === "income" ? INCOME_COLORS : EXPENSE_COLORS;
 
+  // Swipe horizontal sobre el nombre/swatch del stepper de color — mismo
+  // mecanismo que el stepper de día en Flows: acumula distancia arrastrada y
+  // avanza/retrocede un color cada COLOR_DRAG_STEP_PX, cíclico.
+  const COLOR_DRAG_STEP_PX = 28;
+  const colorDrag = useRef({ x: 0, accum: 0, active: false });
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
@@ -261,48 +276,79 @@ export function CategoryForm({
           }}
         />
 
-        {/* Color — pills tintados segun el tipo */}
+        {/* Color — stepper (círculo + nombre + puntos), con swipe horizontal.
+            Reemplaza la grilla 2 columnas: con 12 colores por tipo ya no
+            entraba cómoda de un vistazo (6 filas). */}
         <FormField
           control={form.control}
           name="color"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Color</FormLabel>
-              <FormControl>
-                <div className="grid grid-cols-2 gap-1.5">
-                  {palette.map((color) => {
-                    const active = field.value === color;
-                    // Vuelve al tinte pastel (más "cool" que el bloque sólido), pero el
-                    // texto ya no es el color a full intensidad — es la variante más
-                    // cercana que sigue pasando 4.5:1 contra el tinte compuesto real
-                    // (mismo hue, ajustado en OKLCH), calculada para cada tema.
-                    const tintLight = compositeHex(color, LIGHT_CARD_BG, PILL_TINT_ALPHA);
-                    const tintDark = compositeHex(color, DARK_CARD_BG, PILL_TINT_ALPHA);
-                    const textLight = categoryTextColor(color, tintLight);
-                    const textDark = categoryTextColor(color, tintDark);
-                    return (
+          render={({ field }) => {
+            const idx = Math.max(0, palette.indexOf(field.value));
+            const goTo = (i: number) => field.onChange(palette[(i + palette.length) % palette.length]);
+            return (
+              <FormItem>
+                <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Color</FormLabel>
+                <FormControl>
+                  <div className="flex flex-col items-center gap-2 py-1">
+                    <div className="flex items-center justify-center gap-5">
                       <button
-                        key={color}
                         type="button"
-                        onClick={() => field.onChange(color)}
-                        className="cat-name-text flex items-center justify-between px-3 py-2 rounded-xl text-sm font-bold transition-all active:scale-[0.96]"
-                        style={{
-                          background: `${color}1F`,
-                          boxShadow: active ? `inset 0 0 0 1.5px ${color}` : "none",
-                          "--cat-text-light": textLight,
-                          "--cat-text-dark": textDark,
-                        } as CSSProperties}
+                        onClick={() => goTo(idx - 1)}
+                        className="w-8 h-8 shrink-0 rounded-full bg-muted text-foreground text-sm font-bold flex items-center justify-center active:scale-90 transition-transform"
                       >
-                        {colorLabel(color)}
-                        {active && <Check className="h-3.5 w-3.5" />}
+                        ‹
                       </button>
-                    );
-                  })}
-                </div>
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
+                      <div
+                        className="flex flex-col items-center gap-1.5 min-w-[112px] select-none touch-none"
+                        onPointerDown={(e) => { colorDrag.current = { x: e.clientX, accum: 0, active: false }; }}
+                        onPointerMove={(e) => {
+                          const st = colorDrag.current;
+                          const dx = e.clientX - st.x;
+                          if (!st.active) {
+                            if (Math.abs(dx) < 6) return;
+                            st.active = true;
+                          }
+                          st.accum += dx;
+                          st.x = e.clientX;
+                          let i = idx;
+                          while (st.accum >= COLOR_DRAG_STEP_PX) { i = (i + 1) % palette.length; st.accum -= COLOR_DRAG_STEP_PX; }
+                          while (st.accum <= -COLOR_DRAG_STEP_PX) { i = (i - 1 + palette.length) % palette.length; st.accum += COLOR_DRAG_STEP_PX; }
+                          if (i !== idx) field.onChange(palette[i]);
+                        }}
+                        onPointerUp={() => { colorDrag.current.active = false; }}
+                        onPointerCancel={() => { colorDrag.current.active = false; }}
+                      >
+                        <div className="w-11 h-11 rounded-full shadow-md" style={{ background: field.value, boxShadow: "0 4px 14px -2px rgba(0,0,0,0.28)" }} />
+                        <span className="text-sm font-bold">{colorLabel(field.value)}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => goTo(idx + 1)}
+                        className="w-8 h-8 shrink-0 rounded-full bg-muted text-foreground text-sm font-bold flex items-center justify-center active:scale-90 transition-transform"
+                      >
+                        ›
+                      </button>
+                    </div>
+                    <div className="flex gap-1 flex-wrap justify-center max-w-[170px]">
+                      {palette.map((c, i) => (
+                        <span
+                          key={c}
+                          className="transition-all"
+                          style={{
+                            width: i === idx ? 14 : 5,
+                            height: 5,
+                            borderRadius: 3,
+                            background: i === idx ? field.value : "hsl(var(--muted-foreground) / 0.25)",
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            );
+          }}
         />
 
         <div className="flex gap-2 pt-1">
