@@ -178,6 +178,8 @@ const HABIT_ICON_KEYS = ["dumbbell", "coffee", "cigarette", "beer", "candy", "ba
 const BILL_ICON_KEYS = ["creditcard", "home", "car", "smartphone", "wallet", "zap", "wifi", "landmark", "tv", "droplet"];
 
 const COLOR_OPTIONS: { hex: string; name: string }[] = [
+  { hex: "#FF4D4D", name: "Flow! Red" },
+  { hex: "#00FF9C", name: "Flow! Green" },
   { hex: "#CAFA01", name: "Flow Green" },
   { hex: "#22c55e", name: "Matcha Rush" },
   { hex: "#14b8a6", name: "Caribbean Wave" },
@@ -818,6 +820,7 @@ function BillForm({
                   type="button"
                   onClick={() => {
                     field.onChange("expense");
+                    form.setValue("color", "#FF4D4D");
                     if (!expenseCategories.some((c) => c.id === form.getValues("categoryId"))) form.setValue("categoryId", undefined);
                   }}
                   className={cn("relative z-10 flex-1 flex items-center justify-center gap-1.5 py-2 text-sm font-semibold transition-colors duration-300 rounded-full", !isIncome ? "text-white" : "text-foreground/50")}
@@ -829,6 +832,7 @@ function BillForm({
                   type="button"
                   onClick={() => {
                     field.onChange("income");
+                    form.setValue("color", "#00FF9C");
                     if (!incomeCategories.some((c) => c.id === form.getValues("categoryId"))) form.setValue("categoryId", undefined);
                   }}
                   className={cn("relative z-10 flex-1 flex items-center justify-center gap-1.5 py-2 text-sm font-semibold transition-colors duration-300 rounded-full", isIncome ? "text-white" : "text-foreground/50")}
@@ -1837,11 +1841,11 @@ export default function Goals() {
 
   const billForm = useForm<BillFormValues>({
     resolver: zodResolver(billSchema),
-    defaultValues: { name: "", icon: "creditcard", color: "#CAFA01", type: "expense", day: 1, amount: undefined, categoryId: undefined, autoSave: false },
+    defaultValues: { name: "", icon: "creditcard", color: "#FF4D4D", type: "expense", day: 1, amount: undefined, categoryId: undefined, autoSave: false },
   });
 
   const openCreateBill = () => {
-    billForm.reset({ name: "", icon: "creditcard", color: "#CAFA01", type: "expense", day: 1, amount: undefined, categoryId: undefined, autoSave: false });
+    billForm.reset({ name: "", icon: "creditcard", color: "#FF4D4D", type: "expense", day: 1, amount: undefined, categoryId: undefined, autoSave: false });
     setBillModal("create");
   };
 
@@ -1885,7 +1889,7 @@ export default function Goals() {
     const numeric = parseAmountInput(payAmount);
     if (!numeric || numeric <= 0 || !payBill.categoryId) return;
     createTransaction.mutate(
-      { data: { type: "expense", amount: numeric, description: payBill.name, categoryId: payBill.categoryId, date: `${payMonth}-01` } },
+      { data: { type: payBill.type, amount: numeric, description: payBill.name, categoryId: payBill.categoryId, date: `${payMonth}-01` } },
       {
         onSuccess: (tx: any) => {
           invalidateTransactions();
@@ -1956,6 +1960,38 @@ export default function Goals() {
   const activeStreaks = habits.filter((h) => h.streak > 0).length;
   const bestStreak = habits.reduce((m, h) => Math.max(m, h.streak), 0);
   const billsPaidThisMonth = bills.filter((b) => b.paidThisMonth).length;
+
+  // Auto-save real: si el Flow tiene auto-save + monto cargado y el día elegido ya
+  // llegó (o pasó) este mes sin marcarse, se marca solo — crea la transacción sin
+  // pedir confirmación (por eso "Salario" con auto-save cae solo en Transactions
+  // cada 15). No hay cron en el backend: esto corre cuando la app está abierta, así
+  // que si no la abriste el día exacto, se pone al día la próxima vez que entrás.
+  // Sin monto cargado no hay forma de saber cuánto cobrar, así que sigue abriendo
+  // el sheet de pago manual como siempre.
+  const autoFiredRef = useRef<Set<number>>(new Set());
+  useEffect(() => {
+    if (!billsQuery.data) return;
+    const todayDate = new Date().getDate();
+    for (const b of bills) {
+      if (b.id < 0 || !b.autoSave || !b.categoryId || b.amount == null) continue;
+      if (b.paidThisMonth || b.day > todayDate) continue;
+      if (autoFiredRef.current.has(b.id)) continue;
+      autoFiredRef.current.add(b.id);
+      const month = currentMonthKey();
+      const amount = b.amount;
+      createTransaction.mutate(
+        { data: { type: b.type, amount, description: b.name, categoryId: b.categoryId, date: `${month}-01` } },
+        {
+          onSuccess: (tx: any) => {
+            invalidateTransactions();
+            toggleBillLog.mutate({ id: b.id, month, amountPaid: amount, transactionId: tx?.id });
+            toast({ title: `${b.name} marked as paid`, description: `${symbol} ${fmtMoney(amount)} · auto-save` });
+          },
+          onError: () => { autoFiredRef.current.delete(b.id); },
+        }
+      );
+    }
+  }, [billsQuery.data]);
 
   /* ---------- render ---------- */
 

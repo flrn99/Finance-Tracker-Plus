@@ -578,7 +578,10 @@ export function EntrySheet({
         open={showCategoryModal}
         onClose={() => setShowCategoryModal(false)}
         defaultType={type}
-        onCreated={(created) => setCategoryId(created?.id ?? null)}
+        onCreated={(created) => {
+          setCategoryId(created?.id ?? null);
+          if (created?.type && created.type !== type) setType(created.type);
+        }}
       />
     </div>
   );
