@@ -465,7 +465,12 @@ export function EntrySheet({
 
           {/* Keypad — mismo flujo que el resto, sin separarlo en su propio contenedor */}
           <div className="pb-6 pt-4" style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 1.5rem)" }}>
-            <div className="mx-auto grid max-w-[228px] grid-cols-3 items-center gap-0.5">
+            {/* Antes solo "0" era 70px y el resto 58px — con margen de sobra en cada
+                columna (74.67px de columna vs. botones chicos). Al unificar todas
+                las teclas a 70px, ese margen se achicó a ~2px por lado: casi sin
+                separación real entre teclas vecinas. Se agranda el contenedor y el
+                gap para devolver un colchón cómodo entre tap targets. */}
+            <div className="mx-auto grid max-w-[258px] grid-cols-3 items-center gap-2">
               {KEYS.map((k) => {
                 const isDot = k === ".";
                 const isDel = k === "del";
