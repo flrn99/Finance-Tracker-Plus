@@ -206,6 +206,12 @@ export function EntrySheet({
     setRaw((r) => {
       if (r === "0") return key;
       if (r.includes(".") && (r.split(".")[1]?.length ?? 0) >= 2) return r;
+      // Sin tope, un entero podía crecer sin límite y desbordar el ancho de la
+      // hoja — ahí el body se volvía scrolleable horizontal y toda la pantalla
+      // se sentía "movible" como una página web. 9 dígitos (~999 millones)
+      // sobra para cualquier monto real.
+      const intLen = r.includes(".") ? r.split(".")[0].length : r.length;
+      if (intLen >= 9) return r;
       return r + key;
     });
   }
@@ -348,7 +354,11 @@ export function EntrySheet({
         </header>
 
         {/* Body */}
-        <div className="flex flex-1 flex-col overflow-y-auto px-5 pt-2">
+        {/* overflow-x-hidden explícito — con overflow-y-auto solo, un contenido
+            que se pasara de ancho (ej. un monto sin tope) hacía que este eje
+            resolviera a "auto" también, dejando SCROLLEAR TODA LA HOJA de
+            costado en vez de recortar limpio. */}
+        <div className="flex flex-1 flex-col overflow-y-auto overflow-x-hidden px-5 pt-2">
           {/* Amount — superficie neutra, el color vive solo en el monto (acento puntual) */}
           <div className="flex flex-col items-center py-5">
             <div className="flex items-center justify-center gap-1" style={{ height: AMOUNT_ROW_HEIGHT }}>
@@ -482,6 +492,12 @@ export function EntrySheet({
                     aria-label={isDel ? "Delete" : isDot ? "Decimal point" : k}
                     onPointerDown={(e) => {
                       e.preventDefault();
+                      // Sin esto, si el dedo se corre un poco antes de soltar, el
+                      // pointerUp se dispara en la tecla vecina que quedó debajo (el
+                      // navegador apunta al elemento actual, no al de pointerDown) —
+                      // ahí se registraba el número de al lado en vez del tocado.
+                      // Mismo patrón que el swipe-to-delete de Transactions.
+                      e.currentTarget.setPointerCapture(e.pointerId);
                       setPressedKey(k);
                       // Haptic al tocar, no al soltar — mismo timing que el PIN de
                       // biometric-lock (se sentía "atrasado" cuando disparaba recién
@@ -500,6 +516,7 @@ export function EntrySheet({
                     }}
                     onPointerUp={(e) => {
                       setPressedKey(null);
+                      if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
                       if (isDel) { stopDeleteRepeat(); return; }
                       const start = keyStartPos.current;
                       keyStartPos.current = null;
