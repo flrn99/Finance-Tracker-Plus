@@ -15,6 +15,20 @@ export const goalsTable = pgTable("goals", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Cada "Add money" a una meta, mismo patrón que billLogsTable: guarda el link a la
+// transacción real que ese aporte generó (si la generó), para que Delete Goal pueda
+// limpiar los registros propios sin tocar la transacción real por default, y para
+// tener trazabilidad de cada aporte individual (no solo el total en currentAmount).
+export const goalContributionsTable = pgTable("goal_contributions", {
+  id: serial("id").primaryKey(),
+  goalId: integer("goal_id")
+    .notNull()
+    .references(() => goalsTable.id, { onDelete: "cascade" }),
+  amount: numeric("amount", { precision: 12, scale: 6 }).notNull(),
+  transactionId: integer("transaction_id").references(() => transactionsTable.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const habitsTable = pgTable("habits", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
@@ -76,6 +90,7 @@ export const insertBillSchema = createInsertSchema(billsTable).omit({
 });
 
 export type Goal = typeof goalsTable.$inferSelect;
+export type GoalContribution = typeof goalContributionsTable.$inferSelect;
 export type Habit = typeof habitsTable.$inferSelect;
 export type HabitLog = typeof habitLogsTable.$inferSelect;
 export type Bill = typeof billsTable.$inferSelect;

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { goalsTable, habitsTable, habitLogsTable, billsTable, billLogsTable, transactionsTable } from "@workspace/db";
-import { eq, and, gte, lte, desc, inArray } from "drizzle-orm";
+import { goalsTable, goalContributionsTable, habitsTable, habitLogsTable, billsTable, billLogsTable, transactionsTable } from "@workspace/db";
+import { eq, and, gte, lte, desc, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { authMiddleware } from "../middlewares/auth";
 
@@ -37,6 +37,11 @@ const billBodySchema = z.object({
 
 const billLogBodySchema = z.object({
   amountPaid: z.coerce.number().nonnegative().nullish(),
+  transactionId: z.coerce.number().int().positive().nullish(),
+});
+
+const goalContributionBodySchema = z.object({
+  amount: z.coerce.number().positive(),
   transactionId: z.coerce.number().int().positive().nullish(),
 });
 
@@ -153,10 +158,54 @@ router.delete("/goals/:id", async (req, res) => {
   if (Number.isNaN(id)) return res.status(400).json({ error: "Invalid id" });
 
   const userId = (req as any).userId;
+  // goal_contributions se borra solo (onDelete: cascade) — las transacciones reales
+  // que cada aporte generó NO se tocan, igual que bills sin ?deleteTransactions=true:
+  // es plata que de verdad se movió, no algo que desaparece porque se borró la meta.
   await db
     .delete(goalsTable)
     .where(and(eq(goalsTable.id, id), eq(goalsTable.userId, userId)));
   return res.status(204).send();
+});
+
+// Registra un aporte a la meta: guarda el log (con el link a la transacción real, si
+// el front ya la creó) y suma el monto a currentAmount de forma atómica en SQL, para
+// no pisar aportes concurrentes con un valor absoluto stale leído en el cliente.
+router.post("/goals/:id/contributions", async (req, res) => {
+  const id = Number(req.params.id);
+  if (Number.isNaN(id)) return res.status(400).json({ error: "Invalid id" });
+
+  const parsed = goalContributionBodySchema.safeParse(req.body);
+  if (!parsed.success)
+    return res.status(400).json({ error: "Invalid body", details: parsed.error.issues });
+
+  const userId = (req as any).userId;
+  const [goal] = await db
+    .select()
+    .from(goalsTable)
+    .where(and(eq(goalsTable.id, id), eq(goalsTable.userId, userId)))
+    .limit(1);
+  if (!goal) return res.status(404).json({ error: "Not found" });
+
+  const { amount, transactionId } = parsed.data;
+
+  await db.insert(goalContributionsTable).values({
+    goalId: id,
+    amount: String(amount),
+    transactionId: transactionId ?? null,
+  });
+
+  const [row] = await db
+    .update(goalsTable)
+    .set({ currentAmount: sql`${goalsTable.currentAmount} + ${String(amount)}` })
+    .where(eq(goalsTable.id, id))
+    .returning();
+
+  return res.status(201).json({
+    ...row,
+    targetAmount: parseFloat(row.targetAmount),
+    currentAmount: parseFloat(row.currentAmount),
+    createdAt: row.createdAt.toISOString(),
+  });
 });
 
 // ---------- HABITS ----------
