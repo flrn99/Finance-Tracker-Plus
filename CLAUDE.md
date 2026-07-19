@@ -111,9 +111,14 @@ Rediseño del dashboard recién portado desde un prototipo v0/Next.js a Vite:
 
 ## Pendientes conocidos
 
-- **Rediseño de las gráficas del dashboard** — el chart es heredado y es el punto más débil
-  de la app. Candidato #1 para un rediseño audaz.
-- Motion/transiciones: prácticamente inexistentes más allá de fades básicos. Gran oportunidad.
-- Aplicar fuente Brunson.ttf a títulos de página (`public/fonts/Brunson.ttf` + `@font-face` + clase `.font-title`).
-- Verificar que `settings.tsx` haga `await disable(pin)` (disable pasó a async).
-- Alinear naming de env: `.env.example` usa `VITE_API_BASE_URL`; verificar que `api-config.ts` use el mismo nombre.
+- **Suscripción** — se evaluó reemplazar one-time payment por subscripción; pausado hasta
+  decidir distribución (Play Store → obliga a Google Play Billing; directa/personal → Stripe
+  es más simple). Sin implementar.
+- **iOS en device físico** — la plataforma existe, compila y corre en simulador (verificado),
+  pero nunca se probó en un iPhone real: hace falta firmar con una cuenta de Apple Developer.
+- **Motion fuera de las páginas rediseñadas** — Login, Settings, Onboarding y Voice Capture
+  tienen motion real (flip de título, stagger, reveal animado); Transactions, Categories y la
+  base de Goals se quedaron con las transiciones básicas de siempre.
+- **Dashboard treemap** (`spending-breakdown.tsx`): auditado y con los hallazgos resueltos
+  (toggle con `aria-pressed` + hit area 44px, tamaño de número recalculado por lado más chico
+  del tile para que no desborde en tiles pequeños).

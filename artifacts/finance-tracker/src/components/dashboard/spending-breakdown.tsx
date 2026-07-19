@@ -150,15 +150,20 @@ export function SpendingBreakdown({
     // depender de soporte de features CSS nuevas en el dispositivo.
     return display.map((entry, i) => {
       const rect = rects[i]!;
-      const scale = Math.sqrt(rect.w * rect.h);
+      // minSide (no sqrt(w*h)) — un tile angosto-pero-alto puede tener área
+      // decente y aun así muy poca altura real; el lado más chico es la
+      // restricción de verdad para que el texto entre sin desbordar.
+      const minSide = Math.min(rect.w, rect.h);
       return {
         ...entry,
         rect,
         // El % es el número hero (hasta 68px en el tile dominante), el nombre queda
         // como etiqueta chica arriba — jerarquía invertida a propósito, inspirada en
-        // el "Sales Report" que trajo el usuario.
-        nameFontSize: Math.min(Math.max(scale * 0.12, 8), 13),
-        pctFontSize: Math.min(Math.max(scale * 0.85, 16), 68),
+        // el "Sales Report" que trajo el usuario. Piso bajado (antes 16px mínimo
+        // incluso en tiles casi del tamaño del padding) para que los tiles chicos
+        // de verdad achiquen el número en vez de desbordar el tile.
+        nameFontSize: Math.min(Math.max(minSide * 0.13, 7), 13),
+        pctFontSize: Math.min(Math.max(minSide * 0.95, 10), 68),
       };
     });
   }, [data, total]);
@@ -202,8 +207,10 @@ export function SpendingBreakdown({
           <button
             type="button"
             onClick={() => onTypeChange("expense")}
+            aria-pressed={isExpense}
             className={cn(
-              "relative z-10 flex items-center gap-1 px-2.5 py-1 text-xs font-semibold transition-colors duration-300 whitespace-nowrap rounded-full",
+              "relative z-10 flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold transition-colors duration-300 whitespace-nowrap rounded-full",
+              "before:absolute before:inset-x-0 before:-inset-y-2 before:content-['']", // hit area ~44px sin agrandar el pill visual ni pisar al botón de al lado
               isExpense ? "text-white" : "text-muted-foreground hover:text-foreground/70"
             )}
           >
@@ -213,8 +220,10 @@ export function SpendingBreakdown({
           <button
             type="button"
             onClick={() => onTypeChange("income")}
+            aria-pressed={!isExpense}
             className={cn(
-              "relative z-10 flex items-center gap-1 px-2.5 py-1 text-xs font-semibold transition-colors duration-300 whitespace-nowrap rounded-full",
+              "relative z-10 flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold transition-colors duration-300 whitespace-nowrap rounded-full",
+              "before:absolute before:inset-x-0 before:-inset-y-2 before:content-['']",
               !isExpense ? "text-white" : "text-muted-foreground hover:text-foreground/70"
             )}
           >
@@ -240,7 +249,11 @@ export function SpendingBreakdown({
                 // El texto escala con el tamaño real del tile (calculado en JS a partir
                 // del rect de squarify) — así cada tile queda legible a su propia escala,
                 // como un mapa de países: el gigante grita, el chico susurra.
-                const tooSmall = t.rect.w < 8 || t.rect.h < 8;
+                // Umbral subido de 8 a 14: con el padding fijo de 8px por lado, un tile
+                // de 8 unidades apenas tenía lugar para el padding solo — el número
+                // quedaba desbordando. Debajo de 14, el tile queda como bloque de color
+                // sin texto en vez de forzar un número ilegible adentro.
+                const tooSmall = t.rect.w < 14 || t.rect.h < 14;
                 // Padding fijo, no escalado con el tile — el que sí escalaba dejaba
                 // el % pegado a la esquina en tiles chicos (4px de aire y una letra
                 // de 7px se leía como si se estuviera saliendo del tile).
