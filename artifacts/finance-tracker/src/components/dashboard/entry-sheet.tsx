@@ -23,6 +23,11 @@ import { cn } from "@/lib/utils";
 export type EntryType = "expense" | "income";
 
 const KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0", "del"];
+// Altura fija de la fila del monto — pensada para el amountFontSize más grande
+// (72px) más aire, así reducir el font-size en montos largos nunca corre lo
+// que hay debajo (antes el contenedor no tenía altura propia y se achicaba
+// junto con el texto).
+const AMOUNT_ROW_HEIGHT = 88;
 
 // Mismo patrón que biometric-lock.tsx: cachea el módulo tras el primer import
 // para que cada tecla no pague el overhead de una promesa nueva.
@@ -184,14 +189,15 @@ export function EntrySheet({
   // resto del monto, como si ya fueran parte de lo tecleado.
   const [displayInt, displayDec] = display.split(".");
 
-  // Auto-achica el monto si el número es largo, para que nunca se corte —
-  // el tamaño base (64px) es el que ya se aprobó para montos cortos.
+  // Auto-achica el monto si el número es largo, para que nunca se corte.
+  // El contenedor de abajo tiene altura fija (AMOUNT_ROW_HEIGHT) pensada para
+  // el tamaño más grande de acá — así el achique nunca arrastra lo de abajo.
   const amountFontSize = useMemo(() => {
     const len = display.length;
-    if (len <= 6) return 64;
-    if (len <= 8) return 56;
-    if (len <= 10) return 46;
-    return 38;
+    if (len <= 6) return 72;
+    if (len <= 8) return 62;
+    if (len <= 10) return 52;
+    return 42;
   }, [display]);
 
   function press(key: string) {
@@ -345,7 +351,7 @@ export function EntrySheet({
         <div className="flex flex-1 flex-col overflow-y-auto px-5 pt-2">
           {/* Amount — superficie neutra, el color vive solo en el monto (acento puntual) */}
           <div className="flex flex-col items-center py-5">
-            <div className="flex items-baseline justify-center gap-1">
+            <div className="flex items-end justify-center gap-1" style={{ height: AMOUNT_ROW_HEIGHT }}>
               <span
                 className={cn(
                   "font-bold",
@@ -355,7 +361,7 @@ export function EntrySheet({
               >
                 {symbol}
               </span>
-              <span className="flex items-baseline" style={{ transition: "font-size 150ms ease-out" }}>
+              <span className="flex items-end" style={{ transition: "font-size 150ms ease-out" }}>
                 <span
                   className={cn(
                     "font-entry-amount leading-none tracking-tight",
@@ -461,7 +467,6 @@ export function EntrySheet({
           <div className="pb-6 pt-4" style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 1.5rem)" }}>
             <div className="mx-auto grid max-w-[228px] grid-cols-3 items-center gap-0.5">
               {KEYS.map((k) => {
-                const isZero = k === "0";
                 const isDot = k === ".";
                 const isDel = k === "del";
                 const isPressed = pressedKey === k;
@@ -507,10 +512,7 @@ export function EntrySheet({
                     }}
                     onPointerLeave={() => { setPressedKey(null); if (isDel) stopDeleteRepeat(); }}
                     onPointerCancel={() => { setPressedKey(null); if (isDel) stopDeleteRepeat(); }}
-                    className={cn(
-                      "justify-self-center flex items-center justify-center rounded-full font-sans font-semibold leading-none text-foreground",
-                      isZero ? "h-[70px] w-[70px] text-5xl" : "h-[58px] w-[58px] text-4xl"
-                    )}
+                    className="justify-self-center flex h-[70px] w-[70px] items-center justify-center rounded-full font-sans font-semibold leading-none text-5xl text-foreground"
                     style={{
                       background: isPressed
                         ? isExpense ? "rgba(255,77,77,0.16)" : "rgba(0,168,112,0.18)"
