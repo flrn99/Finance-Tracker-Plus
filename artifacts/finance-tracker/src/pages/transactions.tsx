@@ -123,7 +123,7 @@ function TransactionRow({
             type="button"
             onClick={() => triggerHaptic()}
             aria-label={`Delete ${tx.description}`}
-            className="group absolute inset-y-0 right-0 flex items-center justify-center"
+            className="group absolute inset-y-0 right-0 z-10 flex items-center justify-center"
             style={{ width: SWIPE_WIDTH }}
           >
             <span

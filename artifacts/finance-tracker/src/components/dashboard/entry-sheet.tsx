@@ -169,6 +169,8 @@ export function EntrySheet({
 
   const numeric = useMemo(() => Number.parseFloat(raw || "0") || 0, [raw]);
 
+  const hasTypedDecimal = raw.includes(".");
+
   const display = useMemo(() => {
     const [int, dec] = raw.split(".");
     const grouped = Number(int || "0").toLocaleString("en-US");
@@ -176,6 +178,11 @@ export function EntrySheet({
     // siempre se ve completo con los .00 — es lo que se va a guardar igual.
     return dec !== undefined ? `${grouped}.${dec.slice(0, 2)}` : `${grouped}.00`;
   }, [raw]);
+
+  // Separado en dos spans para que los ".00" placeholder se vean apagados hasta
+  // que se toque el punto — antes se veían con el mismo color activo que el
+  // resto del monto, como si ya fueran parte de lo tecleado.
+  const [displayInt, displayDec] = display.split(".");
 
   // Auto-achica el monto si el número es largo, para que nunca se corte —
   // el tamaño base (64px) es el que ya se aprobó para montos cortos.
@@ -188,7 +195,6 @@ export function EntrySheet({
   }, [display]);
 
   function press(key: string) {
-    triggerHaptic();
     if (key === "del") { setRaw((r) => (r.length <= 1 ? "0" : r.slice(0, -1))); return; }
     if (key === ".") { setRaw((r) => (r.includes(".") ? r : r + ".")); return; }
     setRaw((r) => {
@@ -201,7 +207,7 @@ export function EntrySheet({
   function startDeleteRepeat() {
     stopDeleteRepeat();
     deleteTimeout.current = setTimeout(() => {
-      deleteInterval.current = setInterval(() => press("del"), 90);
+      deleteInterval.current = setInterval(() => { triggerHaptic(); press("del"); }, 90);
     }, 450);
   }
 
@@ -280,6 +286,9 @@ export function EntrySheet({
 
   if (!open) return null;
 
+  const accentTextClass = isExpense ? "text-[#E11D48] dark:text-[#FFA3A3]" : "text-[#00593C] dark:text-[#6EE7B7]";
+  const accentBgClass = isExpense ? "bg-[#E11D48] dark:bg-[#FFA3A3]" : "bg-[#00593C] dark:bg-[#6EE7B7]";
+
   return (
     <div className="fixed inset-0 z-50 flex justify-center" style={{ background: "rgba(2,2,3,0.3)", backdropFilter: "blur(4px)" }} role="dialog" aria-modal="true">
       <div
@@ -346,18 +355,30 @@ export function EntrySheet({
               >
                 {symbol}
               </span>
-              <span
-                className={cn(
-                  "font-entry-amount leading-none tracking-tight",
-                  numeric > 0
-                    ? isExpense
-                      ? "text-[#E11D48] dark:text-[#FFA3A3]"
-                      : "text-[#00593C] dark:text-[#6EE7B7]"
-                    : "text-muted-foreground/40"
-                )}
-                style={{ fontSize: amountFontSize, transition: "font-size 150ms ease-out" }}
-              >
-                {display}
+              <span className="flex items-baseline" style={{ transition: "font-size 150ms ease-out" }}>
+                <span
+                  className={cn(
+                    "font-entry-amount leading-none tracking-tight",
+                    numeric > 0 ? accentTextClass : "text-muted-foreground/40"
+                  )}
+                  style={{ fontSize: amountFontSize }}
+                >
+                  {displayInt}
+                </span>
+                <span
+                  className={cn(
+                    "font-entry-amount leading-none tracking-tight",
+                    hasTypedDecimal ? accentTextClass : "text-muted-foreground/40"
+                  )}
+                  style={{ fontSize: amountFontSize }}
+                >
+                  .{displayDec}
+                </span>
+                <span
+                  aria-hidden="true"
+                  className={cn("ml-1 inline-block shrink-0 animate-caret-blink", accentBgClass)}
+                  style={{ width: Math.max(3, amountFontSize * 0.045), height: amountFontSize * 0.78 }}
+                />
               </span>
             </div>
             {tx && (
@@ -440,6 +461,11 @@ export function EntrySheet({
                     onPointerDown={(e) => {
                       e.preventDefault();
                       setPressedKey(k);
+                      // Haptic al tocar, no al soltar — mismo timing que el PIN de
+                      // biometric-lock (se sentía "atrasado" cuando disparaba recién
+                      // en pointerUp). El valor en sí sigue mutando en pointerUp para
+                      // los dígitos/punto, así el swipe-to-cancel de abajo no se rompe.
+                      triggerHaptic();
                       if (isDel) {
                         // Borrar sigue disparando al toque, para que el hold-to-delete funcione
                         firedByPointer.current = true;
@@ -488,8 +514,7 @@ export function EntrySheet({
                       />
                     ) : isDot ? (
                       <span
-                        className="h-[11px] w-[11px] rounded-full"
-                        style={{ background: isExpense ? "#FF4D4D" : "#00FF9C" }}
+                        className={cn("h-[11px] w-[11px] rounded-full opacity-60", isExpense ? "bg-[#E11D48]" : "bg-[#00593C]")}
                       />
                     ) : (
                       k

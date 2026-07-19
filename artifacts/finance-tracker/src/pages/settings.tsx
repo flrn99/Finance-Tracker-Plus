@@ -91,7 +91,7 @@ export function BiometricToggle({ on, onToggle }: { on: boolean; onToggle: () =>
       aria-checked={on}
       aria-label="Biometric lock"
       onClick={onToggle}
-      className="relative w-[46px] h-[26px] rounded-full bg-muted shrink-0 transition-transform active:scale-95"
+      className="relative w-[46px] h-[26px] rounded-full bg-muted shrink-0 transition-transform active:scale-95 before:absolute before:-inset-y-2.5 before:inset-x-0 before:content-['']"
     >
       <span
         className="absolute top-0.5 left-0.5 w-[22px] h-[22px] rounded-full transition-transform duration-300"

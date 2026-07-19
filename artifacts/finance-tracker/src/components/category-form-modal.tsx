@@ -135,7 +135,7 @@ export function FloatingModal({ open, onClose, title, children }: { open: boolea
       >
         <div className="flex items-center justify-between px-5 pt-4 pb-3">
           <p className="font-bold text-base">{title}</p>
-          <button onClick={onClose} className="w-7 h-7 rounded-lg bg-muted flex items-center justify-center">
+          <button onClick={onClose} className="relative w-7 h-7 rounded-lg bg-muted flex items-center justify-center before:absolute before:-inset-2 before:content-['']">
             <X className="h-3.5 w-3.5" />
           </button>
         </div>

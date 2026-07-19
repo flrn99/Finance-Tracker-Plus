@@ -391,7 +391,7 @@ function FloatingModal({
       >
         <div className="flex items-center justify-between px-5 pt-5 pb-3">
           <p className="font-bold text-base">{title}</p>
-          <button onClick={onClose} className="w-7 h-7 rounded-lg bg-muted flex items-center justify-center">
+          <button onClick={onClose} className="relative w-7 h-7 rounded-lg bg-muted flex items-center justify-center before:absolute before:-inset-2 before:content-['']">
             <X className="h-3.5 w-3.5" />
           </button>
         </div>
@@ -765,6 +765,16 @@ function BillForm({
   const categories = isIncome ? incomeCategories : expenseCategories;
   const selectedCategory = categories.find((c) => c.id === categoryId);
 
+  // Swipe horizontal sobre el número del stepper de día — mismo mecanismo de
+  // pointer events que el swipe-to-delete de Transactions, pero acumulando
+  // distancia en vez de trasladar la fila: cada DAY_DRAG_STEP_PX de arrastre
+  // suma/resta un día, cíclico. El valor final se calcula en una variable local
+  // (no leyendo field.value entre iteraciones) porque React batchea los setState
+  // dentro del mismo evento — si el loop llamara field.onChange varias veces
+  // seguidas, cada llamada seguiría viendo el valor viejo hasta el próximo render.
+  const DAY_DRAG_STEP_PX = 24;
+  const dayDrag = useRef({ x: 0, accum: 0, active: false });
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
@@ -892,7 +902,26 @@ function BillForm({
                 >
                   ‹
                 </button>
-                <div className="text-center leading-none min-w-[3.5rem]">
+                <div
+                  className="text-center leading-none min-w-[3.5rem] select-none touch-none"
+                  onPointerDown={(e) => { dayDrag.current = { x: e.clientX, accum: 0, active: false }; }}
+                  onPointerMove={(e) => {
+                    const st = dayDrag.current;
+                    const dx = e.clientX - st.x;
+                    if (!st.active) {
+                      if (Math.abs(dx) < 6) return;
+                      st.active = true;
+                    }
+                    st.accum += dx;
+                    st.x = e.clientX;
+                    let value = field.value;
+                    while (st.accum >= DAY_DRAG_STEP_PX) { value = value >= 31 ? 1 : value + 1; st.accum -= DAY_DRAG_STEP_PX; }
+                    while (st.accum <= -DAY_DRAG_STEP_PX) { value = value <= 1 ? 31 : value - 1; st.accum += DAY_DRAG_STEP_PX; }
+                    if (value !== field.value) field.onChange(value);
+                  }}
+                  onPointerUp={() => { dayDrag.current.active = false; }}
+                  onPointerCancel={() => { dayDrag.current.active = false; }}
+                >
                   <span className="font-entry-amount text-4xl leading-none">{field.value}</span>
                   <span className="text-sm font-bold text-muted-foreground align-super ml-0.5">{ordinalSuffix(field.value)}</span>
                 </div>
@@ -1147,12 +1176,12 @@ function HabitDetail({
             <span className="text-[11px] text-muted-foreground">streak</span>
           </div>
           <div className="flex items-center gap-1">
-            <button onClick={onEdit} className="h-8 w-8 flex items-center justify-center rounded-xl bg-muted text-muted-foreground hover:text-foreground transition-all">
+            <button onClick={onEdit} className="relative h-8 w-8 flex items-center justify-center rounded-xl bg-muted text-muted-foreground hover:text-foreground transition-all before:absolute before:-inset-1.5 before:content-['']">
               <Pencil className="h-3.5 w-3.5" />
             </button>
             <ConfirmDialog
               trigger={
-                <button className="h-8 w-8 flex items-center justify-center rounded-xl bg-muted text-muted-foreground hover:text-destructive transition-all">
+                <button className="relative h-8 w-8 flex items-center justify-center rounded-xl bg-muted text-muted-foreground hover:text-destructive transition-all before:absolute before:-inset-1.5 before:content-['']">
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
               }
@@ -1202,10 +1231,10 @@ function HabitDetail({
           <div className="flex items-center justify-between mt-2.5">
             <p className="text-sm font-bold">{MONTHS[month.m]} {month.y}</p>
             <div className="flex items-center gap-1.5">
-              <button onClick={prevMonth} className="h-7 w-7 flex items-center justify-center rounded-xl bg-muted">
+              <button onClick={prevMonth} className="relative h-7 w-7 flex items-center justify-center rounded-xl bg-muted before:absolute before:-inset-2 before:content-['']">
                 <ChevronLeft className="h-4 w-4" />
               </button>
-              <button onClick={nextMonth} className="h-7 w-7 flex items-center justify-center rounded-xl bg-muted">
+              <button onClick={nextMonth} className="relative h-7 w-7 flex items-center justify-center rounded-xl bg-muted before:absolute before:-inset-2 before:content-['']">
                 <ChevronRight className="h-4 w-4" />
               </button>
             </div>
@@ -1336,12 +1365,12 @@ function BillDetail({
             <span className="text-[11px] text-muted-foreground">/12 paid in {year}</span>
           </div>
           <div className="flex items-center gap-1">
-            <button onClick={onEdit} className="h-8 w-8 flex items-center justify-center rounded-xl bg-muted text-muted-foreground hover:text-foreground transition-all">
+            <button onClick={onEdit} className="relative h-8 w-8 flex items-center justify-center rounded-xl bg-muted text-muted-foreground hover:text-foreground transition-all before:absolute before:-inset-1.5 before:content-['']">
               <Pencil className="h-3.5 w-3.5" />
             </button>
             <DeleteBillDialog
               trigger={
-                <button className="h-8 w-8 flex items-center justify-center rounded-xl bg-muted text-muted-foreground hover:text-destructive transition-all">
+                <button className="relative h-8 w-8 flex items-center justify-center rounded-xl bg-muted text-muted-foreground hover:text-destructive transition-all before:absolute before:-inset-1.5 before:content-['']">
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
               }
@@ -1382,10 +1411,10 @@ function BillDetail({
           <div className="flex items-center justify-between mt-2.5">
             <p className="text-sm font-bold">{year}</p>
             <div className="flex items-center gap-1.5">
-              <button onClick={prevYear} className="h-7 w-7 flex items-center justify-center rounded-xl bg-muted">
+              <button onClick={prevYear} className="relative h-7 w-7 flex items-center justify-center rounded-xl bg-muted before:absolute before:-inset-2 before:content-['']">
                 <ChevronLeft className="h-4 w-4" />
               </button>
-              <button onClick={nextYear} className="h-7 w-7 flex items-center justify-center rounded-xl bg-muted">
+              <button onClick={nextYear} className="relative h-7 w-7 flex items-center justify-center rounded-xl bg-muted before:absolute before:-inset-2 before:content-['']">
                 <ChevronRight className="h-4 w-4" />
               </button>
             </div>
