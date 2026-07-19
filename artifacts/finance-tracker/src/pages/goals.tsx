@@ -35,6 +35,7 @@ import {
   Target, PiggyBank, Wallet, Ban, Coffee, ShoppingBag, Utensils, Candy,
   Dumbbell, Cigarette, Beer, Car, Gamepad2, Shirt, Smartphone, Plane,
   Home, Gift, BookOpen, Music, CreditCard, Zap, Wifi, Landmark, Tv, Droplet,
+  TrendingDown, TrendingUp,
 } from "lucide-react";
 import {
   useCreateTransaction,
@@ -118,6 +119,8 @@ export interface Bill {
   name: string;
   icon: string | null;
   color: string | null;
+  type: "expense" | "income";
+  day: number; // día del mes (1-31) en que se repite
   amount: number | null;
   categoryId: number | null;
   autoSave: boolean;
@@ -265,6 +268,23 @@ function currentMonthKey(): string {
 function fmtMonthLabel(ym: string): string {
   const [y, m] = ym.split("-").map(Number);
   return `${MONTHS[m - 1]} ${y}`;
+}
+
+function ordinal(n: number): string {
+  const j = n % 10, k = n % 100;
+  if (j === 1 && k !== 11) return `${n}st`;
+  if (j === 2 && k !== 12) return `${n}nd`;
+  if (j === 3 && k !== 13) return `${n}rd`;
+  return `${n}th`;
+}
+
+/** Próxima fecha en que cae un día del mes (1-31) — este mes si no pasó todavía,
+ * si no el que viene. Usa MONTHS, definido más abajo (seguro: solo se llama en render). */
+function nextDayOccurrence(day: number): string {
+  const now = new Date();
+  const thisMonth = new Date(now.getFullYear(), now.getMonth(), day);
+  const target = thisMonth >= now ? thisMonth : new Date(now.getFullYear(), now.getMonth() + 1, day);
+  return `${MONTHS[target.getMonth()]} ${target.getDate()}`;
 }
 
 /** Ene→Dic de un año calendario fijo — la celda N SIEMPRE es el mes N (mayo = 5ta celda),
@@ -532,6 +552,8 @@ const billSchema = z.object({
   name: z.string().min(2, "Name is required"),
   icon: z.string(),
   color: z.string(),
+  type: z.enum(["expense", "income"]),
+  day: z.number().min(1).max(31),
   amount: z.coerce.number().min(0, "Cannot be negative").optional(),
   categoryId: z.coerce.number().optional(),
   autoSave: z.boolean().optional(),
@@ -706,18 +728,23 @@ function HabitForm({
 }
 
 function BillForm({
-  form, onSubmit, isPending, submitLabel, symbol, categories,
+  form, onSubmit, isPending, submitLabel, symbol, expenseCategories, incomeCategories,
 }: {
   form: ReturnType<typeof useForm<BillFormValues>>;
   onSubmit: (data: BillFormValues) => void;
   isPending: boolean;
   submitLabel: string;
   symbol: string;
-  categories: { id: number; name: string }[];
+  expenseCategories: { id: number; name: string }[];
+  incomeCategories: { id: number; name: string }[];
 }) {
   const color = form.watch("color");
+  const type = form.watch("type");
+  const day = form.watch("day");
   const autoSave = form.watch("autoSave");
   const categoryId = form.watch("categoryId");
+  const isIncome = type === "income";
+  const categories = isIncome ? incomeCategories : expenseCategories;
   const selectedCategory = categories.find((c) => c.id === categoryId);
 
   return (
@@ -759,6 +786,61 @@ function BillForm({
           </div>
         </div>
 
+        {/* Type — mismo toggle segmentado que usa la creación de categorías */}
+        <FormField
+          control={form.control}
+          name="type"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Type</FormLabel>
+              <div
+                className="relative flex items-center p-1 rounded-full w-full"
+                style={{
+                  backdropFilter: "blur(24px) saturate(1.6)",
+                  WebkitBackdropFilter: "blur(24px) saturate(1.6)",
+                  background: "linear-gradient(135deg, rgba(255,255,255,0.35), rgba(255,255,255,0.08))",
+                  boxShadow: "inset 0 1px 1px rgba(255,255,255,0.5), inset 0 -1px 1px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.06)",
+                }}
+              >
+                <div
+                  className="absolute top-1 left-1 rounded-full transition-transform duration-300 ease-out"
+                  style={{
+                    bottom: "4px",
+                    width: "calc(50% - 4px)",
+                    transform: isIncome ? "translateX(100%)" : "translateX(0%)",
+                    background: isIncome
+                      ? "linear-gradient(135deg, rgba(29,185,84,0.95), rgba(29,185,84,0.75))"
+                      : "linear-gradient(135deg, rgba(255,59,59,0.95), rgba(255,59,59,0.75))",
+                    boxShadow: "inset 0 1px 1px rgba(255,255,255,0.4), 0 2px 6px rgba(0,0,0,0.18)",
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    field.onChange("expense");
+                    if (!expenseCategories.some((c) => c.id === form.getValues("categoryId"))) form.setValue("categoryId", undefined);
+                  }}
+                  className={cn("relative z-10 flex-1 flex items-center justify-center gap-1.5 py-2 text-sm font-semibold transition-colors duration-300 rounded-full", !isIncome ? "text-white" : "text-foreground/50")}
+                >
+                  <TrendingDown className="h-4 w-4" />
+                  Expense
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    field.onChange("income");
+                    if (!incomeCategories.some((c) => c.id === form.getValues("categoryId"))) form.setValue("categoryId", undefined);
+                  }}
+                  className={cn("relative z-10 flex-1 flex items-center justify-center gap-1.5 py-2 text-sm font-semibold transition-colors duration-300 rounded-full", isIncome ? "text-white" : "text-foreground/50")}
+                >
+                  <TrendingUp className="h-4 w-4" />
+                  Income
+                </button>
+              </div>
+            </FormItem>
+          )}
+        />
+
         {/* Monto — display grande centrado, siempre con decimales (no todos los pagos son redondos) */}
         <FormField
           control={form.control}
@@ -773,7 +855,41 @@ function BillForm({
           )}
         />
 
-        {/* Categoría — pills simples, sin color (acá no aporta) */}
+        {/* Día del mes — grilla tipo calendario, el mes se autodetecta (siempre es "este mes que viene") */}
+        <FormField
+          control={form.control}
+          name="day"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Repeats monthly on</FormLabel>
+              <div className="grid grid-cols-7 gap-1">
+                {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => {
+                  const isSelected = field.value === d;
+                  return (
+                    <button
+                      key={d}
+                      type="button"
+                      onClick={() => field.onChange(d)}
+                      className="aspect-square rounded-lg flex items-center justify-center text-[11px] font-bold transition-colors"
+                      style={{
+                        background: isSelected ? color : "hsl(var(--muted))",
+                        color: isSelected ? "#fff" : "hsl(var(--foreground))",
+                      }}
+                    >
+                      {d}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Every month on the <span className="font-bold text-foreground">{ordinal(day)}</span> — next: <span className="font-bold text-foreground">{nextDayOccurrence(day)}</span>
+              </p>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        {/* Categoría — pills simples, sin color (acá no aporta), filtradas por type */}
         <FormField
           control={form.control}
           name="categoryId"
@@ -833,7 +949,7 @@ function BillForm({
           <p className="text-[11px] text-amber-600 -mt-1">Pick a category above so auto-save knows where to file it.</p>
         )}
 
-        {/* Color — dropdown básico, como Goal/Habit */}
+        {/* Color — dropdown básico, como Goal/Habit — sin tocar, mismos 10 colores de siempre */}
         <FormField
           control={form.control}
           name="color"
@@ -841,18 +957,6 @@ function BillForm({
             <FormItem>
               <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Color</FormLabel>
               <ColorSelect value={field.value} onChange={field.onChange} />
-            </FormItem>
-          )}
-        />
-
-        {/* Icon */}
-        <FormField
-          control={form.control}
-          name="icon"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Icon</FormLabel>
-              <IconPicker value={field.value} onChange={field.onChange} color={color} iconKeys={BILL_ICON_KEYS} />
             </FormItem>
           )}
         />
@@ -1190,7 +1294,7 @@ function BillDetail({
       <div className="-mt-8 space-y-3">
         <div className="flex items-center gap-2.5">
           <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${color}25` }}>
-            <HabitIcon icon={bill.icon} className="h-4 w-4" style={{ color }} />
+            <span className="text-sm font-black leading-none" style={{ color }}>{bill.day}</span>
           </div>
           <div className="min-w-0">
             <p className="font-bold text-base leading-tight uppercase tracking-wide truncate">{bill.name}</p>
@@ -1373,6 +1477,10 @@ export default function Goals() {
   const { data: rawCategories } = useListCategories({ query: { queryKey: getListCategoriesQueryKey() } });
   const expenseCategories = useMemo(
     () => (rawCategories ?? []).filter((c: any) => c.type === "expense" || c.type === "both"),
+    [rawCategories]
+  );
+  const incomeCategories = useMemo(
+    () => (rawCategories ?? []).filter((c: any) => c.type === "income" || c.type === "both"),
     [rawCategories]
   );
   // Aportes a metas de ahorro comparten UNA categoría fija — no son un gasto
@@ -1592,6 +1700,8 @@ export default function Goals() {
         name: data.name,
         icon: data.icon,
         color: data.color,
+        type: data.type,
+        day: data.day,
         amount: data.amount ?? null,
         categoryId: data.categoryId ?? null,
         autoSave: data.autoSave ?? false,
@@ -1726,17 +1836,18 @@ export default function Goals() {
 
   const billForm = useForm<BillFormValues>({
     resolver: zodResolver(billSchema),
-    defaultValues: { name: "", icon: "creditcard", color: "#CAFA01", amount: undefined, categoryId: undefined, autoSave: false },
+    defaultValues: { name: "", icon: "creditcard", color: "#CAFA01", type: "expense", day: 1, amount: undefined, categoryId: undefined, autoSave: false },
   });
 
   const openCreateBill = () => {
-    billForm.reset({ name: "", icon: "creditcard", color: "#CAFA01", amount: undefined, categoryId: undefined, autoSave: false });
+    billForm.reset({ name: "", icon: "creditcard", color: "#CAFA01", type: "expense", day: 1, amount: undefined, categoryId: undefined, autoSave: false });
     setBillModal("create");
   };
 
   const openEditBill = (b: Bill) => {
     billForm.reset({
       name: b.name, icon: b.icon ?? "creditcard", color: b.color ?? "#CAFA01",
+      type: b.type, day: b.day,
       amount: b.amount ?? undefined, categoryId: b.categoryId ?? undefined, autoSave: b.autoSave,
     });
     setBillModal(b.id);
@@ -1888,7 +1999,7 @@ export default function Goals() {
         {([
           { key: "savings", label: "Savings" },
           { key: "habits", label: "Habits" },
-          { key: "bills", label: "Bills" },
+          { key: "bills", label: "Flows" },
         ] as const).map((t) => (
           <button
             key={t.key}
@@ -2039,13 +2150,13 @@ export default function Goals() {
           </div>
           )}
 
-          {/* ------------------ BILLS ------------------ */}
+          {/* ------------------ FLOWS ------------------ */}
           {activeTab === "bills" && (
           <div>
             <div className="flex items-center justify-between mb-1.5 px-1">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-[#CAFA01]" />
-                <p className="text-xs font-bold uppercase tracking-widest text-foreground">Bills</p>
+                <p className="text-xs font-bold uppercase tracking-widest text-foreground">Flows</p>
                 <span className="text-xs text-muted-foreground">({bills.length})</span>
               </div>
               <button onClick={openCreateBill} className="h-7 px-2.5 flex items-center gap-1 rounded-lg bg-[#CAFA01] text-black text-xs font-bold active:scale-95 transition-transform">
@@ -2057,45 +2168,66 @@ export default function Goals() {
             {bills.length === 0 ? (
               <div className="bg-card rounded-2xl shadow-sm flex flex-col items-center justify-center py-8 text-muted-foreground gap-1.5">
                 <CreditCard className="h-7 w-7 opacity-30" />
-                <p className="text-sm">No recurring bills yet.</p>
+                <p className="text-sm">No recurring flows yet.</p>
               </div>
             ) : (
-              <div className="space-y-1.5">
-                {bills.map((b) => {
-                  const color = b.color ?? "#CAFA01";
-                  const logged = new Set(b.logs);
-                  const category = expenseCategories.find((c: any) => c.id === b.categoryId);
-                  const isPending = b.id < 0;
+              <div className="space-y-5">
+                {([
+                  ["expense", "Money Out", "#FF3B3B", expenseCategories],
+                  ["income", "Money In", "#1DB954", incomeCategories],
+                ] as const).map(([sectionType, label, dotColor, categoryList]) => {
+                  const sectionBills = bills
+                    .filter((b) => b.type === sectionType)
+                    .slice()
+                    .sort((a, b) => a.day - b.day);
+                  if (sectionBills.length === 0) return null;
                   return (
-                    <div key={b.id} className={cn("rounded-2xl px-3.5 py-3 space-y-2 transition-opacity", isPending && "opacity-50")} style={{ background: `${color}10` }}>
-                      <div className="flex items-center justify-between gap-2">
-                        <button onClick={() => setBillDetailId(b.id)} className="flex items-center gap-2.5 min-w-0 flex-1 text-left">
-                          <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${color}25` }}>
-                            <HabitIcon icon={b.icon} className="h-4 w-4" style={{ color }} />
-                          </div>
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-1.5">
-                              <p className="text-xs font-bold uppercase tracking-wide leading-tight truncate">{b.name}</p>
-                              {isPending && <span className="text-[10px] font-semibold text-muted-foreground shrink-0">Saving…</span>}
-                            </div>
-                            <p className="text-[11px] text-muted-foreground leading-tight truncate">
-                              {b.amount ? `${symbol} ${fmtMoney(b.amount)}` : category?.name ?? "No category"}
-                              {b.autoSave && " · Auto-save"}
-                            </p>
-                          </div>
-                        </button>
-                        <button
-                          onClick={() => handleToggleBillMonth(b, currentMonthKey())}
-                          disabled={isPending}
-                          className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-all active:scale-90"
-                          style={{ backgroundColor: b.paidThisMonth ? color : `${color}30` }}
-                        >
-                          <Check className="h-4 w-4" style={{ color: b.paidThisMonth ? "#000" : color }} strokeWidth={3} />
-                        </button>
+                    <div key={sectionType}>
+                      <div className="flex items-center gap-2 mb-1.5 px-1">
+                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: dotColor }} />
+                        <p className="text-xs font-bold uppercase tracking-widest text-foreground">{label}</p>
+                        <span className="text-xs text-muted-foreground">({sectionBills.length})</span>
                       </div>
-                      <button onClick={() => setBillDetailId(b.id)} className="w-full" disabled={isPending}>
-                        <MonthHeatmap months={billMonths} logged={logged} color={color} />
-                      </button>
+                      <div className="space-y-1.5">
+                        {sectionBills.map((b) => {
+                          const color = b.color ?? "#CAFA01";
+                          const logged = new Set(b.logs);
+                          const category = categoryList.find((c: any) => c.id === b.categoryId);
+                          const isPending = b.id < 0;
+                          return (
+                            <div key={b.id} className={cn("rounded-2xl px-3.5 py-3 space-y-2 transition-opacity", isPending && "opacity-50")} style={{ background: `${color}10` }}>
+                              <div className="flex items-center justify-between gap-2">
+                                <button onClick={() => setBillDetailId(b.id)} className="flex items-center gap-2.5 min-w-0 flex-1 text-left">
+                                  <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${color}25` }}>
+                                    <span className="text-[13px] font-black leading-none" style={{ color }}>{b.day}</span>
+                                  </div>
+                                  <div className="min-w-0">
+                                    <div className="flex items-center gap-1.5">
+                                      <p className="text-xs font-bold uppercase tracking-wide leading-tight truncate">{b.name}</p>
+                                      {isPending && <span className="text-[10px] font-semibold text-muted-foreground shrink-0">Saving…</span>}
+                                    </div>
+                                    <p className="text-[11px] text-muted-foreground leading-tight truncate">
+                                      {b.amount ? `${symbol} ${fmtMoney(b.amount)}` : category?.name ?? "No category"}
+                                      {b.autoSave && " · Auto-save"}
+                                    </p>
+                                  </div>
+                                </button>
+                                <button
+                                  onClick={() => handleToggleBillMonth(b, currentMonthKey())}
+                                  disabled={isPending}
+                                  className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-all active:scale-90"
+                                  style={{ backgroundColor: b.paidThisMonth ? color : `${color}30` }}
+                                >
+                                  <Check className="h-4 w-4" style={{ color: b.paidThisMonth ? "#000" : color }} strokeWidth={3} />
+                                </button>
+                              </div>
+                              <button onClick={() => setBillDetailId(b.id)} className="w-full" disabled={isPending}>
+                                <MonthHeatmap months={billMonths} logged={logged} color={color} />
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   );
                 })}
@@ -2161,14 +2293,15 @@ export default function Goals() {
         <HabitForm form={habitForm} onSubmit={onHabitSubmit} isPending={createHabit.isPending || updateHabit.isPending} submitLabel={habitModal === "create" ? "Create" : "Save"} />
       </FloatingModal>
 
-      <FloatingModal open={billModal !== null} onClose={() => setBillModal(null)} title={billModal === "create" ? "New Bill" : "Edit Bill"}>
+      <FloatingModal open={billModal !== null} onClose={() => setBillModal(null)} title={billModal === "create" ? "New Flow" : "Edit Flow"}>
         <BillForm
           form={billForm}
           onSubmit={onBillSubmit}
           isPending={createBill.isPending || updateBill.isPending}
           submitLabel={billModal === "create" ? "Create" : "Save"}
           symbol={symbol}
-          categories={expenseCategories}
+          expenseCategories={expenseCategories}
+          incomeCategories={incomeCategories}
         />
       </FloatingModal>
 
@@ -2223,7 +2356,7 @@ export default function Goals() {
       {detailBill && (
         <BillDetail
           bill={detailBill}
-          category={expenseCategories.find((c: any) => c.id === detailBill.categoryId)}
+          category={(detailBill.type === "income" ? incomeCategories : expenseCategories).find((c: any) => c.id === detailBill.categoryId)}
           symbol={symbol}
           onClose={() => setBillDetailId(null)}
           onToggleMonth={(month) => handleToggleBillMonth(detailBill, month)}

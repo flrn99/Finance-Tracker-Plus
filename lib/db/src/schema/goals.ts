@@ -55,6 +55,8 @@ export const billsTable = pgTable("bills", {
   name: text("name").notNull(),
   icon: text("icon"),
   color: text("color"),
+  type: text("type", { enum: ["expense", "income"] }).notNull().default("expense"),
+  day: integer("day").notNull().default(1), // día del mes en que se repite (1-31); el mes es siempre el actual
   amount: numeric("amount", { precision: 12, scale: 6 }), // monto esperado, referencia — puede variar mes a mes
   categoryId: integer("category_id").references(() => categoriesTable.id),
   autoSave: boolean("auto_save").notNull().default(false),

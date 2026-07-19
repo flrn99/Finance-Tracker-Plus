@@ -30,6 +30,8 @@ const billBodySchema = z.object({
   name: z.string().min(1),
   icon: z.string().nullish(),
   color: z.string().nullish(),
+  type: z.enum(["expense", "income"]).optional(),
+  day: z.coerce.number().int().min(1).max(31).optional(),
   amount: z.coerce.number().nonnegative().nullish(),
   categoryId: z.coerce.number().int().positive().nullish(),
   autoSave: z.boolean().optional(),
@@ -413,7 +415,7 @@ router.post("/bills", async (req, res) => {
     return res.status(400).json({ error: "Invalid body", details: parsed.error.issues });
 
   const userId = (req as any).userId;
-  const { name, icon, color, amount, categoryId, autoSave } = parsed.data;
+  const { name, icon, color, type, day, amount, categoryId, autoSave } = parsed.data;
 
   const [row] = await db
     .insert(billsTable)
@@ -421,6 +423,8 @@ router.post("/bills", async (req, res) => {
       name,
       icon: icon ?? null,
       color: color ?? null,
+      type: type ?? "expense",
+      day: day ?? 1,
       amount: amount != null ? String(amount) : null,
       categoryId: categoryId ?? null,
       autoSave: autoSave ?? false,
@@ -447,11 +451,13 @@ router.patch("/bills/:id", async (req, res) => {
     return res.status(400).json({ error: "Invalid body", details: parsed.error.issues });
 
   const userId = (req as any).userId;
-  const { name, icon, color, amount, categoryId, autoSave } = parsed.data;
+  const { name, icon, color, type, day, amount, categoryId, autoSave } = parsed.data;
   const updates: Record<string, unknown> = {};
   if (name !== undefined) updates.name = name;
   if (icon !== undefined) updates.icon = icon;
   if (color !== undefined) updates.color = color;
+  if (type !== undefined) updates.type = type;
+  if (day !== undefined) updates.day = day;
   if (amount !== undefined) updates.amount = amount != null ? String(amount) : null;
   if (categoryId !== undefined) updates.categoryId = categoryId;
   if (autoSave !== undefined) updates.autoSave = autoSave;
