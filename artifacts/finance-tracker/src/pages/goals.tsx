@@ -280,6 +280,14 @@ function ordinal(n: number): string {
   return `${n}th`;
 }
 
+function ordinalSuffix(n: number): string {
+  const j = n % 10, k = n % 100;
+  if (j === 1 && k !== 11) return "st";
+  if (j === 2 && k !== 12) return "nd";
+  if (j === 3 && k !== 13) return "rd";
+  return "th";
+}
+
 /** Próxima fecha en que cae un día del mes (1-31) — este mes si no pasó todavía,
  * si no el que viene. Usa MONTHS, definido más abajo (seguro: solo se llama en render). */
 function nextDayOccurrence(day: number): string {
@@ -287,6 +295,14 @@ function nextDayOccurrence(day: number): string {
   const thisMonth = new Date(now.getFullYear(), now.getMonth(), day);
   const target = thisMonth >= now ? thisMonth : new Date(now.getFullYear(), now.getMonth() + 1, day);
   return `${MONTHS[target.getMonth()]} ${target.getDate()}`;
+}
+
+/** "2026-07" + 31 -> "2026-07-31" — clampeado al último día real del mes (ej. día
+ * 31 elegido en un Flow cae el 30 en abril, no se desborda a mayo). */
+function billDateFor(monthKey: string, day: number): string {
+  const [y, m] = monthKey.split("-").map(Number);
+  const lastDay = new Date(y, m, 0).getDate();
+  return `${monthKey}-${String(Math.min(day, lastDay)).padStart(2, "0")}`;
 }
 
 /** Ene→Dic de un año calendario fijo — la celda N SIEMPRE es el mes N (mayo = 5ta celda),
@@ -859,33 +875,36 @@ function BillForm({
           )}
         />
 
-        {/* Día del mes — grilla tipo calendario, el mes se autodetecta (siempre es "este mes que viene") */}
+        {/* Día del mes — stepper compacto (antes era una grilla de 31 casilleros que
+            ocupaba casi un tercio del modal), el mes se autodetecta. Cíclico: pasado
+            el 31 vuelve al 1 y viceversa, así nunca queda "trabado" en una punta. */}
         <FormField
           control={form.control}
           name="day"
           render={({ field }) => (
             <FormItem>
               <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Repeats monthly on</FormLabel>
-              <div className="grid grid-cols-7 gap-1">
-                {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => {
-                  const isSelected = field.value === d;
-                  return (
-                    <button
-                      key={d}
-                      type="button"
-                      onClick={() => field.onChange(d)}
-                      className="aspect-square rounded-lg flex items-center justify-center text-[11px] font-bold transition-colors"
-                      style={{
-                        background: isSelected ? color : "hsl(var(--muted))",
-                        color: isSelected ? "#fff" : "hsl(var(--foreground))",
-                      }}
-                    >
-                      {d}
-                    </button>
-                  );
-                })}
+              <div className="flex items-center justify-center gap-6 py-1">
+                <button
+                  type="button"
+                  onClick={() => field.onChange(field.value <= 1 ? 31 : field.value - 1)}
+                  className="w-9 h-9 shrink-0 rounded-full bg-muted text-foreground text-base font-bold flex items-center justify-center active:scale-90 transition-transform"
+                >
+                  ‹
+                </button>
+                <div className="text-center leading-none min-w-[3.5rem]">
+                  <span className="font-entry-amount text-4xl leading-none">{field.value}</span>
+                  <span className="text-sm font-bold text-muted-foreground align-super ml-0.5">{ordinalSuffix(field.value)}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => field.onChange(field.value >= 31 ? 1 : field.value + 1)}
+                  className="w-9 h-9 shrink-0 rounded-full bg-muted text-foreground text-base font-bold flex items-center justify-center active:scale-90 transition-transform"
+                >
+                  ›
+                </button>
               </div>
-              <p className="text-[11px] text-muted-foreground">
+              <p className="text-[11px] text-muted-foreground text-center">
                 Every month on the <span className="font-bold text-foreground">{ordinal(day)}</span> — next: <span className="font-bold text-foreground">{nextDayOccurrence(day)}</span>
               </p>
               <FormMessage />
@@ -1889,7 +1908,7 @@ export default function Goals() {
     const numeric = parseAmountInput(payAmount);
     if (!numeric || numeric <= 0 || !payBill.categoryId) return;
     createTransaction.mutate(
-      { data: { type: payBill.type, amount: numeric, description: payBill.name, categoryId: payBill.categoryId, date: `${payMonth}-01` } },
+      { data: { type: payBill.type, amount: numeric, description: payBill.name, categoryId: payBill.categoryId, date: billDateFor(payMonth, payBill.day) } },
       {
         onSuccess: (tx: any) => {
           invalidateTransactions();
@@ -1980,7 +1999,7 @@ export default function Goals() {
       const month = currentMonthKey();
       const amount = b.amount;
       createTransaction.mutate(
-        { data: { type: b.type, amount, description: b.name, categoryId: b.categoryId, date: `${month}-01` } },
+        { data: { type: b.type, amount, description: b.name, categoryId: b.categoryId, date: billDateFor(month, b.day) } },
         {
           onSuccess: (tx: any) => {
             invalidateTransactions();

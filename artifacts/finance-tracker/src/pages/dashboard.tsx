@@ -40,15 +40,18 @@ const BILLS_SECTION_CLS =
   "mt-6 border-y border-border py-4 transition-[opacity,transform] duration-150 active:opacity-75 active:scale-[0.985] group";
 
 function BillsWidget({ filterMode }: { filterMode: "month" | "all" }) {
-  const { data: bills, isLoading } = useQuery(billsQueryOptions);
+  const { data: rawBills, isLoading } = useQuery(billsQueryOptions);
+  // Este widget es solo "plata que sale" — los Flows de income (salario, etc.) no
+  // son "bills a pagar", así que no cuentan acá aunque compartan la misma tabla.
+  const bills = (rawBills ?? []).filter((b) => b.type === "expense");
 
   if (isLoading) return null;
 
-  if (!bills || bills.length === 0) {
+  if (bills.length === 0) {
     return (
       <Link href="/goals?tab=bills" className={cn(BILLS_SECTION_CLS, "block")}>
         <div className="flex items-center justify-between">
-          <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Monthly bills</p>
+          <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Money Out</p>
           <ChevronRight className="h-3.5 w-3.5 text-muted-foreground transition-transform group-hover:translate-x-0.5" strokeWidth={2} />
         </div>
         <p className="mt-1 text-sm text-muted-foreground">Track recurring bills — insurance, rent, subscriptions</p>
@@ -76,7 +79,7 @@ function BillsWidget({ filterMode }: { filterMode: "month" | "all" }) {
           <p className="mt-1.5 text-[11px] font-bold text-muted-foreground">of {total}</p>
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Monthly bills</p>
+          <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Money Out</p>
           <p className="mt-1 text-[13px] leading-snug text-foreground">{caption}</p>
         </div>
         <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" strokeWidth={2} />
@@ -98,7 +101,7 @@ function BillsWidget({ filterMode }: { filterMode: "month" | "all" }) {
         <p className="mt-1.5 text-[11px] font-bold text-muted-foreground">of {months.length}</p>
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Monthly bills</p>
+        <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Money Out</p>
         <p className="mt-1 text-[13px] leading-snug text-foreground">Months fully paid this year</p>
         <div className="mt-2 grid grid-cols-12 gap-[3px]">
           {months.map((m) => {
