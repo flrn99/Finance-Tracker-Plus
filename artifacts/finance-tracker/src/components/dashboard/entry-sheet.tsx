@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { X, Delete, Check, FolderPlus, TrendingUp, TrendingDown, Trash2, AlertTriangle, Calendar } from "lucide-react";
-import { Link } from "wouter";
 import { App } from "@capacitor/app";
+import { CreateCategoryModal } from "@/components/category-form-modal";
 import {
   useCreateTransaction,
   useUpdateTransaction,
@@ -64,6 +64,7 @@ export function EntrySheet({
   const [type, setType] = useState<EntryType>("expense");
   const [raw, setRaw] = useState("0");
   const [categoryId, setCategoryId] = useState<number | null>(null);
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [note, setNote] = useState("");
   const [pressedKey, setPressedKey] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -408,15 +409,14 @@ export function EntrySheet({
                   </button>
                 );
               })}
-              <Link href="/categories" onClick={(e) => e.stopPropagation()}>
-                <button
-                  type="button"
-                  className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-dashed border-border px-3.5 py-2 text-[13px] font-bold text-muted-foreground"
-                >
-                  <FolderPlus className="h-3.5 w-3.5" strokeWidth={2.25} />
-                  Add
-                </button>
-              </Link>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); setShowCategoryModal(true); }}
+                className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-dashed border-border px-3.5 py-2 text-[13px] font-bold text-muted-foreground"
+              >
+                <FolderPlus className="h-3.5 w-3.5" strokeWidth={2.25} />
+                Add
+              </button>
             </div>
           </div>
 
@@ -573,6 +573,13 @@ export function EntrySheet({
           </div>
         </div>
       )}
+
+      <CreateCategoryModal
+        open={showCategoryModal}
+        onClose={() => setShowCategoryModal(false)}
+        defaultType={type}
+        onCreated={(created) => setCategoryId(created?.id ?? null)}
+      />
     </div>
   );
 }
