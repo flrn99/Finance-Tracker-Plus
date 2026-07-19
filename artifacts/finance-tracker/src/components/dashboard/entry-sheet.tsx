@@ -18,7 +18,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/lib/currency-context";
 import { formatDate } from "@/lib/format";
-import { cn, categoryTextColor } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 
 export type EntryType = "expense" | "income";
 
@@ -171,7 +171,9 @@ export function EntrySheet({
   const display = useMemo(() => {
     const [int, dec] = raw.split(".");
     const grouped = Number(int || "0").toLocaleString("en-US");
-    return dec !== undefined ? `${grouped}.${dec.slice(0, 2)}` : grouped;
+    // Sin punto tecleado todavía (típico de un monto dictado por voz, ej. "25")
+    // siempre se ve completo con los .00 — es lo que se va a guardar igual.
+    return dec !== undefined ? `${grouped}.${dec.slice(0, 2)}` : `${grouped}.00`;
   }, [raw]);
 
   // Auto-achica el monto si el número es largo, para que nunca se corte —
@@ -383,9 +385,9 @@ export function EntrySheet({
             >
               {filteredCategories.map((c: any) => {
                 const isSelected = categoryId === c.id;
-                // El color de categoría solo aparece al seleccionar — sin seleccionar
-                // queda neutro (muted), con un puntito del color real como indicador.
-                const textColor = categoryTextColor("#f9f8f8", c.color);
+                // Sin seleccionar: neutro con un puntito del color real como indicador.
+                // Seleccionado: chip oscuro fijo + texto blanco — el color de categoría
+                // vive solo en el check, no compite con el resto de la fila.
                 return (
                   <button
                     key={c.id}
@@ -393,15 +395,12 @@ export function EntrySheet({
                     onClick={() => setCategoryId(c.id)}
                     className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-2 text-[13px] font-bold transition-colors"
                     style={{
-                      background: isSelected ? c.color : "hsl(var(--muted))",
-                      color: isSelected ? textColor : "hsl(var(--foreground))",
-                      // El shadow del treemap solo tiene sentido cuando el resultado sigue
-                      // siendo blanco — sobre un gris oscuro no aporta nada.
-                      textShadow: isSelected && textColor === "#f9f8f8" ? "0 1px 4px rgba(0,0,0,.45)" : undefined,
+                      background: isSelected ? "#14140F" : "hsl(var(--muted))",
+                      color: isSelected ? "#FFFFFF" : "hsl(var(--foreground))",
                     }}
                   >
                     {isSelected ? (
-                      <Check className="h-3 w-3 shrink-0" strokeWidth={3} />
+                      <Check className="h-3 w-3 shrink-0" strokeWidth={3} style={{ color: c.color }} />
                     ) : (
                       <span className="h-[7px] w-[7px] shrink-0 rounded-full" style={{ background: c.color }} />
                     )}

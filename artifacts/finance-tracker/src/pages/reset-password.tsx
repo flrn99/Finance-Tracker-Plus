@@ -78,7 +78,7 @@ export default function ResetPassword({ onDone }: { onDone: () => void }) {
         <button
           onClick={handleReset}
           disabled={isLoading}
-          className="w-full py-3 rounded-2xl bg-[#A8FF3E] text-black text-sm font-semibold hover:bg-[#9bfe32] transition-all disabled:opacity-60 shadow-sm border-0"
+          className="w-full py-3 rounded-2xl bg-[#CAFA01] text-black text-sm font-semibold hover:bg-[#9bfe32] transition-all disabled:opacity-60 shadow-sm border-0"
         >
           {isLoading ? "Updating..." : "Update Password"}
         </button>

@@ -16,7 +16,7 @@ export function EntryLauncher({
       >
         <span
           className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-transform group-active:scale-95"
-          style={{ background: "#A8FF3E" }}
+          style={{ background: "#CAFA01" }}
         >
           <Plus className="h-5 w-5 text-black" strokeWidth={2.5} />
         </span>

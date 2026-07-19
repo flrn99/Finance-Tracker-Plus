@@ -8,6 +8,12 @@ interface AuthContextType {
   session: Session | null;
   isLoading: boolean;
   signOut: () => Promise<void>;
+  /** true una vez que confirmamos que esta cuenta no tenía categorías (recién
+   * creada) — hasta que se llame acknowledgeOnboarded(). Ver checkAndCreateCategories:
+   * ya hacía exactamente esta detección para sembrar las categorías default,
+   * así que la reusamos en vez de inventar un flag de localStorage aparte. */
+  isNewAccount: boolean;
+  acknowledgeOnboarded: () => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -15,6 +21,8 @@ const AuthContext = createContext<AuthContextType>({
   session: null,
   isLoading: true,
   signOut: async () => {},
+  isNewAccount: false,
+  acknowledgeOnboarded: () => {},
 });
 
 const DEFAULT_CATEGORIES = [
@@ -47,6 +55,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isNewAccount, setIsNewAccount] = useState(false);
   const categoriesChecked = useRef<Set<string>>(new Set());
 
   const checkAndCreateCategories = async (token: string, userId: string) => {
@@ -60,8 +69,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const categories = await res.json();
     if (Array.isArray(categories) && categories.length === 0) {
       await createDefaultCategories(token);
+      setIsNewAccount(true);
     }
   };
+
+  const acknowledgeOnboarded = () => setIsNewAccount(false);
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
@@ -90,7 +102,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, isLoading, signOut }}>
+    <AuthContext.Provider value={{ user, session, isLoading, signOut, isNewAccount, acknowledgeOnboarded }}>
       {children}
     </AuthContext.Provider>
   );

@@ -150,7 +150,7 @@ export default function BiometricLock() {
           />
         ) : (
           <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full" style={{ background: "#A8FF3E" }} />
+            <span className="w-2 h-2 rounded-full" style={{ background: "#CAFA01" }} />
             <span className="font-display text-base tracking-tight text-foreground">Flow!</span>
           </div>
         )}
@@ -204,7 +204,7 @@ export default function BiometricLock() {
                 onClick={handleBiometric}
                 disabled={isAuthenticating}
                 className="w-full py-4 rounded-2xl font-bold text-black active:scale-[0.98] transition-all disabled:opacity-60 flex items-center justify-center"
-                style={{ background: "#A8FF3E", boxShadow: "0 4px 14px rgba(168,255,62,0.3), inset 0 1px 1px rgba(255,255,255,0.4)" }}
+                style={{ background: "#CAFA01", boxShadow: "0 4px 14px rgba(168,255,62,0.3), inset 0 1px 1px rgba(255,255,255,0.4)" }}
               >
                 Try Again
               </button>

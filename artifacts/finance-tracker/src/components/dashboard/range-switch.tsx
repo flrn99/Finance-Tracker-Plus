@@ -13,10 +13,11 @@ export function RangeSwitch({
     <div className="relative grid grid-cols-2 rounded-full bg-muted p-1">
       <span
         aria-hidden="true"
-        className="absolute inset-y-1 w-[calc(50%-0.25rem)] rounded-full transition-transform duration-300 ease-out"
+        className="absolute inset-y-1 left-1 w-[calc(50%-0.25rem)] rounded-full transition-transform duration-300 ease-out"
         style={{
           transform: value === "all" ? "translateX(100%)" : "translateX(0)",
-          background: "#A8FF3E",
+          background: "linear-gradient(135deg, #CAFA01 0%, #7CB518 100%)",
+          boxShadow: "inset 0 1px 1px rgba(255,255,255,0.55), 0 4px 10px -2px rgba(124,181,24,0.45)",
         }}
       />
       {([

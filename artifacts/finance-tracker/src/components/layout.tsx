@@ -1,26 +1,15 @@
 import { Link, useLocation } from "wouter";
 import { useRef, useEffect, useState } from "react";
-import { createPortal } from "react-dom";
 import {
   LayoutDashboard,
   Tags,
   Plus,
   DollarSign,
   Sparkles,
-  Palette,
-  Download,
-  Settings,
-  Sun,
-  Moon,
-  Monitor,
-  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
-import { useTheme, type Theme } from "@/lib/theme-context";
-import { useCurrency, type Currency, CURRENCY_INFO } from "@/lib/currency-context";
-import { ExportPanel } from "@/pages/export";
 import { Capacitor } from "@capacitor/core";
 import { useQueryClient } from "@tanstack/react-query";
 import { goalsQueryOptions, habitsQueryOptions } from "@/pages/goals";
@@ -58,54 +47,13 @@ const navItems = [
   { href: "/categories", label: "Categories", icon: Tags },
 ];
 
-/** Mini popup centrado para acciones rápidas del menú de perfil */
-function QuickPopup({
-  title,
-  onClose,
-  children,
-  wide = false,
-}: {
-  title: string;
-  onClose: () => void;
-  children: React.ReactNode;
-  wide?: boolean;
-}) {
-  // Bloquea el swipe de página del nav mientras el popup está montado
-  useEffect(() => {
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = prev; };
-  }, []);
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center px-6" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/70 animate-in fade-in-0 duration-200" />
-      <div
-        className={cn(
-          "relative w-full bg-card rounded-2xl shadow-2xl animate-in fade-in zoom-in-95 duration-200 p-4 max-h-[85dvh] overflow-y-auto",
-          wide ? "max-w-md" : "max-w-xs"
-        )}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between mb-3">
-          <p className="font-bold text-sm uppercase tracking-widest">{title}</p>
-          <button onClick={onClose} className="w-6 h-6 rounded-lg bg-muted flex items-center justify-center">
-            <X className="h-3 w-3" />
-          </button>
-        </div>
-        {children}
-      </div>
-    </div>
-  );
-}
-
-function ProfileMenu() {
+/** Avatar de perfil — vive en el flujo de la página, arriba a la derecha junto
+ * al título, y navega directo a Settings. Ya no abre un dropdown propio: ese
+ * menú duplicaba Currency/Theme/Export con una UI distinta a la de Settings
+ * (mismo setting, dos implementaciones) — ahora hay un solo lugar real. */
+function ProfileAvatar() {
   const { user } = useAuth();
-  const [location, navigate] = useLocation();
-  const [open, setOpen] = useState(false);
-  const [popup, setPopup] = useState<null | "currency" | "theme" | "export">(null);
-  const { currency, setCurrency } = useCurrency();
-  const { theme, setTheme } = useTheme();
+  const [location] = useLocation();
   const [avatar, setAvatar] = useState<string | null>(() => {
     try { return localStorage.getItem("ff-avatar"); } catch { return null; }
   });
@@ -121,162 +69,34 @@ function ProfileMenu() {
 
   const initial = (user?.email?.[0] ?? "?").toUpperCase();
 
-  // En settings no tiene sentido mostrar el avatar/dropdown — ya estás ahí
+  // En settings no tiene sentido mostrar el avatar — ya estás ahí
   if (location.startsWith("/settings")) return null;
 
-  const themeOptions: { value: Theme; label: string; icon: any }[] = [
-    { value: "light", label: "Light", icon: Sun },
-    { value: "dark", label: "Dark", icon: Moon },
-    { value: "system", label: "System", icon: Monitor },
-  ];
-
-  const menuItems = [
-    {
-      label: "Display Currency",
-      icon: DollarSign,
-      right: currency,
-      action: () => { setOpen(false); setPopup("currency"); },
-    },
-    {
-      label: "Theme",
-      icon: Palette,
-      right: theme === "light" ? "Light" : theme === "dark" ? "Dark" : "System",
-      action: () => { setOpen(false); setPopup("theme"); },
-    },
-    {
-      label: "Export to Excel",
-      icon: Download,
-      action: () => { setOpen(false); setPopup("export"); },
-    },
-    {
-      label: "All Settings",
-      icon: Settings,
-      action: () => { setOpen(false); navigate("/settings"); },
-    },
-  ];
-
   return (
-    <>
-      {/* Avatar — vive en el flujo de la página, arriba a la derecha junto al título.
-          Scrollea junto con el contenido, como el título. */}
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className={cn(
-          "absolute z-30 w-10 h-10 rounded-full flex items-center justify-center active:scale-90 transition-transform overflow-hidden",
-          // En insights el hero ahora es compacto — pegado a la esquina del
-          // recuadro, no flotando a mitad del título. En las demás páginas,
-          // a ras del borde del contenido, alineado con las cards.
-          location.startsWith("/insights") ? "top-2 right-2" : "top-0 right-0"
-        )}
-        style={{
-          background: "hsl(var(--card))",
-          border: "1px solid hsl(var(--foreground) / 0.08)",
-          boxShadow: "0 2px 12px rgba(0,0,0,0.12), inset 0 1px 0 hsl(var(--foreground) / 0.06)",
-        }}
-      >
-        {avatar === "male" || avatar === "female" ? (
-          <img src={`/${avatar}.png`} alt="avatar" className="w-full h-full object-cover" />
-        ) : (
-          <span className="text-sm font-bold text-[#7DD900]">{initial}</span>
-        )}
-      </button>
-
-      {createPortal(
-        <>
-      {/* Dropdown */}
-      {open && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div
-            className="fixed z-50 w-56 rounded-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200"
-            style={{
-              top: "calc(env(safe-area-inset-top) + 72px)",
-              right: "16px",
-              backdropFilter: "blur(24px) saturate(1.8)",
-              WebkitBackdropFilter: "blur(24px) saturate(1.8)",
-              background: "hsl(var(--card) / 0.92)",
-              border: "1px solid hsl(var(--foreground) / 0.08)",
-              boxShadow: "0 8px 32px rgba(0,0,0,0.25)",
-            }}
-          >
-            {menuItems.map((item, i) => {
-              const Icon = item.icon;
-              return (
-                <button
-                  key={item.label}
-                  onClick={item.action}
-                  className={cn(
-                    "w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-foreground hover:bg-muted/60 transition-colors text-left",
-                    i > 0 && "border-t border-border/50"
-                  )}
-                >
-                  <Icon className="h-4 w-4 text-muted-foreground shrink-0" />
-                  <span className="flex-1">{item.label}</span>
-                  {item.right && (
-                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-lg bg-[#A8FF3E] text-black">{item.right}</span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </>
+    <Link
+      href="/settings"
+      aria-label="Open settings"
+      className={cn(
+        "absolute z-30 w-10 h-10 rounded-full flex items-center justify-center active:scale-90 transition-transform overflow-hidden",
+        // En insights el hero ahora es compacto — pegado a la esquina del
+        // recuadro, no flotando a mitad del título. En las demás páginas,
+        // a ras del borde del contenido, alineado con las cards.
+        location.startsWith("/insights") ? "top-2 right-2" : "top-0 right-0"
       )}
-
-      {/* Popup: moneda */}
-      {popup === "currency" && (
-        <QuickPopup title="Display Currency" onClose={() => setPopup(null)}>
-          <div className="space-y-1 max-h-72 overflow-y-auto">
-            {(Object.keys(CURRENCY_INFO) as Currency[]).map((c) => (
-              <button
-                key={c}
-                onClick={() => { setCurrency(c); setPopup(null); }}
-                className={cn(
-                  "w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-colors",
-                  currency === c ? "bg-[#A8FF3E] text-black font-bold" : "hover:bg-muted"
-                )}
-              >
-                {CURRENCY_INFO[c].label}
-              </button>
-            ))}
-          </div>
-        </QuickPopup>
+      style={{
+        background: "hsl(var(--card))",
+        border: "1px solid hsl(var(--foreground) / 0.08)",
+        boxShadow: "0 2px 12px rgba(0,0,0,0.12), inset 0 1px 0 hsl(var(--foreground) / 0.06)",
+      }}
+    >
+      {avatar === "male" || avatar === "female" ? (
+        <img src={`/${avatar}.png`} alt="" className="w-full h-full object-cover" />
+      ) : (
+        // #9BBF00 sobre hsl(var(--card)) fallaba contraste en claro (~2:1) — este
+        // par ya está verificado en DESIGN.md como income-ink / income-ink-dark.
+        <span className="text-sm font-bold text-[#00432C] dark:text-[#6EE7B7]">{initial}</span>
       )}
-
-      {/* Popup: tema */}
-      {popup === "theme" && (
-        <QuickPopup title="Theme" onClose={() => setPopup(null)}>
-          <div className="space-y-1">
-            {themeOptions.map((opt) => {
-              const Icon = opt.icon;
-              return (
-                <button
-                  key={opt.value}
-                  onClick={() => { setTheme(opt.value); setPopup(null); }}
-                  className={cn(
-                    "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors",
-                    theme === opt.value ? "bg-[#A8FF3E] text-black font-bold" : "hover:bg-muted"
-                  )}
-                >
-                  <Icon className="h-4 w-4" />
-                  {opt.label}
-                </button>
-              );
-            })}
-          </div>
-        </QuickPopup>
-      )}
-      {/* Popup: export */}
-      {popup === "export" && (
-        <QuickPopup title="Export to Excel" onClose={() => setPopup(null)} wide>
-          <div className="[&>div]:bg-transparent [&>div]:shadow-none">
-            <ExportPanel onDone={() => setPopup(null)} />
-          </div>
-        </QuickPopup>
-      )}
-        </>,
-        document.body
-      )}
-    </>
+    </Link>
   );
 }
 
@@ -284,6 +104,12 @@ export default function Layout({ children }: LayoutProps) {
   const [location, navigate] = useLocation();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+
+  // Transactions y Settings son páginas de "detalle" a las que se entra desde
+  // otra pestaña (All transactions / avatar), no destinos propios del nav —
+  // ningún ícono quedaría activo ahí, así que se oculta en vez de mostrar
+  // un nav sin selección.
+  const hideBottomNav = location.startsWith("/transactions") || location.startsWith("/settings");
 
   // Prefetch de Goals — cuando el usuario llegue a la pestaña, ya cargo
   useEffect(() => {
@@ -430,22 +256,24 @@ export default function Layout({ children }: LayoutProps) {
         />
         <div
           ref={scrollRef}
+          data-app-scroll
           className="flex-1 overflow-y-auto overscroll-contain p-4 md:pt-8 md:pb-8 md:p-8"
           style={{
             paddingTop: 'calc(env(safe-area-inset-top) + 24px)',
-            paddingBottom: isIOS ? '110px' : '6rem',
+            paddingBottom: hideBottomNav ? 'calc(env(safe-area-inset-bottom) + 24px)' : (isIOS ? '110px' : '6rem'),
           }}
           onTouchStart={handlePageSwipeStart}
           onTouchEnd={handlePageSwipeEnd}
         >
           <div className="max-w-6xl mx-auto min-h-full relative">
-            <ProfileMenu />
+            <ProfileAvatar />
             {children}
           </div>
         </div>
       </main>
 
       {/* Mobile bottom navigation — liquid glass floating pill */}
+      {!hideBottomNav && (
       <nav
         ref={navRef}
         className="md:hidden fixed z-40 flex items-center"
@@ -511,6 +339,7 @@ export default function Layout({ children }: LayoutProps) {
           );
         })}
       </nav>
+      )}
     </div>
   );
 }

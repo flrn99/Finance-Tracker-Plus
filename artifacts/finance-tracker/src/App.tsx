@@ -1,5 +1,5 @@
 import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -13,6 +13,7 @@ import BiometricLock from "@/components/biometric-lock";
 import Login from "@/pages/login";
 import { supabase } from "@/lib/supabase";
 import ResetPassword from "@/pages/reset-password";
+import Onboarding from "@/pages/onboarding";
 
 // Pages
 import Dashboard from "@/pages/dashboard";
@@ -52,15 +53,27 @@ function Router() {
 }
 
 function ProtectedRouter() {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, isNewAccount, acknowledgeOnboarded } = useAuth();
   const { isLocked } = useBiometric();
   const [, navigate] = useLocation();
   const [isResetting, setIsResetting] = useState(false);
+  const wasAuthenticated = useRef(false);
 
   useEffect(() => {
     globalSetIsResetting = setIsResetting;
     return () => { globalSetIsResetting = null; };
   }, []);
+
+  // Siempre aterriza en el Dashboard tras un login real — sin esto, si cerraste
+  // sesión desde /settings (el lugar más común para hacerlo), wouter conserva
+  // ese path y al volver a entrar te deja ahí en vez de en "/".
+  useEffect(() => {
+    if (user && !wasAuthenticated.current) {
+      wasAuthenticated.current = true;
+      navigate("/", { replace: true });
+    }
+    if (!user) wasAuthenticated.current = false;
+  }, [user, navigate]);
 
   if (isResetting && user) return <ResetPassword onDone={() => setIsResetting(false)} />;
 
@@ -74,6 +87,10 @@ function ProtectedRouter() {
 
   // Show biometric lock screen on top of the app
   if (isLocked) return <BiometricLock />;
+
+  // Cuenta recién creada (sin categorías todavía) — setup de una sola vez
+  // antes de entrar al Dashboard.
+  if (isNewAccount) return <Onboarding onDone={acknowledgeOnboarded} />;
 
   return <Router />;
 }

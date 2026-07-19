@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
-import { Sun, Moon, Monitor, Trash2, LogOut, UserX, Download, ChevronRight, DollarSign, Palette, Database, User, Plus, Fingerprint, ShieldCheck, X } from "lucide-react";
-import { Link } from "wouter";
+import { useState } from "react";
+import { Sun, Moon, Monitor, Trash2, LogOut, UserX, Download, ChevronRight, DollarSign, User, Plus, Fingerprint, ShieldCheck, AlertTriangle } from "lucide-react";
+import { useLocation } from "wouter";
 import { useTheme, type Theme } from "@/lib/theme-context";
 import { useCurrency, type Currency, CURRENCY_INFO } from "@/lib/currency-context";
 import { useToast } from "@/hooks/use-toast";
@@ -8,24 +8,38 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth-context";
 import { getListTransactionsQueryKey, getGetDashboardSummaryQueryKey, getGetSpendingByCategoryQueryKey, getGetTopExpensesQueryKey } from "@workspace/api-client-react";
 import { cn } from "@/lib/utils";
-import { useBiometric } from "@/lib/biometric-context";
+import { useBiometricPinFlow, BiometricPinModal } from "@/components/biometric-pin-modal";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { getApiUrl } from "@/lib/api-config";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
+const THEME_OPTIONS: { value: Theme; label: string; icon: any }[] = [
+  { value: "light", label: "Light", icon: Sun },
+  { value: "dark", label: "Dark", icon: Moon },
+  { value: "system", label: "System", icon: Monitor },
+];
+
 function SectionTitle({ title }: { title: string }) {
   return (
-    <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground px-1 mb-2">{title}</p>
+    <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground px-1 mb-1.5">{title}</p>
   );
 }
 
-function SettingItem({
+/** Fila hairline — reemplaza el viejo Section+SettingItem con cards (retirado,
+ * ver DESIGN.md "Hairline, Not Card Rule"). Es <button> real por default para
+ * que las filas navegables tengan foco de teclado; asStatic=true solo cuando
+ * la fila ya contiene su propio control interactivo adentro (el toggle), para
+ * no anidar un <button> dentro de otro. */
+function SettingRow({
   icon: Icon,
   label,
   description,
   right,
   onClick,
   destructive,
+  tinted,
+  bordered = true,
+  asStatic = false,
 }: {
   icon: any;
   label: string;
@@ -33,31 +47,63 @@ function SettingItem({
   right?: React.ReactNode;
   onClick?: () => void;
   destructive?: boolean;
+  tinted?: boolean;
+  bordered?: boolean;
+  asStatic?: boolean;
 }) {
+  const Tag = (asStatic ? "div" : "button") as any;
   return (
-    <div
-      className={cn("flex items-center gap-4 px-4 py-3.5 cursor-pointer active:bg-muted/50 transition-colors", onClick && "cursor-pointer")}
+    <Tag
+      type={asStatic ? undefined : "button"}
       onClick={onClick}
+      className={cn(
+        "w-full flex items-center gap-4 px-1 py-3.5 text-left",
+        bordered && "border-b border-border",
+        !asStatic && "transition-transform active:scale-[0.98]"
+      )}
     >
-      <div className={cn("w-9 h-9 rounded-2xl flex items-center justify-center shrink-0", destructive ? "bg-destructive/10" : "bg-muted")}>
-        <Icon className={cn("h-4 w-4", destructive ? "text-destructive" : "text-foreground")} />
+      <div className={cn(
+        "w-9 h-9 rounded-xl flex items-center justify-center shrink-0",
+        destructive ? "bg-destructive/10" : tinted ? "bg-[#00A870]/15" : "bg-muted"
+      )}>
+        <Icon className={cn(
+          "h-4 w-4",
+          destructive ? "text-destructive" : tinted ? "text-[#00593C] dark:text-[#6EE7B7]" : "text-foreground"
+        )} />
       </div>
       <div className="flex-1 min-w-0">
         <p className={cn("text-sm font-semibold", destructive ? "text-destructive" : "text-foreground")}>{label}</p>
         {description && <p className="text-xs text-muted-foreground mt-0.5 leading-snug">{description}</p>}
       </div>
-      <div className="shrink-0 flex items-center gap-1">
-        {right}
-      </div>
-    </div>
+      <div className="shrink-0 flex items-center gap-1">{right}</div>
+    </Tag>
   );
 }
 
-function Section({ children }: { children: React.ReactNode }) {
+/** Toggle biométrico — <button role="switch"> real con el mismo thumb en
+ * gradiente verde que RangeSwitch, en vez del <div onClick> anterior (sin
+ * foco de teclado, sin rol de accesibilidad). */
+export function BiometricToggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
   return (
-    <div className="bg-card rounded-2xl shadow-sm overflow-hidden divide-y divide-border">
-      {children}
-    </div>
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      aria-label="Biometric lock"
+      onClick={onToggle}
+      className="relative w-[46px] h-[26px] rounded-full bg-muted shrink-0 transition-transform active:scale-95"
+    >
+      <span
+        className="absolute top-0.5 left-0.5 w-[22px] h-[22px] rounded-full transition-transform duration-300"
+        style={{
+          transform: on ? "translateX(20px)" : "translateX(0)",
+          background: on ? "linear-gradient(135deg, #CAFA01 0%, #7CB518 100%)" : "hsl(var(--background))",
+          boxShadow: on
+            ? "inset 0 1px 1px rgba(255,255,255,0.55), 0 2px 6px -1px rgba(124,181,24,0.5)"
+            : "0 1px 3px rgba(0,0,0,0.2)",
+        }}
+      />
+    </button>
   );
 }
 
@@ -66,21 +112,12 @@ export default function Settings() {
   const { currency, setCurrency } = useCurrency();
   const { toast } = useToast();
   const { user, signOut, session } = useAuth();
+  const [, navigate] = useLocation();
   const queryClient = useQueryClient();
   const [erasing, setErasing] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
-  const { isEnabled: biometricEnabled, isSupported: biometricSupported, enable: enableBiometric, disable: disableBiometric } = useBiometric();
-  const [showPinSetup, setShowPinSetup] = useState(false);
-  
-  // 🛡️ ESTADO DEL ESCUDO ANTI-GHOST CLICKS
-  const [isGhostShieldActive, setIsGhostShieldActive] = useState(false);
-
-  const [pinStep, setPinStep] = useState<"enter" | "confirm" | "disable">("enter");
-  const [pinValue, setPinValue] = useState("");
-  const [pinConfirm, setPinConfirm] = useState("");
-  const [pinError, setPinError] = useState("");
-  const [biometricLoading, setBiometricLoading] = useState(false);
+  const bio = useBiometricPinFlow();
   const [avatar, setAvatar] = useState<"male" | "female" | null>(() => {
     try { return localStorage.getItem("ff-avatar") as "male" | "female" | null; } catch { return null; }
   });
@@ -92,12 +129,6 @@ export default function Settings() {
     try { window.dispatchEvent(new Event("ff-avatar-changed")); } catch {}
     setShowAvatarPicker(false);
   };
-
-  // Sección activa (?section= del dropdown de perfil) — muestra SOLO esa sección
-  const [activeSection, setActiveSection] = useState<string | null>(() => {
-    try { return new URLSearchParams(window.location.search).get("section"); } catch { return null; }
-  });
-  const showSec = (s: string) => !activeSection || activeSection === s;
 
   const handleEraseAll = async () => {
     setErasing(true);
@@ -144,168 +175,19 @@ export default function Settings() {
     }
   };
 
-  const themeLabel = theme === "light" ? "Light" : theme === "dark" ? "Dark" : "System";
-
-  // 🛡️ FUNCIÓN DE CIERRE BLINDADA
-  const closePinModal = () => {
-    // 1. Activamos el escudo en la página de fondo inmediatamente
-    setIsGhostShieldActive(true);
-    
-    // 2. El delay original de 150ms para terminar la animación de tap
-    setTimeout(() => {
-      setShowPinSetup(false);
-      
-      // 3. Mantenemos el escudo por 400ms extra para aniquilar el doble tap
-      setTimeout(() => {
-        setIsGhostShieldActive(false);
-      }, 400);
-    }, 150);
-  };
-
-  const handleBiometricToggle = async () => {
-    if (biometricEnabled) {
-      setShowPinSetup(true);
-      setPinStep("disable");
-      setPinValue("");
-      setPinError("");
-      return;
-    }
-    if (!biometricSupported) {
-      toast({
-        title: "Biometrics not available",
-        description: "Please configure Face ID or fingerprint in your device settings first.",
-        variant: "destructive",
-      });
-      return;
-    }
-    setShowPinSetup(true);
-    setPinStep("enter");
-    setPinValue("");
-    setPinConfirm("");
-    setPinError("");
-  };
-
-  const handlePinDigit = (digit: string) => {
-    if (pinStep === "disable") {
-      if (pinValue.length >= 6) return;
-      const next = pinValue + digit;
-      setPinValue(next);
-      if (next.length === 6) {
-        const success = disableBiometric(next);
-        if (success) {
-          closePinModal();
-          toast({ title: "Biometric lock disabled" });
-        } else {
-          setPinError("Incorrect PIN. Try again.");
-          setTimeout(() => {
-            setPinValue("");
-            setPinError("");
-          }, 800);
-        }
-      }
-      return;
-    }
-    if (pinStep === "enter") {
-      if (pinValue.length >= 6) return;
-      const next = pinValue + digit;
-      setPinValue(next);
-      if (next.length === 6) {
-        setTimeout(() => {
-          setPinStep("confirm");
-          setPinConfirm("");
-          setPinError("");
-        }, 150);
-      }
-    } else {
-      if (pinConfirm.length >= 6) return;
-      const next = pinConfirm + digit;
-      setPinConfirm(next);
-      if (next.length === 6) {
-        if (next !== pinValue) {
-          setPinError("PINs don't match. Try again.");
-          setTimeout(() => {
-            setPinStep("enter");
-            setPinValue("");
-            setPinConfirm("");
-            setPinError("");
-          }, 800);
-        } else {
-          handleEnableBiometric(next);
-        }
-      }
-    }
-  };
-
-  const handlePinDelete = () => {
-    if (pinStep === "enter" || pinStep === "disable") setPinValue(p => p.slice(0, -1));
-    else setPinConfirm(p => p.slice(0, -1));
-    setPinError("");
-  };
-
-  const handleEnableBiometric = async (pin: string) => {
-    setBiometricLoading(true);
-    const result = await enableBiometric(pin);
-    setBiometricLoading(false);
-    if (result.success) {
-      closePinModal();
-      toast({ title: "Biometric lock enabled", description: "Your app is now protected." });
-    } else {
-      if (result.error === "biometrics_not_configured") {
-        closePinModal();
-        toast({
-          title: "Biometrics not configured",
-          description: "Please set up Face ID or fingerprint in your device settings first.",
-          variant: "destructive",
-        });
-      } else {
-        setPinError("Biometric authentication failed. Try again.");
-        setTimeout(() => {
-          setPinStep("enter");
-          setPinValue("");
-          setPinConfirm("");
-          setPinError("");
-        }, 1000);
-      }
-    }
-  };
-
-  const PIN_DIGITS = [
-    ["1", "2", "3"],
-    ["4", "5", "6"],
-    ["7", "8", "9"],
-    ["", "0", "del"],
-  ];
-
-  const currentPin = pinStep === "confirm" ? pinConfirm : pinValue;
-
-  const haptic = () => {
-    import("@capacitor/haptics").then(({ Haptics, ImpactStyle }) => {
-      Haptics.impact({ style: ImpactStyle.Light }).catch(() => {});
-    }).catch(() => {});
-  };
+  const themeIndex = THEME_OPTIONS.findIndex((o) => o.value === theme);
 
   return (
     <div className="relative">
       {/* 🛡️ EL ESCUDO: Envuelve a toda la página de fondo. Si está activo, ignora todos los toques. */}
       <div className={cn(
-        "space-y-6 animate-in fade-in duration-500 max-w-lg transition-all",
-        isGhostShieldActive && "pointer-events-none select-none"
+        "space-y-7 animate-in fade-in duration-500 max-w-lg transition-all",
+        bio.isGhostShieldActive && "pointer-events-none select-none"
       )}>
-        {/* Barra de regreso cuando se ve una sola sección */}
-        {activeSection && (
-          <button
-            onClick={() => setActiveSection(null)}
-            className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors px-1"
-          >
-            <ChevronRight className="h-4 w-4 rotate-180" />
-            All Settings
-          </button>
-        )}
-
         {/* Profile header */}
-        <div id="section-profile" className={cn("flex flex-col items-center justify-center py-4 gap-2 w-full", !showSec("profile") && "hidden")}>
+        <div className="flex flex-col items-center justify-center py-4 gap-2 w-full">
           <div className="relative" onClick={() => setShowAvatarPicker(true)}>
-            <div className="w-20 h-20 rounded-full overflow-hidden bg-[#A8FF3E]">
+            <div className="w-20 h-20 rounded-full overflow-hidden bg-[#CAFA01]">
               {avatar ? (
                 <img src={`/${avatar}.png`} alt="avatar" className="w-full h-full object-cover" />
               ) : (
@@ -314,20 +196,26 @@ export default function Settings() {
                 </div>
               )}
             </div>
-            <div className="absolute bottom-0 right-0 w-6 h-6 rounded-full bg-[#A8FF3E] border-2 border-background flex items-center justify-center">
+            <div className="absolute bottom-0 right-0 w-6 h-6 rounded-full bg-[#CAFA01] border-2 border-background flex items-center justify-center">
               <Plus className="h-3 w-3 text-black" />
             </div>
           </div>
 
           {showAvatarPicker && (
-            <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 pointer-events-auto" onClick={() => setShowAvatarPicker(false)}>
+            <div
+              className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 pointer-events-auto"
+              onClick={() => setShowAvatarPicker(false)}
+              role="dialog"
+              aria-modal="true"
+              aria-label="Choose avatar"
+            >
               <div className="bg-background rounded-t-2xl p-6 w-full max-w-sm space-y-4" onClick={(e) => e.stopPropagation()}>
                 <p className="font-bold text-center text-foreground uppercase tracking-widest text-xs">Choose Avatar</p>
                 <div className="flex gap-4 justify-center">
-                  <button onClick={() => selectAvatar("male")} className={cn("rounded-2xl overflow-hidden border-4 transition-all", avatar === "male" ? "border-[#A8FF3E]" : "border-transparent")}>
+                  <button onClick={() => selectAvatar("male")} className={cn("rounded-2xl overflow-hidden border-4 transition-all", avatar === "male" ? "border-[#CAFA01]" : "border-transparent")}>
                     <img src="/male.png" alt="Male" className="w-28 h-28 object-cover" />
                   </button>
-                  <button onClick={() => selectAvatar("female")} className={cn("rounded-2xl overflow-hidden border-4 transition-all", avatar === "female" ? "border-[#A8FF3E]" : "border-transparent")}>
+                  <button onClick={() => selectAvatar("female")} className={cn("rounded-2xl overflow-hidden border-4 transition-all", avatar === "female" ? "border-[#CAFA01]" : "border-transparent")}>
                     <img src="/female.png" alt="Female" className="w-28 h-28 object-cover" />
                   </button>
                 </div>
@@ -340,17 +228,20 @@ export default function Settings() {
           </div>
         </div>
 
-        {/* Preferences */}
-        <div id="section-preferences" className={cn("space-y-2", !showSec("preferences") && "hidden")}>
+        {/* Preferences — Currency queda como Select (10 opciones, se toca una vez;
+            un dropdown sigue siendo lo correcto acá). Theme pasa a segmentado con
+            el mismo thumb verde de RangeSwitch (3 opciones, se toca seguido). */}
+        <div className="space-y-1.5">
           <SectionTitle title="Preferences" />
-          <Section>
-            <SettingItem
+          <div>
+            <SettingRow
+              asStatic
               icon={DollarSign}
               label="Display Currency"
               description="All amounts shown in this currency"
               right={
                 <Select value={currency} onValueChange={(val) => setCurrency(val as Currency)}>
-                  <SelectTrigger className="w-24 border-0 ring-0 focus:ring-0 bg-[#A8FF3E] text-black font-bold text-sm px-3 py-1.5 rounded-full h-auto">
+                  <SelectTrigger className="w-24 border-0 ring-0 focus:ring-0 bg-[#CAFA01] text-black font-bold text-sm px-3 py-1.5 rounded-full h-auto">
                     <SelectValue>{currency}</SelectValue>
                   </SelectTrigger>
                   <SelectContent>
@@ -361,100 +252,78 @@ export default function Settings() {
                 </Select>
               }
             />
-            <SettingItem
-              icon={Palette}
-              label="Theme"
-              description="Switch between light and dark mode"
-              right={
-                <Select value={theme} onValueChange={(val) => setTheme(val as Theme)}>
-                  <SelectTrigger className="w-24 border-0 ring-0 focus:ring-0 bg-[#A8FF3E] text-black font-bold text-sm px-3 py-1.5 rounded-full h-auto">
-                    <SelectValue>{themeLabel}</SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="light"><div className="flex items-center gap-2"><Sun className="h-3.5 w-3.5" />Light</div></SelectItem>
-                    <SelectItem value="dark"><div className="flex items-center gap-2"><Moon className="h-3.5 w-3.5" />Dark</div></SelectItem>
-                    <SelectItem value="system"><div className="flex items-center gap-2"><Monitor className="h-3.5 w-3.5" />System</div></SelectItem>
-                  </SelectContent>
-                </Select>
-              }
-            />
-          </Section>
-        </div>
-
-        {/* Data */}
-        <div id="section-data" className={cn("space-y-2", !showSec("data") && "hidden")}>
-          <SectionTitle title="Data" />
-          <Section>
-            <Link href="/export">
-              <SettingItem
-                icon={Download}
-                label="Export to Excel"
-                description="Download all your transactions"
-                right={<ChevronRight className="h-4 w-4 text-muted-foreground" />}
-              />
-            </Link>
-            <ConfirmDialog
-              trigger={
-                <div>
-                  <SettingItem
-                    icon={Trash2}
-                    label="Erase All Transactions"
-                    description="Permanently deletes every transaction"
-                    destructive
-                    right={<ChevronRight className="h-4 w-4 text-destructive" />}
-                  />
-                </div>
-              }
-              icon={Trash2}
-              title="Erase all transactions?"
-              description="This will permanently delete every transaction. This cannot be undone."
-              confirmLabel={erasing ? "Erasing..." : "Yes, erase all"}
-              disabled={erasing}
-              onConfirm={handleEraseAll}
-            />
-          </Section>
+            <div className="px-1 py-3.5">
+              <p className="text-sm font-semibold text-foreground mb-2.5">Theme</p>
+              <div className="relative grid grid-cols-3 rounded-full bg-muted p-1">
+                <span
+                  aria-hidden="true"
+                  className="absolute inset-y-1 left-1 rounded-full transition-transform duration-300 ease-out"
+                  style={{
+                    width: "calc(33.333% - 0.1667rem)",
+                    transform: `translateX(${themeIndex * 100}%)`,
+                    background: "linear-gradient(135deg, #CAFA01 0%, #7CB518 100%)",
+                    boxShadow: "inset 0 1px 1px rgba(255,255,255,0.55), 0 4px 10px -2px rgba(124,181,24,0.45)",
+                  }}
+                />
+                {THEME_OPTIONS.map((opt) => {
+                  const Icon = opt.icon;
+                  const active = theme === opt.value;
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setTheme(opt.value)}
+                      aria-label={opt.label}
+                      className={cn(
+                        "relative z-10 flex items-center justify-center gap-1.5 py-2 text-xs font-bold transition-colors duration-300",
+                        active ? "text-black" : "text-muted-foreground"
+                      )}
+                    >
+                      <Icon className="h-3.5 w-3.5" strokeWidth={2.5} />
+                      {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Security */}
-        <div id="section-security" className={cn("space-y-2", !showSec("security") && "hidden")}>
+        <div className="space-y-1.5">
           <SectionTitle title="Security" />
-          <Section>
-            <SettingItem
-              icon={biometricEnabled ? ShieldCheck : Fingerprint}
-              label="Biometric Lock"
-              description={biometricEnabled ? "App is protected · Tap to disable" : "Require Face ID or fingerprint to open"}
-              right={
-                <div
-                  className={cn(
-                    "w-12 h-6 rounded-full transition-colors duration-300 relative cursor-pointer",
-                    biometricEnabled ? "bg-[#A8FF3E]" : "bg-muted"
-                  )}
-                  onClick={handleBiometricToggle}
-                >
-                  <div
-                    className="absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-transform duration-300"
-                    style={{ transform: biometricEnabled ? "translateX(26px)" : "translateX(2px)" }}
-                  />
-                </div>
-              }
-            />
-          </Section>
+          <SettingRow
+            asStatic
+            bordered={false}
+            icon={bio.isEnabled ? ShieldCheck : Fingerprint}
+            label="Biometric Lock"
+            description={bio.isEnabled ? "App is protected · Tap to disable" : "Require Face ID or fingerprint to open"}
+            tinted={bio.isEnabled}
+            right={<BiometricToggle on={bio.isEnabled} onToggle={bio.startToggle} />}
+          />
         </div>
 
-        {/* Account - ESTA ES LA SECCIÓN QUE ME COMÍ */}
-        <div id="section-account" className={cn("space-y-2", !showSec("account") && "hidden")}>
-          <SectionTitle title="Account" />
-          <Section>
+        {/* Data & Account — antes eran 2 secciones separadas; Erase se movió a
+            Danger Zone, así que lo que queda acá ya no necesita cajones propios. */}
+        <div className="space-y-1.5">
+          <SectionTitle title="Data & Account" />
+          <div>
+            <SettingRow
+              icon={Download}
+              label="Export to Excel"
+              description="Download all your transactions"
+              onClick={() => navigate("/export")}
+              right={<ChevronRight className="h-4 w-4 text-muted-foreground" />}
+            />
             <ConfirmDialog
               trigger={
-                <div>
-                  <SettingItem
-                    icon={LogOut}
-                    label={signingOut ? "Logging out..." : "Log Out"}
-                    description={user?.email ?? ""}
-                    right={<ChevronRight className="h-4 w-4 text-muted-foreground" />}
-                  />
-                </div>
+                <SettingRow
+                  bordered={false}
+                  icon={LogOut}
+                  label={signingOut ? "Logging out..." : "Log Out"}
+                  description={user?.email ?? ""}
+                  right={<ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                />
               }
               icon={LogOut}
               variant="neutral"
@@ -464,17 +333,50 @@ export default function Settings() {
               disabled={signingOut}
               onConfirm={handleSignOut}
             />
+          </div>
+        </div>
 
+        {/* Danger Zone — Erase y Delete Account aisladas del resto: sombra en
+            capas en vez de borde duro, así se adapta a claro/oscuro sin
+            recalcular un color de borde. */}
+        <div
+          className="rounded-2xl overflow-hidden"
+          style={{
+            background: "color-mix(in srgb, hsl(var(--destructive)) 5%, transparent)",
+            boxShadow: "0 0 0 1px color-mix(in srgb, hsl(var(--destructive)) 22%, transparent)",
+          }}
+        >
+          <div className="flex items-center gap-1.5 px-4 pt-3.5 pb-1">
+            <AlertTriangle className="h-3 w-3 text-destructive" />
+            <span className="text-[10px] font-bold uppercase tracking-widest text-destructive">Danger Zone</span>
+          </div>
+          <div className="px-3">
             <ConfirmDialog
               trigger={
-                <div>
-                  <SettingItem
-                    icon={UserX}
-                    label={deletingAccount ? "Deleting..." : "Delete Account"}
-                    destructive
-                    right={<ChevronRight className="h-4 w-4 text-destructive" />}
-                  />
-                </div>
+                <SettingRow
+                  icon={Trash2}
+                  label="Erase All Transactions"
+                  description="Permanently deletes every transaction"
+                  destructive
+                  right={<ChevronRight className="h-4 w-4 text-destructive" />}
+                />
+              }
+              icon={Trash2}
+              title="Erase all transactions?"
+              description="This will permanently delete every transaction. This cannot be undone."
+              confirmLabel={erasing ? "Erasing..." : "Yes, erase all"}
+              disabled={erasing}
+              onConfirm={handleEraseAll}
+            />
+            <ConfirmDialog
+              trigger={
+                <SettingRow
+                  bordered={false}
+                  icon={UserX}
+                  label={deletingAccount ? "Deleting..." : "Delete Account"}
+                  destructive
+                  right={<ChevronRight className="h-4 w-4 text-destructive" />}
+                />
               }
               icon={UserX}
               title="Delete your account?"
@@ -483,118 +385,11 @@ export default function Settings() {
               disabled={deletingAccount}
               onConfirm={handleDeleteAccount}
             />
-          </Section>
+          </div>
         </div>
       </div>
 
-      {/* PIN Setup Modal ── EXACTAMENTE TU CÓDIGO CON TACTO PERFECTO */}
-      {showPinSetup && (
-        <div
-          className="fixed top-0 left-0 w-screen h-screen z-50 flex items-center justify-center p-4"
-          onClick={(e) => {
-            e.stopPropagation();
-            e.preventDefault();
-            closePinModal();
-          }}
-        >
-          {/* 🛠️ BACKDROP 80%: Negro más oscuro, igual al del AlertDialog de Erase All Transactions */}
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[150vw] h-[150vh] bg-black/80 z-0 animate-in fade-in duration-200 pointer-events-none" />
-
-          {/* 💎 CRISTAL REAL GRIS ESPACIAL: Menos negro, más elegante con backdrop-blur-24px */}
-          <div 
-            className="relative z-10 w-full max-w-[310px] bg-white/85 dark:bg-[#242427]/85 border border-black/5 dark:border-white/10 shadow-2xl rounded-[36px] overflow-hidden animate-in fade-in zoom-in-95 duration-200"
-            style={{ backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)" }}
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="relative p-6 flex flex-col items-center">
-              {/* Header */}
-              <div className="flex items-start justify-between w-full mb-3 gap-2">
-                <div className="space-y-0.5 flex-1 min-w-0">
-                  <p className="font-bold text-xl tracking-tight text-foreground">
-                    {pinStep === "disable" ? "Enter PIN" : pinStep === "enter" ? "Create PIN" : "Confirm PIN"}
-                  </p>
-                  <p className="text-xs font-medium text-muted-foreground truncate w-full">
-                    {pinStep === "disable"
-                      ? "Enter your PIN to disable lock"
-                      : pinStep === "enter"
-                      ? "Set a 6-digit PIN as backup"
-                      : "Re-enter your PIN to confirm"
-                    }
-                  </p>
-                </div>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    e.preventDefault();
-                    closePinModal();
-                  }}
-                  className="w-8 h-8 rounded-full flex items-center justify-center bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 transition-colors shrink-0 active:scale-90"
-                >
-                  <X className="h-4 w-4 text-foreground/80" />
-                </button>
-              </div>
-
-              <div className="flex flex-col items-center gap-4 w-full mt-1">
-                {/* PIN dots */}
-                <div className="flex gap-2.5 py-2 justify-center items-center">
-                  {Array.from({ length: 6 }).map((_, i) => (
-                    <div
-                      key={i}
-                      className="rounded-full transition-all duration-200"
-                      style={{
-                        width: i < currentPin.length ? "14px" : "12px",
-                        height: i < currentPin.length ? "14px" : "12px",
-                        background: i < currentPin.length ? "currentColor" : "transparent",
-                        border: "1.5px solid currentColor",
-                        opacity: i < currentPin.length ? 1 : 0.2,
-                        transform: i < currentPin.length ? "scale(1.05)" : "scale(1)",
-                      }}
-                    />
-                  ))}
-                </div>
-
-                {pinError && (
-                  <p className="text-xs font-bold text-red-500 dark:text-red-400 text-center animate-in fade-in duration-200">{pinError}</p>
-                )}
-
-                {biometricLoading && (
-                  <p className="text-xs font-medium text-muted-foreground">Verifying biometrics…</p>
-                )}
-
-                {/* Numpad Botones Limpios (Apple-like) */}
-                <div className="grid grid-cols-3 gap-3 w-full max-w-[210px] mx-auto pb-1 mt-1">
-                  {PIN_DIGITS.flat().map((digit, i) => {
-                    if (digit === "") return <div key={i} />;
-                    if (digit === "del") return (
-                      <button
-                        key={i}
-                        onPointerDown={(e) => { e.preventDefault(); haptic(); handlePinDelete(); }}
-                        disabled={currentPin.length === 0}
-                        className="relative h-14 w-14 rounded-full mx-auto flex items-center justify-center bg-black/5 dark:bg-white/[0.06] active:bg-black/10 dark:active:bg-white/15 active:scale-90 transition-all disabled:opacity-20 shrink-0"
-                        style={{ touchAction: "manipulation" }}
-                      >
-                        <Trash2 className="relative z-10 h-5 w-5 text-foreground/90" />
-                      </button>
-                    );
-                    return (
-                      <button
-                        key={i}
-                        onPointerDown={(e) => { e.preventDefault(); haptic(); handlePinDigit(digit); }}
-                        disabled={currentPin.length >= 6}
-                        className="relative h-14 w-14 rounded-full mx-auto flex items-center justify-center bg-black/5 dark:bg-white/[0.06] active:bg-black/10 dark:active:bg-white/15 active:scale-90 transition-all disabled:opacity-20 shrink-0"
-                        style={{ touchAction: "manipulation", fontFeatureSettings: "'tnum' on" }}
-                      >
-                        <span className="relative z-10 text-2xl font-medium tracking-tight text-foreground/90">{digit}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
+      <BiometricPinModal flow={bio} />
     </div>
   );
 }

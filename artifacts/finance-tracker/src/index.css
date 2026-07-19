@@ -137,6 +137,16 @@
   color: #8FCFEF;
 }
 
+/* Voice capture — Live Ledger reveal (voice-capture.tsx). Fixed light paper
+   surface regardless of app theme for now — dark mode variant pendiente. */
+@keyframes ff-dot-breathe {
+  0%, 100% { opacity: 0.15; transform: scale(0.85); background-color: hsl(var(--foreground) / 0.4); }
+  50% { opacity: 0.9; transform: scale(1.05); background-color: #7CB518; }
+}
+@keyframes ff-caret-blink {
+  50% { opacity: 0; }
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {

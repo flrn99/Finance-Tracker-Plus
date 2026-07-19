@@ -38,6 +38,7 @@ import {
 } from "lucide-react";
 import {
   useCreateTransaction,
+  useCreateCategory,
   useListCategories,
   getListCategoriesQueryKey,
   getListTransactionsQueryKey,
@@ -112,7 +113,7 @@ interface Habit {
   streak: number;
 }
 
-interface Bill {
+export interface Bill {
   id: number;
   name: string;
   icon: string | null;
@@ -174,7 +175,7 @@ const HABIT_ICON_KEYS = ["dumbbell", "coffee", "cigarette", "beer", "candy", "ba
 const BILL_ICON_KEYS = ["creditcard", "home", "car", "smartphone", "wallet", "zap", "wifi", "landmark", "tv", "droplet"];
 
 const COLOR_OPTIONS: { hex: string; name: string }[] = [
-  { hex: "#A8FF3E", name: "Flow Green" },
+  { hex: "#CAFA01", name: "Flow Green" },
   { hex: "#22c55e", name: "Matcha Rush" },
   { hex: "#14b8a6", name: "Caribbean Wave" },
   { hex: "#0ea5e9", name: "Miami Sky" },
@@ -817,7 +818,7 @@ function BillForm({
                 <span className="text-sm font-bold text-left">Auto-save to Transactions</span>
                 <span
                   className="relative w-10 h-6 rounded-full shrink-0 transition-colors"
-                  style={{ background: field.value ? "#A8FF3E" : "hsl(var(--border))" }}
+                  style={{ background: field.value ? "#CAFA01" : "hsl(var(--border))" }}
                 >
                   <span
                     className="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform"
@@ -978,7 +979,7 @@ function HabitDetail({
 }) {
   const now = new Date();
   const [month, setMonth] = useState({ y: now.getFullYear(), m: now.getMonth() });
-  const color = habit.color ?? "#A8FF3E";
+  const color = habit.color ?? "#CAFA01";
   const logged = useMemo(() => new Set(habit.logs), [habit.logs]);
   const weeks = useMemo(() => buildWeeks(26), []);
   const today = todayKey();
@@ -1174,7 +1175,7 @@ function BillDetail({
   symbol: string;
 }) {
   const [year, setYear] = useState(new Date().getFullYear());
-  const color = bill.color ?? "#A8FF3E";
+  const color = bill.color ?? "#CAFA01";
   const logged = useMemo(() => new Set(bill.logs), [bill.logs]);
   const months = useMemo(() => monthsOfYear(year), [year]);
   const overviewMonths = useMemo(() => monthsOfYear(new Date().getFullYear()), []);
@@ -1284,7 +1285,7 @@ function GoalDetail({
   onDelete: () => void;
   symbol: string;
 }) {
-  const color = goal.color ?? "#A8FF3E";
+  const color = goal.color ?? "#CAFA01";
   const pct = goal.targetAmount > 0 ? Math.min(100, (goal.currentAmount / goal.targetAmount) * 100) : 0;
   const remaining = Math.max(0, goal.targetAmount - goal.currentAmount);
 
@@ -1374,6 +1375,14 @@ export default function Goals() {
     () => (rawCategories ?? []).filter((c: any) => c.type === "expense" || c.type === "both"),
     [rawCategories]
   );
+  // Aportes a metas de ahorro comparten UNA categoría fija — no son un gasto
+  // discrecional como "Comida" o "Transporte", son plata que se mueve a savings.
+  // La descripción de cada transacción ("Added to {goal}") sigue diferenciando
+  // a qué meta fue cada aporte aunque compartan categoría.
+  const savingsCategory = useMemo(
+    () => (rawCategories ?? []).find((c: any) => c.name === "Savings" && (c.type === "expense" || c.type === "both")),
+    [rawCategories]
+  );
 
   const invalidateGoals = () => queryClient.invalidateQueries({ queryKey: ["goals"] });
   const invalidateHabits = () => queryClient.invalidateQueries({ queryKey: ["habits"] });
@@ -1454,16 +1463,18 @@ export default function Goals() {
     onSettled: () => invalidateGoals(),
   });
 
-  // 💰 Agregar dinero a una meta — solo actualiza currentAmount, optimista
-  const addToGoal = useMutation({
-    mutationFn: ({ id, newAmount }: { id: number; newAmount: number }) =>
-      api(`/goals/${id}`, { method: "PATCH", body: JSON.stringify({ currentAmount: String(newAmount) }) }),
-    onMutate: async ({ id, newAmount }) => {
+  // 💰 Agregar dinero a una meta — registra el aporte en el backend (que suma a
+  // currentAmount de forma atómica) y lo linkea a la transacción real que ya se
+  // creó antes de llamar esto (ver handleAddMoneySubmit). Optimista sobre el total.
+  const addContribution = useMutation({
+    mutationFn: ({ id, amount, transactionId }: { id: number; amount: number; transactionId?: number }) =>
+      api(`/goals/${id}/contributions`, { method: "POST", body: JSON.stringify({ amount, transactionId }) }),
+    onMutate: async ({ id, amount }) => {
       setAddMoneyGoal(null);
       await queryClient.cancelQueries({ queryKey: ["goals"] });
       const prev = queryClient.getQueryData<Goal[]>(["goals"]);
       queryClient.setQueryData<Goal[]>(["goals"], (old) =>
-        (old ?? []).map((g) => (g.id === id ? { ...g, currentAmount: newAmount } : g))
+        (old ?? []).map((g) => (g.id === id ? { ...g, currentAmount: g.currentAmount + amount } : g))
       );
       return { prev };
     },
@@ -1666,39 +1677,40 @@ export default function Goals() {
   });
 
   const createTransaction = useCreateTransaction();
+  const createCategory = useCreateCategory();
 
   /* ---------- forms ---------- */
 
   const goalForm = useForm<GoalFormValues>({
     resolver: zodResolver(goalSchema),
-    defaultValues: { name: "", targetAmount: 0, currentAmount: 0, icon: "piggybank", color: "#A8FF3E" },
+    defaultValues: { name: "", targetAmount: 0, currentAmount: 0, icon: "piggybank", color: "#CAFA01" },
   });
 
   const habitForm = useForm<HabitFormValues>({
     resolver: zodResolver(habitSchema),
-    defaultValues: { name: "", icon: "ban", color: "#A8FF3E" },
+    defaultValues: { name: "", icon: "ban", color: "#CAFA01" },
   });
 
   const openCreateGoal = () => {
-    goalForm.reset({ name: "", targetAmount: 0, currentAmount: 0, icon: "piggybank", color: "#A8FF3E" });
+    goalForm.reset({ name: "", targetAmount: 0, currentAmount: 0, icon: "piggybank", color: "#CAFA01" });
     setGoalModal("create");
   };
 
   const openEditGoal = (g: Goal) => {
     goalForm.reset({
       name: g.name, targetAmount: g.targetAmount, currentAmount: g.currentAmount,
-      icon: g.icon ?? "piggybank", color: g.color ?? "#A8FF3E",
+      icon: g.icon ?? "piggybank", color: g.color ?? "#CAFA01",
     });
     setGoalModal(g.id);
   };
 
   const openCreateHabit = () => {
-    habitForm.reset({ name: "", icon: "ban", color: "#A8FF3E" });
+    habitForm.reset({ name: "", icon: "ban", color: "#CAFA01" });
     setHabitModal("create");
   };
 
   const openEditHabit = (h: Habit) => {
-    habitForm.reset({ name: h.name, icon: h.icon ?? "ban", color: h.color ?? "#A8FF3E" });
+    habitForm.reset({ name: h.name, icon: h.icon ?? "ban", color: h.color ?? "#CAFA01" });
     setHabitModal(h.id);
   };
 
@@ -1714,17 +1726,17 @@ export default function Goals() {
 
   const billForm = useForm<BillFormValues>({
     resolver: zodResolver(billSchema),
-    defaultValues: { name: "", icon: "creditcard", color: "#A8FF3E", amount: undefined, categoryId: undefined, autoSave: false },
+    defaultValues: { name: "", icon: "creditcard", color: "#CAFA01", amount: undefined, categoryId: undefined, autoSave: false },
   });
 
   const openCreateBill = () => {
-    billForm.reset({ name: "", icon: "creditcard", color: "#A8FF3E", amount: undefined, categoryId: undefined, autoSave: false });
+    billForm.reset({ name: "", icon: "creditcard", color: "#CAFA01", amount: undefined, categoryId: undefined, autoSave: false });
     setBillModal("create");
   };
 
   const openEditBill = (b: Bill) => {
     billForm.reset({
-      name: b.name, icon: b.icon ?? "creditcard", color: b.color ?? "#A8FF3E",
+      name: b.name, icon: b.icon ?? "creditcard", color: b.color ?? "#CAFA01",
       amount: b.amount ?? undefined, categoryId: b.categoryId ?? undefined, autoSave: b.autoSave,
     });
     setBillModal(b.id);
@@ -1769,6 +1781,44 @@ export default function Goals() {
           setPayBill(null);
           setPayMonth(null);
           toast({ title: `${payBill.name} marked as paid` });
+        },
+        onError: () => toast({ title: "Failed to save transaction", variant: "destructive" }),
+      }
+    );
+  };
+
+  // Agregar plata a una meta: crea una transacción real primero (categoría "Savings"
+  // compartida por todos los aportes, se crea sola la primera vez que hace falta) y
+  // recién con el id de esa transacción registra el aporte — mismo orden que Bills
+  // con auto-save, así currentAmount nunca queda desconectado de una transacción real.
+  const handleAddMoneySubmit = async () => {
+    if (!addMoneyGoal) return;
+    const goal = addMoneyGoal;
+    const amount = parseAmountInput(addAmount);
+    if (!amount || amount <= 0) return;
+
+    let categoryId = savingsCategory?.id;
+    if (!categoryId) {
+      try {
+        const cat: any = await createCategory.mutateAsync({
+          data: { name: "Savings", type: "expense", color: "#7CB518", icon: "piggybank" },
+        });
+        categoryId = cat?.id;
+        queryClient.invalidateQueries({ queryKey: getListCategoriesQueryKey() });
+      } catch {
+        toast({ title: "Failed to add money", variant: "destructive" });
+        return;
+      }
+    }
+    if (!categoryId) return;
+
+    createTransaction.mutate(
+      { data: { type: "expense", amount, description: `Added to ${goal.name}`, categoryId, date: new Date().toISOString().slice(0, 10) } },
+      {
+        onSuccess: (tx: any) => {
+          invalidateTransactions();
+          addContribution.mutate({ id: goal.id, amount, transactionId: tx?.id });
+          toast({ title: `Added ${symbol}${fmtMoney(amount)} to ${goal.name}` });
         },
         onError: () => toast({ title: "Failed to save transaction", variant: "destructive" }),
       }
@@ -1822,20 +1872,21 @@ export default function Goals() {
         </div>
       )}
 
-      {/* Switcher — Goals / Habits / Bills, mismo lenguaje que RangeSwitch del dashboard */}
+      {/* Switcher — Savings / Habits / Bills, track plano + thumb verde (mismo lenguaje que RangeSwitch del dashboard) */}
       <div className="relative grid grid-cols-3 rounded-full bg-muted p-1">
         <span
           aria-hidden="true"
-          className="absolute inset-y-1 rounded-full transition-transform duration-300 ease-out"
+          className="absolute inset-y-1 left-1 rounded-full transition-transform duration-300 ease-out"
           style={{
             width: "calc(33.333% - 0.1667rem)",
             transform:
               activeTab === "habits" ? "translateX(100%)" : activeTab === "bills" ? "translateX(200%)" : "translateX(0)",
-            background: "#A8FF3E",
+            background: "linear-gradient(135deg, #CAFA01 0%, #7CB518 100%)",
+            boxShadow: "inset 0 1px 1px rgba(255,255,255,0.55), 0 4px 10px -2px rgba(124,181,24,0.45)",
           }}
         />
         {([
-          { key: "savings", label: "Goals" },
+          { key: "savings", label: "Savings" },
           { key: "habits", label: "Habits" },
           { key: "bills", label: "Bills" },
         ] as const).map((t) => (
@@ -1865,11 +1916,11 @@ export default function Goals() {
           <div>
             <div className="flex items-center justify-between mb-1.5 px-1">
               <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-[#A8FF3E]" />
+                <div className="w-2 h-2 rounded-full bg-[#CAFA01]" />
                 <p className="text-xs font-bold uppercase tracking-widest text-foreground">Savings</p>
                 <span className="text-xs text-muted-foreground">({goals.length})</span>
               </div>
-              <button onClick={openCreateGoal} className="h-7 px-2.5 flex items-center gap-1 rounded-lg bg-[#A8FF3E] text-black text-xs font-bold active:scale-95 transition-transform">
+              <button onClick={openCreateGoal} className="h-7 px-2.5 flex items-center gap-1 rounded-lg bg-[#CAFA01] text-black text-xs font-bold active:scale-95 transition-transform">
                 <Plus className="h-3.5 w-3.5" strokeWidth={3} />
                 New
               </button>
@@ -1883,7 +1934,7 @@ export default function Goals() {
             ) : (
               <div className="space-y-1.5">
                 {goals.map((g) => {
-                  const color = g.color ?? "#A8FF3E";
+                  const color = g.color ?? "#CAFA01";
                   const pct = g.targetAmount > 0 ? Math.min(100, (g.currentAmount / g.targetAmount) * 100) : 0;
                   const isPending = g.id < 0;
                   return (
@@ -1931,11 +1982,11 @@ export default function Goals() {
           <div>
             <div className="flex items-center justify-between mb-1.5 px-1">
               <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-[#A8FF3E]" />
+                <div className="w-2 h-2 rounded-full bg-[#CAFA01]" />
                 <p className="text-xs font-bold uppercase tracking-widest text-foreground">Habits</p>
                 <span className="text-xs text-muted-foreground">({habits.length})</span>
               </div>
-              <button onClick={openCreateHabit} className="h-7 px-2.5 flex items-center gap-1 rounded-lg bg-[#A8FF3E] text-black text-xs font-bold active:scale-95 transition-transform">
+              <button onClick={openCreateHabit} className="h-7 px-2.5 flex items-center gap-1 rounded-lg bg-[#CAFA01] text-black text-xs font-bold active:scale-95 transition-transform">
                 <Plus className="h-3.5 w-3.5" strokeWidth={3} />
                 New
               </button>
@@ -1949,7 +2000,7 @@ export default function Goals() {
             ) : (
               <div className="space-y-1.5">
                 {habits.map((h) => {
-                  const color = h.color ?? "#A8FF3E";
+                  const color = h.color ?? "#CAFA01";
                   const logged = new Set(h.logs);
                   const doneToday = logged.has(today);
                   return (
@@ -1993,11 +2044,11 @@ export default function Goals() {
           <div>
             <div className="flex items-center justify-between mb-1.5 px-1">
               <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-[#A8FF3E]" />
+                <div className="w-2 h-2 rounded-full bg-[#CAFA01]" />
                 <p className="text-xs font-bold uppercase tracking-widest text-foreground">Bills</p>
                 <span className="text-xs text-muted-foreground">({bills.length})</span>
               </div>
-              <button onClick={openCreateBill} className="h-7 px-2.5 flex items-center gap-1 rounded-lg bg-[#A8FF3E] text-black text-xs font-bold active:scale-95 transition-transform">
+              <button onClick={openCreateBill} className="h-7 px-2.5 flex items-center gap-1 rounded-lg bg-[#CAFA01] text-black text-xs font-bold active:scale-95 transition-transform">
                 <Plus className="h-3.5 w-3.5" strokeWidth={3} />
                 New
               </button>
@@ -2011,7 +2062,7 @@ export default function Goals() {
             ) : (
               <div className="space-y-1.5">
                 {bills.map((b) => {
-                  const color = b.color ?? "#A8FF3E";
+                  const color = b.color ?? "#CAFA01";
                   const logged = new Set(b.logs);
                   const category = expenseCategories.find((c: any) => c.id === b.categoryId);
                   const isPending = b.id < 0;
@@ -2092,11 +2143,8 @@ export default function Goals() {
               {symbol} {fmtMoney(addMoneyGoal.currentAmount)} → {symbol} {fmtMoney(addMoneyGoal.currentAmount + parseAmountInput(addAmount))}
             </p>
             <Button
-              onClick={() => {
-                const n = parseAmountInput(addAmount);
-                if (!addMoneyGoal || Number.isNaN(n) || n <= 0) return;
-                addToGoal.mutate({ id: addMoneyGoal.id, newAmount: addMoneyGoal.currentAmount + n });
-              }}
+              onClick={handleAddMoneySubmit}
+              disabled={createTransaction.isPending || createCategory.isPending}
               className="w-full bg-black text-white hover:bg-black/85 border-0 rounded-2xl font-bold"
             >
               Add {symbol} {addAmount || "0"}

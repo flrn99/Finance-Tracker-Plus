@@ -5,67 +5,116 @@ import {
   useGetSpendingByCategory, getGetSpendingByCategoryQueryKey,
 } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeftRight, ChevronRight, CreditCard } from "lucide-react";
+import { ArrowLeftRight, ChevronRight } from "lucide-react";
 import { Link } from "wouter";
 import { useCurrency } from "@/lib/currency-context";
+import { cn } from "@/lib/utils";
 import { BalanceHero } from "@/components/dashboard/balance-hero";
 import { RangeSwitch } from "@/components/dashboard/range-switch";
 import { EntryLauncher } from "@/components/dashboard/entry-launcher";
 import { EntrySheet } from "@/components/dashboard/entry-sheet";
 import { SpendingBreakdown } from "@/components/dashboard/spending-breakdown";
 import VoiceCapture, { type ParsedVoiceTx } from "@/components/voice-capture";
-import { billsQueryOptions } from "@/pages/goals";
+import { billsQueryOptions, type Bill } from "@/pages/goals";
 
-const BILLS_COLOR = "#e6b3e7";
+/** Últimos `n` meses terminando en el actual — ventana rodante, no año calendario:
+ * acá es solo un preview de tendencia reciente para "All Time", no algo editable
+ * donde la posición exacta importe (a diferencia del grid de BillDetail en Goals). */
+function lastNMonths(n: number): string[] {
+  const now = new Date();
+  return Array.from({ length: n }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - (n - 1 - i), 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  });
+}
 
-function BillsWidget() {
+/** Fracción de bills pagados en un mes dado — intensidad del heatmap agregado. */
+function monthIntensity(bills: Bill[], month: string): number {
+  if (bills.length === 0) return 0;
+  return bills.filter((b) => b.logs.includes(month)).length / bills.length;
+}
+
+// Hairline arriba/abajo (igual que EntryLauncher) + feedback de press — sin esto
+// era la única fila tappable del dashboard sin superficie propia ni estado táctil.
+const BILLS_SECTION_CLS =
+  "mt-6 border-y border-border py-4 transition-[opacity,transform] duration-150 active:opacity-75 active:scale-[0.985] group";
+
+function BillsWidget({ filterMode }: { filterMode: "month" | "all" }) {
   const { data: bills, isLoading } = useQuery(billsQueryOptions);
 
   if (isLoading) return null;
 
   if (!bills || bills.length === 0) {
     return (
-      <Link href="/goals?tab=bills" className="mt-8 block">
-        <button className="w-full rounded-2xl border p-4 text-left transition-opacity active:opacity-80" style={{ borderColor: `${BILLS_COLOR}40`, background: `${BILLS_COLOR}10` }}>
-          <div className="flex items-center gap-3">
-            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl" style={{ background: `${BILLS_COLOR}30` }}>
-              <CreditCard className="h-4.5 w-4.5" style={{ color: BILLS_COLOR }} />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-bold leading-tight text-foreground">Track your monthly bills</p>
-              <p className="truncate text-[11px] text-muted-foreground">Insurance, rent, subscriptions — mark them paid each month</p>
-            </div>
-            <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={2} />
-          </div>
-        </button>
+      <Link href="/goals?tab=bills" className={cn(BILLS_SECTION_CLS, "block")}>
+        <div className="flex items-center justify-between">
+          <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Monthly bills</p>
+          <ChevronRight className="h-3.5 w-3.5 text-muted-foreground transition-transform group-hover:translate-x-0.5" strokeWidth={2} />
+        </div>
+        <p className="mt-1 text-sm text-muted-foreground">Track recurring bills — insurance, rent, subscriptions</p>
       </Link>
     );
   }
 
-  const paid = bills.filter((b) => b.paidThisMonth).length;
-  const total = bills.length;
-  const paidNames = bills.filter((b) => b.paidThisMonth).map((b) => b.name);
-  const caption =
-    paid === 0
-      ? `${total} bill${total === 1 ? "" : "s"} to pay this month`
-      : paid === total
-        ? "All bills paid this month"
-        : `${paidNames.slice(0, 2).join(", ")}${paidNames.length > 2 ? " & more" : ""} paid this month`;
+  if (filterMode === "month") {
+    const paid = bills.filter((b) => b.paidThisMonth).length;
+    const total = bills.length;
+    const paidNames = bills.filter((b) => b.paidThisMonth).map((b) => b.name);
+    const caption =
+      paid === 0
+        ? `${total} bill${total === 1 ? "" : "s"} to pay this month`
+        : paid === total
+          ? "All bills paid this month"
+          : `${paidNames.slice(0, 2).join(", ")}${paidNames.length > 2 ? " & more" : ""} paid this month`;
 
-  return (
-    <Link href="/goals?tab=bills" className="mt-8 block">
-      <button className="flex w-full items-center gap-3 rounded-2xl border p-4 text-left transition-opacity active:opacity-80" style={{ borderColor: `${BILLS_COLOR}40`, background: `${BILLS_COLOR}10` }}>
-        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl" style={{ background: `${BILLS_COLOR}30` }}>
-          <CreditCard className="h-4.5 w-4.5" style={{ color: BILLS_COLOR }} />
+    return (
+      <Link href="/goals?tab=bills" className={cn(BILLS_SECTION_CLS, "flex items-center gap-4")}>
+        <div className="shrink-0 text-center leading-none">
+          <p className="font-entry-amount leading-[0.75]" style={{ fontSize: "3rem", color: "#FF66D9" }}>
+            {paid}
+          </p>
+          <p className="mt-1.5 text-[11px] font-bold text-muted-foreground">of {total}</p>
         </div>
         <div className="min-w-0 flex-1">
-          <p className="font-number text-lg leading-tight text-foreground">
-            {paid}<span className="text-xs text-muted-foreground">/{total} paid</span>
-          </p>
-          <p className="truncate text-[11px] text-muted-foreground">{caption}</p>
+          <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Monthly bills</p>
+          <p className="mt-1 text-[13px] leading-snug text-foreground">{caption}</p>
         </div>
-        <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={2} />
-      </button>
+        <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" strokeWidth={2} />
+      </Link>
+    );
+  }
+
+  // All Time — misma gramática que Month: número hero + sparkline de historial
+  // como detalle secundario (no protagonista, ya no compite con el número).
+  const months = lastNMonths(12);
+  const fullyPaidMonths = months.filter((m) => monthIntensity(bills, m) === 1).length;
+
+  return (
+    <Link href="/goals?tab=bills" className={cn(BILLS_SECTION_CLS, "flex items-center gap-4")}>
+      <div className="shrink-0 text-center leading-none">
+        <p className="font-entry-amount leading-[0.75]" style={{ fontSize: "3rem", color: "#FF66D9" }}>
+          {fullyPaidMonths}
+        </p>
+        <p className="mt-1.5 text-[11px] font-bold text-muted-foreground">of {months.length}</p>
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Monthly bills</p>
+        <p className="mt-1 text-[13px] leading-snug text-foreground">Months fully paid this year</p>
+        <div className="mt-2 grid grid-cols-12 gap-[3px]">
+          {months.map((m) => {
+            const intensity = monthIntensity(bills, m);
+            const alpha = intensity > 0 ? Math.round(Math.max(0.3, intensity) * 255).toString(16).padStart(2, "0") : "";
+            return (
+              <div
+                key={m}
+                className="h-[5px] rounded-full"
+                style={{ background: intensity > 0 ? `#FF66D9${alpha}` : "hsl(var(--muted-foreground) / 0.15)" }}
+              />
+            );
+          })}
+        </div>
+      </div>
+      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" strokeWidth={2} />
     </Link>
   );
 }
@@ -185,7 +234,7 @@ export default function Dashboard() {
       </Link>
 
       {/* Monthly bills widget */}
-      <BillsWidget />
+      <BillsWidget filterMode={filterMode} />
 
       {/* Spending breakdown */}
       <div className="mt-8">

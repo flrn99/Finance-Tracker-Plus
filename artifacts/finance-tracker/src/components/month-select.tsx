@@ -100,7 +100,7 @@ export default function MonthSelect({
         onValueChange={handleYear}
       >
         <SelectTrigger className={triggerCls} style={glassStyle}>
-          <SelectValue placeholder={isEmpty ? (placeholder ?? "Year") : "Year"} />
+          <SelectValue placeholder="Year" />
         </SelectTrigger>
         <SelectContent>
           {years.map((y) => (

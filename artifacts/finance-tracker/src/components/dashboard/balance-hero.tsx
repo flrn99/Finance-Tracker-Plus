@@ -21,7 +21,7 @@ export function BalanceHero({
             left: "-2%",
             bottom: "10px",
             width: "88%",
-            background: "#A8FF3E",
+            background: "#CAFA01",
             opacity: 0.55,
             transform: "skewX(-8deg) rotate(-1.2deg)",
           }}

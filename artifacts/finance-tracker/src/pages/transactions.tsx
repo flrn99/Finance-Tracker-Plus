@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, type CSSProperties } from "react";
+import { useState, useRef, useEffect, useCallback, type CSSProperties } from "react";
 import { Link } from "wouter";
 import {
   useListTransactions,
@@ -15,14 +15,28 @@ import { useCurrency } from "@/lib/currency-context";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, Search, FilterX, FolderPlus, ChevronDown } from "lucide-react";
+import { Plus, Search, FilterX, FolderPlus, ChevronDown, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn, categoryTextColor, LIGHT_PAGE_BG, DARK_PAGE_BG } from "@/lib/utils";
-import MonthSelect from "@/components/month-select";
+import { PeriodWheelPicker } from "@/components/period-wheel-picker";
 import { EntrySheet } from "@/components/dashboard/entry-sheet";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 
 // ─── TransactionRow — fila con swipe-to-delete, un solo gesto abierto a la vez ──
-const SWIPE_WIDTH = 74;
+const SWIPE_WIDTH = 84;
+
+// Mismo patrón que entry-sheet.tsx/settings.tsx: cachea el módulo tras el primer import.
+let hapticsModule: any = null;
+const triggerHaptic = () => {
+  if (hapticsModule) {
+    hapticsModule.Haptics.impact({ style: hapticsModule.ImpactStyle.Light }).catch(() => {});
+  } else {
+    import("@capacitor/haptics").then((mod) => {
+      hapticsModule = mod;
+      mod.Haptics.impact({ style: mod.ImpactStyle.Light }).catch(() => {});
+    }).catch(() => {});
+  }
+};
 
 function TransactionRow({
   tx,
@@ -99,15 +113,33 @@ function TransactionRow({
 
   return (
     <div className="relative overflow-hidden rounded-2xl">
-      <button
-        type="button"
-        onClick={() => onDelete(tx)}
-        aria-label={`Delete ${tx.description}`}
-        className="absolute inset-y-0 right-0 flex items-center justify-center text-xs font-bold text-white"
-        style={{ width: SWIPE_WIDTH, background: "#E11D48" }}
-      >
-        Delete
-      </button>
+      <ConfirmDialog
+        trigger={
+          // El botón ocupa TODA la zona revelada (ancho completo + alto completo de la fila)
+          // para que el toque responda en cualquier punto, no solo sobre el pill visual chico —
+          // antes el hit-area era del tamaño del pill (44px alto centrado), y un toque un poco
+          // arriba/abajo caía en zona muerta. El pill de abajo es solo decorativo/visual.
+          <button
+            type="button"
+            onClick={() => triggerHaptic()}
+            aria-label={`Delete ${tx.description}`}
+            className="group absolute inset-y-0 right-0 flex items-center justify-center"
+            style={{ width: SWIPE_WIDTH }}
+          >
+            <span
+              className="flex items-center justify-center rounded-xl bg-destructive text-xs font-bold text-white transition-transform group-active:scale-95"
+              style={{ width: 62, height: 44 }}
+            >
+              Delete
+            </span>
+          </button>
+        }
+        icon={Trash2}
+        title="Delete transaction?"
+        description={`This will permanently delete "${tx.description}". This can't be undone.`}
+        confirmLabel="Delete"
+        onConfirm={() => onDelete(tx)}
+      />
       <button
         type="button"
         data-testid={`row-transaction-${tx.id}`}
@@ -119,11 +151,11 @@ function TransactionRow({
           if (firedByPointer.current) { firedByPointer.current = false; return; }
           commitTap(); // activación por teclado (Enter/Espacio), sin pointer events antes
         }}
-        className="relative w-full text-left flex items-center gap-3 px-1 py-3.5 bg-background"
+        className="relative w-full text-left flex items-center gap-3 px-1 py-5 bg-background"
         style={{
           touchAction: "pan-y",
           transform: `translateX(${dragX}px)`,
-          transition: dragging.current ? "none" : "transform 220ms cubic-bezier(0.25,1,0.5,1)",
+          transition: dragging.current ? "none" : "transform 280ms cubic-bezier(0.16,1,0.3,1)",
         }}
       >
         <span className="w-[3px] h-9 rounded-full shrink-0" style={{ background: tx.categoryColor }} aria-hidden="true" />
@@ -186,6 +218,24 @@ function TransactionList({ filteredTransactions, isLoading, formatAmount, onSele
   // Una sola fila con el swipe abierto a la vez, en toda la lista
   const [openSwipeId, setOpenSwipeId] = useState<number | null>(null);
 
+  // Si el usuario hace scroll de verdad con una fila abierta, la cerramos —
+  // pero no con cualquier scroll mínimo (rebote del overscroll, etc.), solo
+  // pasado un umbral real de desplazamiento acumulado.
+  const SCROLL_CLOSE_THRESHOLD = 24;
+  useEffect(() => {
+    if (openSwipeId === null) return;
+    const scrollEl = document.querySelector<HTMLElement>("[data-app-scroll]");
+    if (!scrollEl) return;
+    const startTop = scrollEl.scrollTop;
+    const onScroll = () => {
+      if (Math.abs(scrollEl.scrollTop - startTop) > SCROLL_CLOSE_THRESHOLD) {
+        setOpenSwipeId(null);
+      }
+    };
+    scrollEl.addEventListener("scroll", onScroll, { passive: true });
+    return () => scrollEl.removeEventListener("scroll", onScroll);
+  }, [openSwipeId]);
+
   const isCollapsed = (key: string) => {
     if (key in collapsed) return collapsed[key];
     return key !== thisMonth; // default: solo el mes actual abierto
@@ -210,9 +260,9 @@ function TransactionList({ filteredTransactions, isLoading, formatAmount, onSele
   );
 
   if (!filteredTransactions?.length) return (
-    <div className="rounded-2xl border border-border bg-card p-12 flex flex-col items-center justify-center text-muted-foreground">
+    <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
       <Search className="h-10 w-10 mb-3 opacity-30" />
-      <p className="font-semibold">No transactions found</p>
+      <p className="font-semibold text-foreground">No transactions found</p>
       <p className="text-sm mt-1">Try adjusting your filters or adding a new one.</p>
     </div>
   );
@@ -230,7 +280,7 @@ function TransactionList({ filteredTransactions, isLoading, formatAmount, onSele
             {/* Header del mes — clickeable, sin fondo */}
             <button
               type="button"
-              className="flex w-full items-center justify-between border-b border-border pb-2"
+              className="flex w-full items-center justify-between border-b border-border py-3.5"
               onClick={() => toggle(monthKey)}
             >
               <span className="flex items-center gap-1.5">
@@ -247,7 +297,7 @@ function TransactionList({ filteredTransactions, isLoading, formatAmount, onSele
 
             {/* Items del mes */}
             {open && (
-              <div className="mt-1">
+              <div className="mt-1 space-y-2">
                 {txs.map((tx) => (
                   <TransactionRow
                     key={tx.id}
@@ -286,7 +336,7 @@ export default function Transactions() {
     setFilterCategory("all");
   };
 
-  const handleDeleteTx = (tx: any) => {
+  const handleDeleteTx = useCallback((tx: any) => {
     deleteTx.mutate({ id: tx.id }, {
       onSuccess: () => {
         toast({ title: "Transaction deleted" });
@@ -297,7 +347,7 @@ export default function Transactions() {
       },
       onError: () => toast({ title: "Failed to delete", variant: "destructive" }),
     });
-  };
+  }, [deleteTx, toast, queryClient]);
 
   const { data: categories } = useListCategories({ query: { queryKey: getListCategoriesQueryKey() } });
 
@@ -333,10 +383,10 @@ export default function Transactions() {
 
   return (
     <div className="space-y-3 animate-in fade-in duration-500">
-      <h2 className="font-title text-3xl text-foreground pr-14 min-h-10 flex items-center">Transactions</h2>
+      <h2 className="font-title text-2xl text-foreground pr-14 min-h-10 flex items-center">Transactions</h2>
 
-      {/* Filters */}
-      <div className="bg-card rounded-2xl shadow-sm p-3 space-y-2.5">
+      {/* Filters — sección plana con hairline, sin card ni sombra (mismo lenguaje que el resto del app) */}
+      <div className="space-y-2.5 border-b border-border pb-4">
         {/* Type — toggle plano, mismo lenguaje que el resto de la app */}
         <div className="flex gap-1.5 rounded-2xl bg-muted p-1">
           {([
@@ -388,45 +438,42 @@ export default function Transactions() {
           </Select>
         </div>
 
-        {/* Month + Year */}
-        <div className="flex gap-2">
-          <MonthSelect
-            value={filterMonth}
-            onChange={setFilterMonth}
-            variant="neutral"
-            placeholder="Month"
-            className="flex-1"
-          />
-          {hasFilters && (
-            <button
-              onClick={resetFilters}
-              className="h-10 w-10 rounded-2xl bg-muted/50 flex items-center justify-center shrink-0"
-              title="Reset filters"
-            >
-              <FilterX className="h-3.5 w-3.5 text-muted-foreground" />
-            </button>
-          )}
-        </div>
+        {/* Period — toggle Specific/All Time + ruedas de mes/año, se ocultan en All Time */}
+        <PeriodWheelPicker
+          value={filterMonth}
+          onChange={setFilterMonth}
+          trailing={
+            hasFilters ? (
+              <button
+                onClick={resetFilters}
+                className="h-10 w-10 rounded-2xl bg-muted/50 flex items-center justify-center shrink-0"
+                title="Reset filters"
+              >
+                <FilterX className="h-3.5 w-3.5 text-muted-foreground" />
+              </button>
+            ) : undefined
+          }
+        />
 
-        {/* Summary strip */}
+        {/* Summary strip — texto plano, sin tinte de fondo (el color lo lleva el número, no la caja) */}
         {(filterMonth !== "" || filterType !== "all") && monthlyTotal && (
-          <div className={cn("grid gap-2", filterType === "all" ? "grid-cols-3" : "grid-cols-1")}>
+          <div className="flex gap-5 pt-0.5">
             {(filterType === "all" || filterType === "income") && (
-              <div className="rounded-2xl px-3 py-2 flex flex-col items-center" style={{ background: "rgba(0,168,112,0.12)" }}>
+              <div>
                 <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">Income</p>
-                <p className="text-xs font-bold text-[#00432C] dark:text-[#6EE7B7]">{formatAmount(monthlyTotal.income)}</p>
+                <p className="font-number text-xs font-bold text-[#00432C] dark:text-[#6EE7B7]">{formatAmount(monthlyTotal.income)}</p>
               </div>
             )}
             {(filterType === "all" || filterType === "expense") && (
-              <div className="rounded-2xl px-3 py-2 flex flex-col items-center" style={{ background: "rgba(255,77,77,0.12)" }}>
+              <div>
                 <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">Expenses</p>
-                <p className="text-xs font-bold text-[#7F1D1D] dark:text-[#FFA3A3]">{formatAmount(monthlyTotal.expense)}</p>
+                <p className="font-number text-xs font-bold text-[#7F1D1D] dark:text-[#FFA3A3]">{formatAmount(monthlyTotal.expense)}</p>
               </div>
             )}
             {filterType === "all" && (
-              <div className="rounded-2xl px-3 py-2 flex flex-col items-center" style={{ background: monthlyTotal.income - monthlyTotal.expense >= 0 ? "rgba(0,168,112,0.12)" : "rgba(255,77,77,0.12)" }}>
+              <div>
                 <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">Balance</p>
-                <p className={cn("text-xs font-bold", monthlyTotal.income - monthlyTotal.expense >= 0 ? "text-[#00432C] dark:text-[#6EE7B7]" : "text-[#7F1D1D] dark:text-[#FFA3A3]")}>
+                <p className={cn("font-number text-xs font-bold", monthlyTotal.income - monthlyTotal.expense >= 0 ? "text-[#00432C] dark:text-[#6EE7B7]" : "text-[#7F1D1D] dark:text-[#FFA3A3]")}>
                   {formatAmount(monthlyTotal.income - monthlyTotal.expense)}
                 </p>
               </div>
@@ -437,7 +484,7 @@ export default function Transactions() {
 
       <Button
         onClick={() => setCreating(true)}
-        className="w-full gap-2 bg-[#A8FF3E] text-black hover:bg-[#9bfe32] border-0 font-bold"
+        className="w-full gap-2 bg-[#CAFA01] text-black border-0 font-bold transition-transform active:scale-95"
         data-testid="button-add-transaction"
       >
         <Plus className="h-4 w-4" />
