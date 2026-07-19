@@ -365,7 +365,7 @@ export function EntrySheet({
             costado en vez de recortar limpio. */}
         <div className="flex flex-1 flex-col overflow-y-auto overflow-x-hidden px-5 pt-2">
           {/* Amount — superficie neutra, el color vive solo en el monto (acento puntual) */}
-          <div className="flex flex-col items-center py-5">
+          <div className="flex flex-col items-center py-3">
             <div className="flex items-center justify-center gap-1" style={{ height: AMOUNT_ROW_HEIGHT }}>
               <span
                 className={cn(
@@ -479,7 +479,7 @@ export function EntrySheet({
             className="mt-3 w-full rounded-2xl border-0 bg-muted px-4 py-3.5 text-base text-foreground outline-none placeholder:text-muted-foreground" />
 
           {/* Keypad — mismo flujo que el resto, sin separarlo en su propio contenedor */}
-          <div className="pb-6 pt-4" style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 2rem)" }}>
+          <div className="pb-6 pt-2" style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 2rem)" }}>
             {/* Antes solo "0" era 70px y el resto 58px — con margen de sobra en cada
                 columna (74.67px de columna vs. botones chicos). Al unificar todas
                 las teclas a 70px, ese margen se achicó a ~2px por lado: casi sin
