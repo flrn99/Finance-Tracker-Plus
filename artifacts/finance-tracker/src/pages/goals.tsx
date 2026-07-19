@@ -1460,9 +1460,10 @@ export default function Goals() {
   const [goalDetailId, setGoalDetailId] = useState<number | null>(null);
   const [addMoneyGoal, setAddMoneyGoal] = useState<Goal | null>(null);
   const [addAmount, setAddAmount] = useState("");
-  const [activeTab, setActiveTab] = useState<"savings" | "habits" | "bills">(
-    () => (new URLSearchParams(window.location.search).get("tab") === "bills" ? "bills" : "savings")
-  );
+  const [activeTab, setActiveTab] = useState<"savings" | "habits" | "bills">(() => {
+    const t = new URLSearchParams(window.location.search).get("tab");
+    return t === "savings" || t === "habits" ? t : "bills";
+  });
   const [payBill, setPayBill] = useState<Bill | null>(null);
   const [payMonth, setPayMonth] = useState<string | null>(null);
   const [payAmount, setPayAmount] = useState("");
