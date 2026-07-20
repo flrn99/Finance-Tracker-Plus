@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   useCreateCategory,
   getListCategoriesQueryKey,
@@ -108,15 +108,34 @@ export const categorySchema = z.object({
 export type CategoryFormValues = z.infer<typeof categorySchema>;
 
 export function FloatingModal({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: React.ReactNode }) {
-  // Bloquea el swipe de página del nav mientras el modal está abierto
+  // open controla la intención del padre; mounted/closing quedan un beat más
+  // para poder jugar la animación de salida antes de desmontar de un salto
+  // (antes "if (!open) return null" lo sacaba instantáneo, sin exit).
+  const [mounted, setMounted] = useState(open);
+  const [closing, setClosing] = useState(false);
+
   useEffect(() => {
-    if (!open) return;
+    if (open) {
+      setMounted(true);
+      setClosing(false);
+      return;
+    }
+    if (!mounted) return;
+    setClosing(true);
+    const t = setTimeout(() => setMounted(false), 180);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  // Bloquea el swipe de página del nav mientras el modal está abierto o cerrándose
+  useEffect(() => {
+    if (!mounted) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = prev; };
-  }, [open]);
+  }, [mounted]);
 
-  if (!open) return null;
+  if (!mounted) return null;
   return (
     <div
       className="fixed z-50 flex items-center justify-center px-5"
@@ -130,7 +149,7 @@ export function FloatingModal({ open, onClose, title, children }: { open: boolea
       onClick={onClose}
     >
       <div
-        className="bg-black/80"
+        className={cn("bg-black/80 duration-180", closing ? "animate-out fade-out" : "animate-in fade-in")}
         style={{
           position: 'fixed',
           top: '-10vh', left: '-10vw', right: '-10vw', bottom: '-10vh',
@@ -138,7 +157,10 @@ export function FloatingModal({ open, onClose, title, children }: { open: boolea
         }}
       />
       <div
-        className="relative w-full max-w-xs bg-card rounded-2xl shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-200 max-h-full overflow-y-auto"
+        className={cn(
+          "relative w-full max-w-xs bg-card rounded-2xl shadow-2xl duration-180 max-h-full overflow-y-auto",
+          closing ? "animate-out fade-out slide-out-to-bottom-4" : "animate-in fade-in slide-in-from-bottom-4"
+        )}
         style={{ willChange: 'transform, opacity', transform: 'translate3d(0,0,0)' }}
         onClick={e => e.stopPropagation()}
       >
@@ -318,8 +340,15 @@ export function CategoryForm({
                         onPointerUp={() => { colorDrag.current.active = false; }}
                         onPointerCancel={() => { colorDrag.current.active = false; }}
                       >
-                        <div className="w-11 h-11 rounded-full shadow-md" style={{ background: field.value, boxShadow: "0 4px 14px -2px rgba(0,0,0,0.28)" }} />
-                        <span className="text-sm font-bold">{colorLabel(field.value)}</span>
+                        <div
+                          className="w-11 h-11 rounded-full shadow-md transition-[background-color] duration-200"
+                          style={{ background: field.value, boxShadow: "0 4px 14px -2px rgba(0,0,0,0.28)" }}
+                        />
+                        {/* key=idx: remonta el span en cada paso para que el nombre
+                            entre con un fade en vez de cambiar de texto de un salto. */}
+                        <span key={idx} className="text-sm font-bold animate-in fade-in duration-150">
+                          {colorLabel(field.value)}
+                        </span>
                       </div>
                       <button
                         type="button"
