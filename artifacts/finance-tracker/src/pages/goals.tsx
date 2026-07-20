@@ -196,6 +196,19 @@ const COLOR_OPTIONS: { hex: string; name: string }[] = [
 /* Date helpers                                                        */
 /* ------------------------------------------------------------------ */
 
+// Mismo patrón que transactions.tsx/entry-sheet.tsx: cachea el módulo tras el primer import.
+let hapticsModule: any = null;
+const triggerHaptic = () => {
+  if (hapticsModule) {
+    hapticsModule.Haptics.impact({ style: hapticsModule.ImpactStyle.Light }).catch(() => {});
+  } else {
+    import("@capacitor/haptics").then((mod) => {
+      hapticsModule = mod;
+      mod.Haptics.impact({ style: mod.ImpactStyle.Light }).catch(() => {});
+    }).catch(() => {});
+  }
+};
+
 function toKey(d: Date): string {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
@@ -917,7 +930,9 @@ function BillForm({
                     let value = field.value;
                     while (st.accum >= DAY_DRAG_STEP_PX) { value = value >= 31 ? 1 : value + 1; st.accum -= DAY_DRAG_STEP_PX; }
                     while (st.accum <= -DAY_DRAG_STEP_PX) { value = value <= 1 ? 31 : value - 1; st.accum += DAY_DRAG_STEP_PX; }
-                    if (value !== field.value) field.onChange(value);
+                    // Un solo haptic por evento (no uno por paso del while) — mismo
+                    // criterio que el color stepper de categorías, para que se sientan iguales.
+                    if (value !== field.value) { field.onChange(value); triggerHaptic(); }
                   }}
                   onPointerUp={() => { dayDrag.current.active = false; }}
                   onPointerCancel={() => { dayDrag.current.active = false; }}

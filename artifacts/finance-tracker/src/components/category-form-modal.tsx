@@ -15,6 +15,19 @@ import { X, TrendingDown, TrendingUp, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 
+// Mismo patrón que transactions.tsx/entry-sheet.tsx: cachea el módulo tras el primer import.
+let hapticsModule: any = null;
+const triggerHaptic = () => {
+  if (hapticsModule) {
+    hapticsModule.Haptics.impact({ style: hapticsModule.ImpactStyle.Light }).catch(() => {});
+  } else {
+    import("@capacitor/haptics").then((mod) => {
+      hapticsModule = mod;
+      mod.Haptics.impact({ style: mod.ImpactStyle.Light }).catch(() => {});
+    }).catch(() => {});
+  }
+};
+
 // Gastos: violeta → rojo → amarillo (los amarillos se sumaron a propósito,
 // reabriendo una exclusión de una sesión anterior). Fríos para ingresos,
 // con una familia extra de azules — 12 y 12, en orden tonal ascendente.
@@ -350,7 +363,10 @@ export function CategoryForm({
                           let i = idx;
                           while (st.accum >= COLOR_DRAG_STEP_PX) { i = (i + 1) % palette.length; st.accum -= COLOR_DRAG_STEP_PX; }
                           while (st.accum <= -COLOR_DRAG_STEP_PX) { i = (i - 1 + palette.length) % palette.length; st.accum += COLOR_DRAG_STEP_PX; }
-                          if (i !== idx) field.onChange(palette[i]);
+                          // Un solo haptic por evento (no uno por paso del while) — en un
+                          // flick rápido que cruce varios colores de una, un tick por paso
+                          // se sentiría como un buzz en vez de un detent nítido.
+                          if (i !== idx) { field.onChange(palette[i]); triggerHaptic(); }
                         }}
                         onPointerUp={() => { colorDrag.current.active = false; }}
                         onPointerCancel={() => { colorDrag.current.active = false; }}
