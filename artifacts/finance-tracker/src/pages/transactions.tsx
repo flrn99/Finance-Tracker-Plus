@@ -151,7 +151,13 @@ function TransactionRow({
               setConfirmDeleteOpen(true);
             }}
             aria-label={`Delete ${tx.description}`}
-            className={cn("group absolute inset-y-0 right-0 flex items-center justify-center", dragX < 0 && "z-10")}
+            // Sin z-index: la fila (que va después en el DOM) ya pinta naturalmente
+            // por encima del botón, que es justo lo que se necesita para que al
+            // cerrar la fila lo tape de nuevo de forma progresiva. Con z-10
+            // condicionado a "dragX < 0" el botón quedaba arriba durante TODA la
+            // animación de regreso (dragX sigue siendo negativo hasta el final),
+            // así que la fila se veía "pasar por detrás" del botón al cerrarse.
+            className="group absolute inset-y-0 right-0 flex items-center justify-center"
             style={{ width: SWIPE_WIDTH, touchAction: "manipulation" }}
           >
             <span
