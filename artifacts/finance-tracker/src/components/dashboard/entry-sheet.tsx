@@ -180,13 +180,19 @@ export function EntrySheet({
   const numeric = useMemo(() => Number.parseFloat(raw || "0") || 0, [raw]);
 
   const hasTypedDecimal = raw.includes(".");
+  // Cuántos decimales se tecleron de verdad (0, 1 o 2) — cada dígito del
+  // ".00" placeholder se pinta activo recién cuando ESE dígito puntual se
+  // tecleó, no los dos juntos apenas se toca el punto.
+  const typedDecCount = hasTypedDecimal ? (raw.split(".")[1] ?? "").length : 0;
 
   const display = useMemo(() => {
     const [int, dec] = raw.split(".");
     const grouped = Number(int || "0").toLocaleString("en-US");
-    // Sin punto tecleado todavía (típico de un monto dictado por voz, ej. "25")
-    // siempre se ve completo con los .00 — es lo que se va a guardar igual.
-    return dec !== undefined ? `${grouped}.${dec.slice(0, 2)}` : `${grouped}.00`;
+    // Siempre 2 decimales completos — sin dígitos tecleados todavía (ni punto,
+    // ni punto recién tocado sin dígitos después) se rellena con "0" al final,
+    // que es justo la posición del placeholder que queremos mostrar apagado.
+    const decPadded = (dec ?? "").slice(0, 2).padEnd(2, "0");
+    return `${grouped}.${decPadded}`;
   }, [raw]);
 
   // Separado en dos spans para que los ".00" placeholder se vean apagados hasta
@@ -305,6 +311,13 @@ export function EntrySheet({
 
   const accentTextClass = isExpense ? "text-[#E11D48] dark:text-[#FFA3A3]" : "text-[#00593C] dark:text-[#6EE7B7]";
   const accentBgClass = isExpense ? "bg-[#E11D48] dark:bg-[#FFA3A3]" : "bg-[#00593C] dark:bg-[#6EE7B7]";
+  const caret = (
+    <span
+      aria-hidden="true"
+      className={cn("ml-1 inline-block shrink-0 animate-caret-blink", accentBgClass)}
+      style={{ width: Math.max(3, amountFontSize * 0.045), height: amountFontSize * 0.78 }}
+    />
+  );
 
   return (
     <div className="fixed inset-0 z-50 flex justify-center" style={{ background: "rgba(2,2,3,0.3)", backdropFilter: "blur(4px)" }} role="dialog" aria-modal="true">
@@ -386,32 +399,32 @@ export function EntrySheet({
                 >
                   {displayInt}
                 </span>
-                {/* El cursor sigue a lo que se está tecleando de verdad: pegado al
-                    entero mientras no se tocó el punto, recién salta a después de
-                    los decimales una vez que sí se está escribiendo ahí. */}
-                {!hasTypedDecimal && (
-                  <span
-                    aria-hidden="true"
-                    className={cn("ml-1 inline-block shrink-0 animate-caret-blink", accentBgClass)}
-                    style={{ width: Math.max(3, amountFontSize * 0.045), height: amountFontSize * 0.78 }}
-                  />
-                )}
+                {/* El cursor sigue a lo que se está tecleando de verdad, dígito por
+                    dígito: entero → punto → primer decimal → segundo decimal. Cada
+                    dígito del ".00" placeholder solo se pinta activo cuando ESE
+                    dígito puntual se tecleó, no los dos juntos apenas se toca el punto. */}
+                {!hasTypedDecimal && caret}
                 <span
-                  className={cn(
-                    "font-entry-amount leading-none tracking-tight",
-                    hasTypedDecimal ? accentTextClass : "text-muted-foreground/40"
-                  )}
+                  className={cn("font-entry-amount leading-none tracking-tight", hasTypedDecimal ? accentTextClass : "text-muted-foreground/40")}
                   style={{ fontSize: amountFontSize }}
                 >
-                  .{displayDec}
+                  .
                 </span>
-                {hasTypedDecimal && (
-                  <span
-                    aria-hidden="true"
-                    className={cn("ml-1 inline-block shrink-0 animate-caret-blink", accentBgClass)}
-                    style={{ width: Math.max(3, amountFontSize * 0.045), height: amountFontSize * 0.78 }}
-                  />
-                )}
+                {hasTypedDecimal && typedDecCount === 0 && caret}
+                <span
+                  className={cn("font-entry-amount leading-none tracking-tight", typedDecCount >= 1 ? accentTextClass : "text-muted-foreground/40")}
+                  style={{ fontSize: amountFontSize }}
+                >
+                  {displayDec[0]}
+                </span>
+                {typedDecCount === 1 && caret}
+                <span
+                  className={cn("font-entry-amount leading-none tracking-tight", typedDecCount >= 2 ? accentTextClass : "text-muted-foreground/40")}
+                  style={{ fontSize: amountFontSize }}
+                >
+                  {displayDec[1]}
+                </span>
+                {typedDecCount >= 2 && caret}
               </span>
             </div>
             {tx && (
