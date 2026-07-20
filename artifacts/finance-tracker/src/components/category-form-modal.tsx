@@ -156,6 +156,11 @@ export function FloatingModal({ open, onClose, title, children }: { open: boolea
           position: 'fixed',
           top: '-10vh', left: '-10vw', right: '-10vw', bottom: '-10vh',
           width: '120vw', height: '120dvh',
+          // animate-out trae fill-mode:none — sin esto, apenas termina la
+          // animación CSS el fondo vuelve a opacity:1 (visible) por un frame
+          // antes de que React llegue a desmontarlo. "forwards" mantiene el
+          // estado final (invisible) sostenido hasta el desmontaje real.
+          animationFillMode: closing ? "forwards" : undefined,
         }}
       />
       <div
@@ -163,9 +168,12 @@ export function FloatingModal({ open, onClose, title, children }: { open: boolea
           "relative w-full max-w-xs bg-card rounded-2xl shadow-2xl duration-180 max-h-full overflow-y-auto",
           closing ? "animate-out fade-out slide-out-to-bottom-4" : "animate-in fade-in slide-in-from-bottom-4"
         )}
-        style={{ willChange: 'transform, opacity', transform: 'translate3d(0,0,0)' }}
+        style={{
+          willChange: 'transform, opacity',
+          transform: 'translate3d(0,0,0)',
+          animationFillMode: closing ? "forwards" : undefined,
+        }}
         onClick={e => e.stopPropagation()}
-        // animate-out no tiene fill-mode:forwards — apenas termina la animación
         // CSS el elemento vuelve a su estilo de reposo (opacity:1) antes de que
         // React llegue a desmontarlo, y eso flashea. Desmontar en el evento real
         // en vez de adivinar el timing con un timeout elimina esa ventana.
