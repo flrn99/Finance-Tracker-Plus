@@ -917,7 +917,14 @@ function BillForm({
                 </button>
                 <div
                   className="text-center leading-none min-w-[3.5rem] select-none touch-none"
-                  onPointerDown={(e) => { dayDrag.current = { x: e.clientX, accum: 0, active: false }; }}
+                  onPointerDown={(e) => {
+                    dayDrag.current = { x: e.clientX, accum: 0, active: false };
+                    // Sin esto, un swipe rápido se escapa del elemento (es angosto,
+                    // ~3.5rem) y el navegador deja de mandarle pointermove/pointerup —
+                    // el próximo intento quedaba con "active" trabado en true. Mismo
+                    // fix que ya usa el swipe de Transactions y el numpad.
+                    e.currentTarget.setPointerCapture(e.pointerId);
+                  }}
                   onPointerMove={(e) => {
                     const st = dayDrag.current;
                     const dx = e.clientX - st.x;
@@ -934,8 +941,14 @@ function BillForm({
                     // criterio que el color stepper de categorías, para que se sientan iguales.
                     if (value !== field.value) { field.onChange(value); triggerHaptic(); }
                   }}
-                  onPointerUp={() => { dayDrag.current.active = false; }}
-                  onPointerCancel={() => { dayDrag.current.active = false; }}
+                  onPointerUp={(e) => {
+                    dayDrag.current.active = false;
+                    if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
+                  }}
+                  onPointerCancel={(e) => {
+                    dayDrag.current.active = false;
+                    if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
+                  }}
                 >
                   <span className="font-entry-amount text-4xl leading-none">{field.value}</span>
                   <span className="text-sm font-bold text-muted-foreground align-super ml-0.5">{ordinalSuffix(field.value)}</span>

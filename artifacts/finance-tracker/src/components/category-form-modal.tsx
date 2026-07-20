@@ -350,7 +350,14 @@ export function CategoryForm({
                       </button>
                       <div
                         className="flex flex-col items-center gap-1.5 min-w-[112px] select-none touch-none"
-                        onPointerDown={(e) => { colorDrag.current = { x: e.clientX, accum: 0, active: false }; }}
+                        onPointerDown={(e) => {
+                          colorDrag.current = { x: e.clientX, accum: 0, active: false };
+                          // Sin esto, un swipe rápido se escapa del elemento (es angosto,
+                          // ~112px) y el navegador deja de mandarle pointermove/pointerup —
+                          // el próximo intento quedaba con "active" trabado en true. Mismo
+                          // fix que ya usa el swipe de Transactions y el numpad.
+                          e.currentTarget.setPointerCapture(e.pointerId);
+                        }}
                         onPointerMove={(e) => {
                           const st = colorDrag.current;
                           const dx = e.clientX - st.x;
@@ -368,8 +375,14 @@ export function CategoryForm({
                           // se sentiría como un buzz en vez de un detent nítido.
                           if (i !== idx) { field.onChange(palette[i]); triggerHaptic(); }
                         }}
-                        onPointerUp={() => { colorDrag.current.active = false; }}
-                        onPointerCancel={() => { colorDrag.current.active = false; }}
+                        onPointerUp={(e) => {
+                          colorDrag.current.active = false;
+                          if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
+                        }}
+                        onPointerCancel={(e) => {
+                          colorDrag.current.active = false;
+                          if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
+                        }}
                       >
                         <div
                           className="w-11 h-11 rounded-full shadow-md transition-[background-color] duration-200"
