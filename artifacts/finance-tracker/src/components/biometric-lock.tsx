@@ -143,7 +143,7 @@ export default function BiometricLock() {
           intacto (mismo problema que login.tsx tenía y se arregló con LogoMark:
           el glifo real ocupa solo ~50% de la altura del PNG, así que se veía
           chico y encima ese padding invisible se sumaba al margen de abajo). */}
-      <div className="relative z-10 mt-14 flex items-center justify-center">
+      <div className="relative z-10 mt-24 flex items-center justify-center">
         <LogoMark height={72} />
       </div>
 
