@@ -124,7 +124,7 @@ function TransactionRow({
             onClick={() => triggerHaptic()}
             aria-label={`Delete ${tx.description}`}
             className={cn("group absolute inset-y-0 right-0 flex items-center justify-center", dragX < 0 && "z-10")}
-            style={{ width: SWIPE_WIDTH }}
+            style={{ width: SWIPE_WIDTH, touchAction: "manipulation" }}
           >
             <span
               className="flex items-center justify-center rounded-xl bg-destructive text-xs font-bold text-white transition-transform group-active:scale-95"
