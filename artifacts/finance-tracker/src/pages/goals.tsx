@@ -786,7 +786,16 @@ function BillForm({
   // dentro del mismo evento — si el loop llamara field.onChange varias veces
   // seguidas, cada llamada seguiría viendo el valor viejo hasta el próximo render.
   const DAY_DRAG_STEP_PX = 24;
-  const dayDrag = useRef({ x: 0, accum: 0, active: false });
+  // value vive en el ref (no solo derivado de field.value en cada render)
+  // porque si varios pointermove disparan antes de que React confirme el
+  // render del field.onChange anterior — normal en un swipe fluido — cada
+  // evento arrancaría desde un valor desactualizado y se pisarían los pasos
+  // entre sí, perdiendo la mayoría del recorrido. "down" (a diferencia de
+  // "active", que marca si ya se cruzó el umbral de 6px) distingue "hay un
+  // gesto en curso" de "no hay nada" — sin esto un pointermove sin pointerdown
+  // previo (hover con mouse/trackpad, o cualquier evento suelto) procesaría
+  // con el x/value default en vez de ser ignorado.
+  const dayDrag = useRef({ x: 0, accum: 0, active: false, value: 1, down: false });
 
   return (
     <Form {...form}>
@@ -918,7 +927,7 @@ function BillForm({
                 <div
                   className="text-center leading-none min-w-[3.5rem] select-none touch-none"
                   onPointerDown={(e) => {
-                    dayDrag.current = { x: e.clientX, accum: 0, active: false };
+                    dayDrag.current = { x: e.clientX, accum: 0, active: false, value: field.value, down: true };
                     // Sin esto, un swipe rápido se escapa del elemento (es angosto,
                     // ~3.5rem) y el navegador deja de mandarle pointermove/pointerup —
                     // el próximo intento quedaba con "active" trabado en true. Mismo
@@ -927,6 +936,7 @@ function BillForm({
                   }}
                   onPointerMove={(e) => {
                     const st = dayDrag.current;
+                    if (!st.down) return;
                     const dx = e.clientX - st.x;
                     if (!st.active) {
                       if (Math.abs(dx) < 6) return;
@@ -934,19 +944,21 @@ function BillForm({
                     }
                     st.accum += dx;
                     st.x = e.clientX;
-                    let value = field.value;
+                    let value = st.value;
                     while (st.accum >= DAY_DRAG_STEP_PX) { value = value >= 31 ? 1 : value + 1; st.accum -= DAY_DRAG_STEP_PX; }
                     while (st.accum <= -DAY_DRAG_STEP_PX) { value = value <= 1 ? 31 : value - 1; st.accum += DAY_DRAG_STEP_PX; }
                     // Un solo haptic por evento (no uno por paso del while) — mismo
                     // criterio que el color stepper de categorías, para que se sientan iguales.
-                    if (value !== field.value) { field.onChange(value); triggerHaptic(); }
+                    if (value !== st.value) { st.value = value; field.onChange(value); triggerHaptic(); }
                   }}
                   onPointerUp={(e) => {
                     dayDrag.current.active = false;
+                    dayDrag.current.down = false;
                     if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
                   }}
                   onPointerCancel={(e) => {
                     dayDrag.current.active = false;
+                    dayDrag.current.down = false;
                     if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
                   }}
                 >

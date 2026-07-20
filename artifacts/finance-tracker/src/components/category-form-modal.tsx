@@ -227,7 +227,16 @@ export function CategoryForm({
   // mecanismo que el stepper de día en Flows: acumula distancia arrastrada y
   // avanza/retrocede un color cada COLOR_DRAG_STEP_PX, cíclico.
   const COLOR_DRAG_STEP_PX = 28;
-  const colorDrag = useRef({ x: 0, accum: 0, active: false });
+  // idx vive en el ref (no solo derivado de field.value/palette.indexOf en cada
+  // render) porque si varios pointermove disparan antes de que React confirme
+  // el render del field.onChange anterior — normal en un swipe fluido — cada
+  // evento arrancaría desde un idx desactualizado y se pisarían los pasos
+  // entre sí, perdiendo la mayoría del recorrido. "down" (a diferencia de
+  // "active", que marca si ya se cruzó el umbral de 6px) distingue "hay un
+  // gesto en curso" de "no hay nada" — sin esto un pointermove sin pointerdown
+  // previo (hover con mouse/trackpad, o cualquier evento suelto) procesaría
+  // con el x/idx default en vez de ser ignorado.
+  const colorDrag = useRef({ x: 0, accum: 0, active: false, idx: 0, down: false });
 
   return (
     <Form {...form}>
@@ -351,7 +360,7 @@ export function CategoryForm({
                       <div
                         className="flex flex-col items-center gap-1.5 min-w-[112px] select-none touch-none"
                         onPointerDown={(e) => {
-                          colorDrag.current = { x: e.clientX, accum: 0, active: false };
+                          colorDrag.current = { x: e.clientX, accum: 0, active: false, idx, down: true };
                           // Sin esto, un swipe rápido se escapa del elemento (es angosto,
                           // ~112px) y el navegador deja de mandarle pointermove/pointerup —
                           // el próximo intento quedaba con "active" trabado en true. Mismo
@@ -360,6 +369,7 @@ export function CategoryForm({
                         }}
                         onPointerMove={(e) => {
                           const st = colorDrag.current;
+                          if (!st.down) return;
                           const dx = e.clientX - st.x;
                           if (!st.active) {
                             if (Math.abs(dx) < 6) return;
@@ -367,20 +377,22 @@ export function CategoryForm({
                           }
                           st.accum += dx;
                           st.x = e.clientX;
-                          let i = idx;
+                          let i = st.idx;
                           while (st.accum >= COLOR_DRAG_STEP_PX) { i = (i + 1) % palette.length; st.accum -= COLOR_DRAG_STEP_PX; }
                           while (st.accum <= -COLOR_DRAG_STEP_PX) { i = (i - 1 + palette.length) % palette.length; st.accum += COLOR_DRAG_STEP_PX; }
                           // Un solo haptic por evento (no uno por paso del while) — en un
                           // flick rápido que cruce varios colores de una, un tick por paso
                           // se sentiría como un buzz en vez de un detent nítido.
-                          if (i !== idx) { field.onChange(palette[i]); triggerHaptic(); }
+                          if (i !== st.idx) { st.idx = i; field.onChange(palette[i]); triggerHaptic(); }
                         }}
                         onPointerUp={(e) => {
                           colorDrag.current.active = false;
+                          colorDrag.current.down = false;
                           if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
                         }}
                         onPointerCancel={(e) => {
                           colorDrag.current.active = false;
+                          colorDrag.current.down = false;
                           if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
                         }}
                       >
