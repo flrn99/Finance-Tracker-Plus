@@ -122,7 +122,9 @@ export function FloatingModal({ open, onClose, title, children }: { open: boolea
     }
     if (!mounted) return;
     setClosing(true);
-    const t = setTimeout(() => setMounted(false), 180);
+    // Fallback por si animationend no dispara (interrupción rara) — en el caso
+    // normal, onAnimationEnd del card de abajo desmonta antes de que esto corra.
+    const t = setTimeout(() => setMounted(false), 400);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -163,6 +165,11 @@ export function FloatingModal({ open, onClose, title, children }: { open: boolea
         )}
         style={{ willChange: 'transform, opacity', transform: 'translate3d(0,0,0)' }}
         onClick={e => e.stopPropagation()}
+        // animate-out no tiene fill-mode:forwards — apenas termina la animación
+        // CSS el elemento vuelve a su estilo de reposo (opacity:1) antes de que
+        // React llegue a desmontarlo, y eso flashea. Desmontar en el evento real
+        // en vez de adivinar el timing con un timeout elimina esa ventana.
+        onAnimationEnd={() => { if (closing) setMounted(false); }}
       >
         <div className="flex items-center justify-between px-5 pt-4 pb-3">
           <p className="font-bold text-base">{title}</p>
