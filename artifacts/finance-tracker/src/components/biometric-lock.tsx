@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Trash2, ShieldAlert } from "lucide-react";
 import { useBiometric, verifyPin } from "@/lib/biometric-context";
 import { cn } from "@/lib/utils";
+import { LogoMark } from "@/components/logo-mark";
 
 const MAX_ATTEMPTS = 3;
 
@@ -27,7 +28,6 @@ export default function BiometricLock() {
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [shake, setShake] = useState(false);
   const didAutoTrigger = useRef(false);
-  const [logoOk, setLogoOk] = useState(true);
   // Evita que un tap/click dispare la acción dos veces (pointerdown + click sintético),
   // pero deja pasar el click "puro" que llega de Enter/Espacio por teclado (sin pointerdown antes).
   const firedByPointer = useRef(false);
@@ -139,21 +139,12 @@ export default function BiometricLock() {
         .ff-dot { animation: ff-dot-wave 1.4s ease-in-out infinite; }
       `}</style>
 
-      {/* Logo — arriba, con más presencia que antes (antes vivía chico al pie de la card) */}
+      {/* Logo — antes era un <img> crudo con el padding transparente de logo.png
+          intacto (mismo problema que login.tsx tenía y se arregló con LogoMark:
+          el glifo real ocupa solo ~50% de la altura del PNG, así que se veía
+          chico y encima ese padding invisible se sumaba al margen de abajo). */}
       <div className="relative z-10 mt-14 flex items-center justify-center">
-        {logoOk ? (
-          <img
-            src="/logo.png"
-            alt="Flow!"
-            className="h-20 object-contain"
-            onError={() => setLogoOk(false)}
-          />
-        ) : (
-          <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full" style={{ background: "#CAFA01" }} />
-            <span className="font-display text-base tracking-tight text-foreground">Flow!</span>
-          </div>
-        )}
+        <LogoMark height={72} />
       </div>
 
       {mode === "biometric" ? (
@@ -162,7 +153,7 @@ export default function BiometricLock() {
              la pantalla queda vacío a propósito, es donde cae su card. Nada de
              ícono ni título compitiendo con eso. */
           <>
-            <div className="relative z-10 mt-6 flex flex-col items-center gap-2.5">
+            <div className="relative z-10 mt-4 flex flex-col items-center gap-2.5">
               <p className="text-sm font-semibold text-muted-foreground">Waiting for verification…</p>
               <div className="flex gap-1.5" aria-hidden="true">
                 {[0, 1, 2].map((i) => (
