@@ -26,6 +26,8 @@ export function ConfirmDialog({
   onConfirm,
   variant = "destructive",
   disabled,
+  open,
+  onOpenChange,
 }: {
   trigger: React.ReactNode;
   icon: ComponentType<{ className?: string; style?: React.CSSProperties }>;
@@ -35,12 +37,18 @@ export function ConfirmDialog({
   onConfirm: () => void;
   variant?: "destructive" | "neutral";
   disabled?: boolean;
+  /** Opcional — deja el dialog en modo controlado para callers que necesitan
+   * abrirlo por su cuenta (ej. pointerup manual en vez del click nativo del
+   * trigger, para toques rápidos/suaves poco confiables). Sin esto se
+   * comporta como siempre (no controlado, abre por click del trigger). */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const tint = variant === "destructive" ? "rgba(239,68,68,0.12)" : "hsl(var(--muted))";
   const iconColor = variant === "destructive" ? "hsl(var(--destructive))" : "hsl(var(--foreground))";
 
   return (
-    <AlertDialog>
+    <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogTrigger asChild>{trigger}</AlertDialogTrigger>
       <AlertDialogContent className="max-w-xs rounded-3xl border-0 p-6 gap-0">
         <div className="flex flex-col items-center text-center gap-3 mb-1">

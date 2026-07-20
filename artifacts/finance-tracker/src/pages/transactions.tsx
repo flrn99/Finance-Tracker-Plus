@@ -56,7 +56,9 @@ function TransactionRow({
   const startPos = useRef<{ x: number; y: number } | null>(null);
   const dragging = useRef(false);
   const firedByPointer = useRef(false);
+  const deleteFiredByPointer = useRef(false);
   const [dragX, setDragX] = useState(isOpen ? -SWIPE_WIDTH : 0);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
   // Si otra fila se abre (o algo la cierra desde afuera), seguimos ese estado
   // salvo que este mismo dedo esté arrastrando esta fila ahora mismo.
@@ -114,14 +116,30 @@ function TransactionRow({
   return (
     <div className="relative overflow-hidden rounded-2xl">
       <ConfirmDialog
+        open={confirmDeleteOpen}
+        onOpenChange={setConfirmDeleteOpen}
         trigger={
           // El botón ocupa TODA la zona revelada (ancho completo + alto completo de la fila)
           // para que el toque responda en cualquier punto, no solo sobre el pill visual chico —
           // antes el hit-area era del tamaño del pill (44px alto centrado), y un toque un poco
           // arriba/abajo caía en zona muerta. El pill de abajo es solo decorativo/visual.
+          // Abre por onPointerUp (no por el click nativo del AlertDialogTrigger): con toques
+          // rápidos/suaves el navegador a veces decide que el touch "fue un scroll" y nunca
+          // sintetiza el click. Pointer events no tienen esa ambigüedad — mismo patrón que
+          // ya usa el numpad del PIN y el propio swipe de esta fila (firedByPointer + fallback
+          // a onClick para activación por teclado).
           <button
             type="button"
-            onClick={() => triggerHaptic()}
+            onPointerUp={() => {
+              deleteFiredByPointer.current = true;
+              triggerHaptic();
+              setConfirmDeleteOpen(true);
+            }}
+            onClick={() => {
+              if (deleteFiredByPointer.current) { deleteFiredByPointer.current = false; return; }
+              triggerHaptic();
+              setConfirmDeleteOpen(true);
+            }}
             aria-label={`Delete ${tx.description}`}
             className={cn("group absolute inset-y-0 right-0 flex items-center justify-center", dragX < 0 && "z-10")}
             style={{ width: SWIPE_WIDTH, touchAction: "manipulation" }}
