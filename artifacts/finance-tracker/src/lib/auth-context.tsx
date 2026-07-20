@@ -25,17 +25,16 @@ const AuthContext = createContext<AuthContextType>({
   acknowledgeOnboarded: () => {},
 });
 
+// 4 expense + 2 income — colores tomados directo de la paleta vigente
+// (EXPENSE_COLORS/INCOME_COLORS en category-form-modal.tsx) para que una
+// cuenta nueva no dispare la migración de "color viejo" en el primer render.
 const DEFAULT_CATEGORIES = [
-  { name: "Food & Dining", type: "expense", color: "#ef4444", icon: "utensils" },
-  { name: "Transport", type: "expense", color: "#f97316", icon: "car" },
-  { name: "Entertainment", type: "expense", color: "#8b5cf6", icon: "tv" },
-  { name: "Shopping", type: "expense", color: "#ec4899", icon: "shopping-bag" },
-  { name: "Health", type: "expense", color: "#14b8a6", icon: "heart" },
-  { name: "Bills & Utilities", type: "expense", color: "#64748b", icon: "zap" },
-  { name: "Education", type: "expense", color: "#0ea5e9", icon: "book" },
-  { name: "Other", type: "both", color: "#6b7280", icon: "more-horizontal" },
+  { name: "Food & Dining", type: "expense", color: "#f43f5e", icon: "utensils" },
+  { name: "Transport", type: "expense", color: "#8b5cf6", icon: "car" },
+  { name: "Shopping", type: "expense", color: "#ec4899", icon: "shoppingbag" },
+  { name: "Bills & Utilities", type: "expense", color: "#ef4444", icon: "zap" },
   { name: "Salary", type: "income", color: "#22c55e", icon: "briefcase" },
-  { name: "Freelance", type: "income", color: "#a3e635", icon: "laptop" },
+  { name: "Freelance", type: "income", color: "#0ea5e9", icon: "laptop" },
 ];
 
 async function createDefaultCategories(token: string) {

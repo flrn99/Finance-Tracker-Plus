@@ -24,6 +24,7 @@ import {
   FloatingModal,
   CategoryForm,
   CreateCategoryModal,
+  CATEGORY_ICONS,
 } from "@/components/category-form-modal";
 
 export default function Categories() {
@@ -134,11 +135,13 @@ export default function Categories() {
         />
       </FloatingModal>
 
-      {/* Nubes de pills — cada categoria es un sticker de su color */}
+      {/* Filas tintadas — misma DNA que las cards de Goals/Savings (tinte 8%
+          del color + ícono en cuadrado con tinte 15%), ya vivas y aprobadas
+          en el app. Antes Categories era la única lista sin este tratamiento. */}
       {isLoading ? (
-        <div className="flex flex-wrap gap-1.5">
-          {[90, 64, 110, 72, 96, 60, 84].map((w, i) => (
-            <Skeleton key={i} className="h-9 rounded-xl" style={{ width: w }} />
+        <div className="space-y-1.5">
+          {[0, 1, 2, 3].map((i) => (
+            <Skeleton key={i} className="h-[60px] rounded-2xl" />
           ))}
         </div>
       ) : (
@@ -154,62 +157,54 @@ export default function Categories() {
             return (
               <div key={type}>
                 {/* Section header */}
-                <div className="flex items-center gap-2 mb-2 px-1">
+                <div className="flex items-center gap-2 mb-1.5 px-1">
                   <div className="w-2 h-2 rounded-full" style={{ backgroundColor: sectionColor }} />
                   <p className="text-xs font-bold uppercase tracking-widest text-foreground">{sectionLabel}</p>
                   <span className="text-xs text-muted-foreground">({filtered.length})</span>
                 </div>
 
-                {/* Swatches Pantone — acciones glass sobre el color, base solo nombre */}
-                <div className="grid grid-cols-2 gap-2">
-                  {filtered.map((cat) => (
-                    <div
-                      key={cat.id}
-                      className="rounded-2xl overflow-hidden bg-card flex flex-col"
-                      style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}
-                    >
-                      {/* Bloque de color con acciones integradas */}
+                <div className="space-y-1.5">
+                  {filtered.map((cat) => {
+                    const Icon = CATEGORY_ICONS[cat.icon ?? "tag"] ?? CATEGORY_ICONS.tag;
+                    return (
                       <div
-                        onClick={() => openEdit(cat)}
-                        className="relative w-full h-9 shrink-0 cursor-pointer"
-                        style={{ backgroundColor: cat.color }}
+                        key={cat.id}
+                        className="rounded-2xl px-3.5 py-3 flex items-center gap-2.5"
+                        style={{ background: `${cat.color}14` }}
                       >
-                        <div
-                          className="absolute -top-5 -left-3 w-14 h-14 rounded-full pointer-events-none"
-                          style={{ background: "rgba(255,255,255,0.28)" }}
-                        />
-                        <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                          <button
-                            onClick={(e) => { e.stopPropagation(); openEdit(cat); }}
-                            className="h-6 w-6 flex items-center justify-center rounded-lg active:scale-90 transition-transform"
-                            style={{ background: "rgba(0,0,0,0.18)" }}
+                        <button
+                          onClick={() => openEdit(cat)}
+                          className="flex items-center gap-2.5 min-w-0 flex-1 text-left"
+                        >
+                          <div
+                            className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                            style={{ backgroundColor: `${cat.color}25` }}
                           >
-                            <Pencil className="h-3 w-3 text-white" />
-                          </button>
-                          <ConfirmDialog
-                            trigger={
-                              <button
-                                onClick={(e) => e.stopPropagation()}
-                                className="h-6 w-6 flex items-center justify-center rounded-lg active:scale-90 transition-transform"
-                                style={{ background: "rgba(0,0,0,0.18)" }}
-                              >
-                                <Trash2 className="h-3 w-3 text-white" />
-                              </button>
-                            }
-                            icon={Trash2}
-                            title="Delete Category"
-                            description={`Delete "${cat.name}"? This cannot be undone, and will fail if any transactions use this category.`}
-                            confirmLabel="Delete"
-                            onConfirm={() => handleDelete(cat.id)}
-                          />
-                        </div>
+                            <Icon className="h-4.5 w-4.5" style={{ color: cat.color }} />
+                          </div>
+                          <p className="text-sm font-bold text-foreground truncate">{cat.name}</p>
+                        </button>
+                        <button
+                          onClick={() => openEdit(cat)}
+                          className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground/60 active:scale-90 transition-transform shrink-0"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                        <ConfirmDialog
+                          trigger={
+                            <button className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground/60 active:scale-90 transition-transform shrink-0">
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          }
+                          icon={Trash2}
+                          title="Delete Category"
+                          description={`Delete "${cat.name}"? This cannot be undone, and will fail if any transactions use this category.`}
+                          confirmLabel="Delete"
+                          onConfirm={() => handleDelete(cat.id)}
+                        />
                       </div>
-                      {/* Base — solo el nombre, limpio */}
-                      <div className="px-3 py-2 flex items-center">
-                        <p className="text-sm font-bold text-foreground leading-snug">{cat.name}</p>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             );

@@ -11,9 +11,39 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
-import { X, TrendingDown, TrendingUp, Trash2 } from "lucide-react";
+import {
+  X, TrendingDown, TrendingUp, Trash2, Tag, Utensils, Car, ShoppingBag, Film,
+  HeartPulse, Zap, BookOpen, Home, Plane, Coffee, Gift, Briefcase, Laptop,
+  TrendingUp as TrendingUpIcon, Landmark, Wallet, CreditCard,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+
+// Mismo set de íconos (mismo patrón) que ICONS en goals.tsx — categorías
+// tenían el campo icon en el schema desde siempre pero sin picker real, así
+// que toda categoría quedaba con "tag" a secas. "tag" sigue siendo el
+// fallback/default.
+export const CATEGORY_ICONS: Record<string, React.ComponentType<{ className?: string; style?: React.CSSProperties }>> = {
+  tag: Tag,
+  utensils: Utensils,
+  car: Car,
+  shoppingbag: ShoppingBag,
+  film: Film,
+  heartpulse: HeartPulse,
+  zap: Zap,
+  book: BookOpen,
+  home: Home,
+  plane: Plane,
+  coffee: Coffee,
+  gift: Gift,
+  briefcase: Briefcase,
+  laptop: Laptop,
+  trendingup: TrendingUpIcon,
+  landmark: Landmark,
+  wallet: Wallet,
+  creditcard: CreditCard,
+};
+export const CATEGORY_ICON_KEYS = Object.keys(CATEGORY_ICONS);
 
 // Mismo patrón que transactions.tsx/entry-sheet.tsx: cachea el módulo tras el primer import.
 let hapticsModule: any = null;
@@ -200,6 +230,43 @@ export function FloatingModal({ open, onClose, title, children }: { open: boolea
         </div>
         <div className="px-5 pb-5">{children}</div>
       </div>
+    </div>
+  );
+}
+
+// Mismo patrón visual que IconPicker en goals.tsx (fila con scroll horizontal,
+// pill tintada en el ícono activo, fade a la derecha).
+function IconPicker({ value, onChange, color }: { value: string; onChange: (i: string) => void; color: string }) {
+  return (
+    <div className="relative">
+      <div
+        className="flex gap-2 overflow-x-auto py-1 px-0.5"
+        style={{ scrollbarWidth: "none", WebkitOverflowScrolling: "touch" }}
+      >
+        {CATEGORY_ICON_KEYS.map((key) => {
+          const Comp = CATEGORY_ICONS[key];
+          const active = value === key;
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => onChange(key)}
+              className={cn(
+                "w-10 h-10 rounded-lg flex items-center justify-center shrink-0 transition-all active:scale-90",
+                active ? "" : "bg-muted"
+              )}
+              style={active ? { backgroundColor: `${color}30`, boxShadow: `0 0 0 1.5px ${color}` } : undefined}
+            >
+              <Comp className="h-4 w-4" style={{ color: active ? color : undefined }} />
+            </button>
+          );
+        })}
+        <div className="w-6 shrink-0" />
+      </div>
+      <div
+        className="absolute top-0 right-0 h-full w-10 pointer-events-none rounded-r-lg"
+        style={{ background: "linear-gradient(to right, transparent, hsl(var(--card)))" }}
+      />
     </div>
   );
 }
@@ -434,6 +501,19 @@ export function CategoryForm({
               </FormItem>
             );
           }}
+        />
+
+        <FormField
+          control={form.control}
+          name="icon"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Icon</FormLabel>
+              <FormControl>
+                <IconPicker value={field.value} onChange={field.onChange} color={selectedColor} />
+              </FormControl>
+            </FormItem>
+          )}
         />
 
         <div className="flex gap-2 pt-1">
