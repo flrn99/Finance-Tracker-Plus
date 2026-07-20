@@ -370,15 +370,37 @@ function FloatingModal({
 }: {
   open: boolean; onClose: () => void; title: string; children: React.ReactNode;
 }) {
-  // Bloquea el swipe de página del nav mientras el modal está abierto
+  // mounted/closing: deja jugar la animación de salida antes de desmontar de
+  // un salto (antes "if (!open) return null" lo sacaba instantáneo, sin exit).
+  // Mismo fix que category-form-modal.tsx — este FloatingModal es una copia
+  // separada que no lo tenía.
+  const [mounted, setMounted] = useState(open);
+  const [closing, setClosing] = useState(false);
+
   useEffect(() => {
-    if (!open) return;
+    if (open) {
+      setMounted(true);
+      setClosing(false);
+      return;
+    }
+    if (!mounted) return;
+    setClosing(true);
+    // Fallback por si animationend no dispara (interrupción rara) — en el caso
+    // normal, onAnimationEnd del card de abajo desmonta antes de que esto corra.
+    const t = setTimeout(() => setMounted(false), 400);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  // Bloquea el swipe de página del nav mientras el modal está abierto o cerrándose
+  useEffect(() => {
+    if (!mounted) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = prev; };
-  }, [open]);
+  }, [mounted]);
 
-  if (!open) return null;
+  if (!mounted) return null;
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center px-5"
@@ -390,17 +412,26 @@ function FloatingModal({
       onClick={onClose}
     >
       <div
-        className="bg-black/80"
+        className={cn("bg-black/80 duration-180", closing ? "animate-out fade-out" : "animate-in fade-in")}
         style={{
           position: "fixed",
           top: "-10vh", left: "-10vw", right: "-10vw", bottom: "-10vh",
           width: "120vw", height: "120dvh",
+          animationFillMode: closing ? "forwards" : undefined,
         }}
       />
       <div
-        className="relative w-full max-w-sm bg-card rounded-2xl shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-200 max-h-full overflow-y-auto"
-        style={{ willChange: "transform, opacity", transform: "translate3d(0,0,0)" }}
+        className={cn(
+          "relative w-full max-w-sm bg-card rounded-2xl shadow-2xl duration-180 max-h-full overflow-y-auto",
+          closing ? "animate-out fade-out slide-out-to-bottom-4" : "animate-in fade-in slide-in-from-bottom-4"
+        )}
+        style={{
+          willChange: "transform, opacity",
+          transform: "translate3d(0,0,0)",
+          animationFillMode: closing ? "forwards" : undefined,
+        }}
         onClick={(e) => e.stopPropagation()}
+        onAnimationEnd={() => { if (closing) setMounted(false); }}
       >
         <div className="flex items-center justify-between px-5 pt-5 pb-3">
           <p className="font-bold text-base">{title}</p>
@@ -942,6 +973,11 @@ function BillForm({
                       if (Math.abs(dx) < 6) return;
                       st.active = true;
                     }
+                    // Defensivo: touch-none ya debería bastar, pero por si algún
+                    // WebView de Android no lo respeta del todo dentro de un modal
+                    // scrolleable, esto evita que el scroll nativo compita con el
+                    // drag — mismo patrón que usa el swipe de Transactions.
+                    e.preventDefault();
                     st.accum += dx;
                     st.x = e.clientX;
                     let value = st.value;

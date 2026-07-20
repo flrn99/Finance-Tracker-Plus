@@ -442,6 +442,11 @@ export function CategoryForm({
                             if (Math.abs(dx) < 6) return;
                             st.active = true;
                           }
+                          // Defensivo: touch-none ya debería bastar, pero por si algún
+                          // WebView de Android no lo respeta del todo dentro de un modal
+                          // scrolleable, esto evita que el scroll nativo compita con el
+                          // drag — mismo patrón que usa el swipe de Transactions.
+                          e.preventDefault();
                           st.accum += dx;
                           st.x = e.clientX;
                           let i = st.idx;
