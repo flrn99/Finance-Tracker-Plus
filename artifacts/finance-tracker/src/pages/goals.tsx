@@ -956,7 +956,11 @@ function BillForm({
                   ‹
                 </button>
                 <div
-                  className="text-center leading-none min-w-[3.5rem] select-none touch-none"
+                  // Antes min-w-[3.5rem] (~56px) — la mitad del área táctil que tiene
+                  // el stepper de color (~112px). Un toque suave tiene mucho menos
+                  // margen de error para arrancar el gesto en 56px, así que aunque la
+                  // lógica del drag sea idéntica, ahí es donde se perdían los toques.
+                  className="text-center leading-none min-w-[7rem] py-1.5 select-none touch-none"
                   onPointerDown={(e) => {
                     dayDrag.current = { x: e.clientX, accum: 0, active: false, value: field.value, down: true };
                     // Sin esto, un swipe rápido se escapa del elemento (es angosto,
