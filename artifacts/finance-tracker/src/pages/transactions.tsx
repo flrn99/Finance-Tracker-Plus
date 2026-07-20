@@ -59,6 +59,7 @@ function TransactionRow({
   const deleteFiredByPointer = useRef(false);
   const [dragX, setDragX] = useState(isOpen ? -SWIPE_WIDTH : 0);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [isExiting, setIsExiting] = useState(false);
 
   // Si otra fila se abre (o algo la cierra desde afuera), seguimos ese estado
   // salvo que este mismo dedo esté arrastrando esta fila ahora mismo.
@@ -114,7 +115,16 @@ function TransactionRow({
   }
 
   return (
-    <div className="relative overflow-hidden rounded-2xl">
+    // Colapso real al borrar: en vez de que la fila desaparezca de un salto
+    // cuando la mutation invalida la query, esto la achica (grid-rows a 0fr
+    // + fade) apenas se confirma. El unmount real llega después (onDelete
+    // dispara la mutation en paralelo), pero para entonces ya está invisible.
+    <div
+      className="grid transition-[grid-template-rows] duration-[240ms] ease-[cubic-bezier(0.4,0,0.2,1)]"
+      style={{ gridTemplateRows: isExiting ? "0fr" : "1fr" }}
+    >
+    <div className="overflow-hidden">
+    <div className="relative overflow-hidden rounded-2xl transition-opacity duration-200" style={{ opacity: isExiting ? 0 : 1 }}>
       <ConfirmDialog
         open={confirmDeleteOpen}
         onOpenChange={setConfirmDeleteOpen}
@@ -156,7 +166,14 @@ function TransactionRow({
         title="Delete transaction?"
         description={`This will permanently delete "${tx.description}". This can't be undone.`}
         confirmLabel="Delete"
-        onConfirm={() => onDelete(tx)}
+        onConfirm={() => {
+          // Dispara la mutation recién después de que la animación de salida
+          // termine, no en paralelo — si dependiéramos del round-trip de red
+          // real, en una conexión rápida la fila desaparecería antes de que
+          // el colapso llegue a verse.
+          setIsExiting(true);
+          setTimeout(() => onDelete(tx), 240);
+        }}
       />
       <button
         type="button"
@@ -173,7 +190,10 @@ function TransactionRow({
         style={{
           touchAction: "pan-y",
           transform: `translateX(${dragX}px)`,
-          transition: dragging.current ? "none" : "transform 280ms cubic-bezier(0.16,1,0.3,1)",
+          // Al soltar (no mientras se arrastra, ahí sigue 1:1 sin transición) un
+          // back-out con leve overshoot — se pasa un poco del destino y asienta,
+          // en vez del ease-out plano de antes. Un solo rebote, no elástico.
+          transition: dragging.current ? "none" : "transform 320ms cubic-bezier(0.34,1.56,0.64,1)",
         }}
       >
         <span className="w-[3px] h-9 rounded-full shrink-0" style={{ background: tx.categoryColor }} aria-hidden="true" />
@@ -203,6 +223,8 @@ function TransactionRow({
           {isExpense ? "−" : "+"}{formatAmount(tx.amount)}
         </span>
       </button>
+    </div>
+    </div>
     </div>
   );
 }
@@ -235,6 +257,11 @@ function TransactionList({ filteredTransactions, isLoading, formatAmount, onSele
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   // Una sola fila con el swipe abierto a la vez, en toda la lista
   const [openSwipeId, setOpenSwipeId] = useState<number | null>(null);
+  // Meses que se abrieron al menos una vez — se mantienen montados de ahí en
+  // más para poder animar el colapso (si desmontamos de una no hay nada que
+  // transicionar). Los que nunca se abrieron no rinden filas, para no montar
+  // años de historial de una si el usuario tiene mucha data.
+  const [everOpened, setEverOpened] = useState<Set<string>>(() => new Set([thisMonth]));
 
   // Si el usuario hace scroll de verdad con una fila abierta, la cerramos —
   // pero no con cualquier scroll mínimo (rebote del overscroll, etc.), solo
@@ -259,8 +286,11 @@ function TransactionList({ filteredTransactions, isLoading, formatAmount, onSele
     return key !== thisMonth; // default: solo el mes actual abierto
   };
 
-  const toggle = (key: string) =>
+  const toggle = (key: string) => {
+    const willOpen = isCollapsed(key);
+    if (willOpen) setEverOpened(prev => (prev.has(key) ? prev : new Set(prev).add(key)));
     setCollapsed(prev => ({ ...prev, [key]: !isCollapsed(key) }));
+  };
 
   if (isLoading) return (
     <div className="space-y-2">
@@ -313,8 +343,14 @@ function TransactionList({ filteredTransactions, isLoading, formatAmount, onSele
               </span>
             </button>
 
-            {/* Items del mes */}
-            {open && (
+            {/* Items del mes — grid-rows en vez de mount/unmount instantáneo para
+                que abrir/cerrar la sección tenga una transición real. */}
+            <div
+              className="grid transition-[grid-template-rows] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]"
+              style={{ gridTemplateRows: open ? "1fr" : "0fr" }}
+            >
+              <div className="overflow-hidden">
+              {everOpened.has(monthKey) && (
               <div className="mt-1 space-y-2">
                 {txs.map((tx) => (
                   <TransactionRow
@@ -328,7 +364,9 @@ function TransactionList({ filteredTransactions, isLoading, formatAmount, onSele
                   />
                 ))}
               </div>
-            )}
+              )}
+              </div>
+            </div>
           </div>
         );
       })}
