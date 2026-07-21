@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Capacitor } from "@capacitor/core";
 import { FilePicker } from "@capawesome/capacitor-file-picker";
 import { Sparkles, Upload, Loader2, AlertCircle, X, ChevronRight, ChevronDown, Lock, Target } from "lucide-react";
@@ -21,13 +22,6 @@ interface EditableTx {
   type: "income" | "expense";
   categoryId: number | null;
   selected: boolean;
-}
-
-interface TopCategory {
-  categoryName: string;
-  categoryColor: string;
-  total: number;
-  count: number;
 }
 
 interface Anomaly {
@@ -57,56 +51,18 @@ interface FixedVsFlexible {
   total: number;
 }
 
-// Gasto por categoría de un mes dado — misma llamada que ya usaba "Top spending",
-// factoreada para poder pedir varios meses (mes actual + históricos para la anomalía).
-async function fetchCategorySpending(month: string, token: string | undefined): Promise<TopCategory[]> {
-  try {
-    const r = await fetch(getApiUrl(`/api/categories/spending?type=expense&month=${month}`), {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    const d = await r.json();
-    const data = d.data || d;
-    if (Array.isArray(data) && data.length > 0) {
-      return data.map((c: any) => ({
-        categoryName: c.categoryName || c.name,
-        categoryColor: c.categoryColor || c.color,
-        total: c.total || c.amount,
-        count: c.count || c.transactionCount || 1,
-      }));
-    }
-  } catch {}
-  // Fallback: agrupar desde el endpoint de transacciones directamente
-  try {
-    const r = await fetch(getApiUrl(`/api/transactions?month=${month}`), {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    const d = await r.json();
-    const txs = d.data || d;
-    if (!Array.isArray(txs)) return [];
-    const expenses = txs.filter((t: any) => t.type === "expense");
-    const grouped: Record<string, TopCategory> = {};
-    for (const tx of expenses) {
-      const key = tx.categoryId || tx.category?.id || "unknown";
-      if (!grouped[key]) {
-        grouped[key] = {
-          categoryName: tx.categoryName || tx.category?.name || "Other",
-          categoryColor: tx.categoryColor || tx.category?.color || "#888",
-          total: 0,
-          count: 0,
-        };
-      }
-      grouped[key].total += tx.amount;
-      grouped[key].count += 1;
-    }
-    return Object.values(grouped);
-  } catch {
-    return [];
-  }
-}
-
 function InsightsModal({ insights, onClose }: { insights: string; onClose: () => void }) {
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
+
   return (
     <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Your Financial Report"
       className="fixed inset-0 flex flex-col justify-end"
       style={{ zIndex: 9999, backgroundColor: "rgba(0,0,0,0.6)" }}
       onClick={onClose}
@@ -158,20 +114,23 @@ function LockedRow({
   return (
     <div
       className="rounded-xl border border-dashed border-border overflow-hidden"
-      style={{ height: expanded ? 112 : 40, transition: reducedMotion ? "none" : "height 300ms cubic-bezier(0.25,0.46,0.45,0.94)" }}
+      style={{ height: expanded ? 116 : 44, transition: reducedMotion ? "none" : "height 300ms cubic-bezier(0.25,0.46,0.45,0.94)" }}
     >
       <button
         type="button"
         onClick={onToggle}
         aria-expanded={expanded}
         aria-controls={id}
-        className="w-full h-10 flex items-center gap-2 px-2.5 text-left"
+        className="w-full h-11 flex items-center gap-2 px-2.5 text-left"
       >
         <Lock className="h-3 w-3 text-muted-foreground shrink-0" />
         <span className="text-xs font-bold text-muted-foreground flex-1 truncate">{title}</span>
         <ChevronDown className={cn("h-3 w-3 text-muted-foreground shrink-0 transition-transform duration-300", expanded && "rotate-180")} />
       </button>
-      <p id={id} className="px-2.5 pb-2.5 text-[11px] text-muted-foreground leading-relaxed">{explain}</p>
+      {/* pl-[30px] alinea con el título de arriba (10px de padding del botón +
+          12px del ícono de candado + 8px de gap), no con el borde del botón —
+          antes quedaba corrido a la izquierda respecto al texto de la fila. */}
+      <p id={id} className="pl-[30px] pr-2.5 pt-1 pb-2.5 text-[11px] text-muted-foreground leading-relaxed">{explain}</p>
     </div>
   );
 }
@@ -186,96 +145,85 @@ export default function Insights() {
   const [analyzePhase, setAnalyzePhase] = useState("");
   const [insights, setInsights] = useState<string | null>(null);
   const [editableTxs, setEditableTxs] = useState<EditableTx[] | null>(null);
-  const [categories, setCategories] = useState<any[]>([]);
-  const [anomaly, setAnomaly] = useState<Anomaly | null>(null);
+  // Scoped por userId: la key global vieja hacía que, en un teléfono
+  // compartido por más de una cuenta, el usuario B viera el score/análisis
+  // financiero del usuario A hasta correr su propio análisis.
+  const lastAnalysisKey = (userId: string | undefined) => `ff-last-analysis-${userId ?? "anon"}`;
   const [lastAnalysis, setLastAnalysis] = useState<LastAnalysis | null>(() => {
     try {
-      const saved = localStorage.getItem("ff-last-analysis");
+      const saved = localStorage.getItem(lastAnalysisKey(session?.user?.id));
       return saved ? JSON.parse(saved) : null;
     } catch { return null; }
   });
-  const [fixedVsFlexible, setFixedVsFlexible] = useState<FixedVsFlexible | null>(null);
-  /** Diagnóstico visible del fetch de fixed-vs-flexible — el usuario no usa ADB,
-   * así que un console.error no le sirve para nada en el teléfono real. Si falla
-   * por algo que no sea "no hay datos este mes", se ve un aviso chico en la UI
-   * en vez de que la card simplemente no aparezca sin explicación. */
-  const [fixedVsFlexibleError, setFixedVsFlexibleError] = useState<string | null>(null);
   const [expandedLockedRow, setExpandedLockedRow] = useState<"mover" | "fixedflex" | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const now = new Date();
+  const monthKey = (offset: number) => {
+    const d = new Date(now.getFullYear(), now.getMonth() + offset, 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  };
+  const thisMonth = monthKey(0);
+  const token = session?.access_token;
+
+  // Re-sincroniza si cambia el usuario logueado sin que el componente se
+  // desmonte (cambio de cuenta en el mismo dispositivo).
   useEffect(() => {
-    if (!session) return;
-    const token = session?.access_token;
+    try {
+      const saved = localStorage.getItem(lastAnalysisKey(session?.user?.id));
+      setLastAnalysis(saved ? JSON.parse(saved) : null);
+    } catch { setLastAnalysis(null); }
+  }, [session?.user?.id]);
 
-    fetch(getApiUrl("/api/categories"), { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => r.json())
-      .then(d => setCategories(d.data || d))
-      .catch(() => {});
+  // Antes esto vivía en un useEffect + useState local — cada vez que se salía
+  // de Insights y se volvía, el componente se desmontaba, el estado se perdía
+  // del todo, y había que esperar a que las 4 llamadas de categorías + el
+  // fetch de fixed-vs-flexible volvieran a resolver para ver algo de nuevo.
+  // React Query (ya usado en el resto de la app) cachea esto entre
+  // navegaciones — se ve lo último que había al instante, y solo refresca en
+  // segundo plano si pasaron más de 5 minutos.
+  const STALE_TIME = 5 * 60 * 1000;
 
-    const now = new Date();
-    const monthKey = (offset: number) => {
-      const d = new Date(now.getFullYear(), now.getMonth() + offset, 1);
-      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-    };
-    const thisMonth = monthKey(0);
+  const { data: categories = [] } = useQuery({
+    queryKey: ["insights-categories", session?.user?.id],
+    queryFn: async () => {
+      const r = await fetch(getApiUrl("/api/categories"), { headers: { Authorization: `Bearer ${token}` } });
+      const d = await r.json();
+      return d.data || d;
+    },
+    enabled: !!session,
+    staleTime: STALE_TIME,
+  });
 
-    // Fixed vs flexible — aritmética real (cruza transacciones con Flows ya
-    // pagados vía bill_logs.transactionId), no necesita IA ni tocar "Analyze".
-    // Si esto falla (401/500/ruta vieja en un deploy que todavía no llegó), antes
-    // quedaba en silencio total — ahora se ve un aviso chico en la propia página.
-    fetch(getApiUrl(`/api/insights/fixed-vs-flexible?month=${thisMonth}`), { headers: { Authorization: `Bearer ${token}` } })
-      .then(async r => {
-        if (!r.ok) { setFixedVsFlexibleError(`HTTP ${r.status}${r.status === 404 ? " — backend deploy pendiente" : ""}`); return null; }
-        return r.json();
-      })
-      .then(d => { if (d && d.total > 0) setFixedVsFlexible(d); })
-      .catch(() => setFixedVsFlexibleError("Network error"));
+  const { data: fixedVsFlexible, error: fixedVsFlexibleQueryError } = useQuery({
+    queryKey: ["insights-fixed-vs-flexible", thisMonth, session?.user?.id],
+    queryFn: async (): Promise<FixedVsFlexible | null> => {
+      const r = await fetch(getApiUrl(`/api/insights/fixed-vs-flexible?month=${thisMonth}`), { headers: { Authorization: `Bearer ${token}` } });
+      if (!r.ok) throw new Error(`HTTP ${r.status}${r.status === 404 ? " — backend deploy pendiente" : ""}`);
+      const d = await r.json();
+      return d && d.total > 0 ? d : null;
+    },
+    enabled: !!session,
+    staleTime: STALE_TIME,
+  });
+  // El diagnóstico visible del fetch — el usuario no usa ADB, así que un
+  // console.error no le sirve para nada en el teléfono real.
+  const fixedVsFlexibleError = fixedVsFlexibleQueryError instanceof Error ? fixedVsFlexibleQueryError.message : null;
 
-    fetchCategorySpending(thisMonth, token).then(data => {
-      // "Biggest mover": la categoría con mayor cambio vs su propio promedio
-      // histórico — siempre se muestra alguna (aunque el cambio sea chico, un
-      // mes tranquilo lo dice honestamente), no solo cuando hay un salto grande.
-      // isNotable (>=1.5x) solo cambia el tono, no si se muestra.
-      Promise.all([1, 2, 3].map(o => fetchCategorySpending(monthKey(-o), token))).then(pastMonths => {
-        // Antes esto dividía siempre entre 3 meses, incluso si la categoría solo
-        // tenía historial en 1 de esos 3 — el promedio quedaba artificialmente
-        // bajo (o en 0 si no hubo NINGÚN mes con esa categoría), lo que en una
-        // cuenta sin 3 meses completos de historial dejaba a "best" siempre en
-        // null: la card entera no aparecía nunca, sin importar cuántas veces se
-        // reanalizara. Ahora se promedia solo sobre los meses que sí tuvieron
-        // gasto real en esa categoría.
-        const history: Record<string, { sum: number; count: number; color: string }> = {};
-        for (const monthData of pastMonths) {
-          for (const c of monthData) {
-            if (!history[c.categoryName]) history[c.categoryName] = { sum: 0, count: 0, color: c.categoryColor };
-            history[c.categoryName].sum += c.total;
-            history[c.categoryName].count += 1;
-          }
-        }
-        let best: Anomaly | null = null;
-        for (const c of data) {
-          const hist = history[c.categoryName];
-          if (!hist || hist.count === 0) continue;
-          const average = hist.sum / hist.count;
-          if (average < 5) continue;
-          const multiplier = c.total / average;
-          if (!best || multiplier > best.multiplier) {
-            best = { categoryName: c.categoryName, categoryColor: c.categoryColor, thisMonth: c.total, average, multiplier };
-          }
-        }
-        // Fallback real: si ninguna categoría tiene historial comparable todavía
-        // (cuenta nueva, o categorías que cambian mes a mes), no dejar la card
-        // vacía — mostrar la categoría más grande de este mes tal cual, sin
-        // multiplicador inventado (1.0×, se lee como "recién estamos empezando
-        // a comparar", no como una sorpresa real).
-        if (!best && data.length > 0) {
-          const top = [...data].sort((a, b) => b.total - a.total)[0]!;
-          best = { categoryName: top.categoryName, categoryColor: top.categoryColor, thisMonth: top.total, average: top.total, multiplier: 1 };
-        }
-        setAnomaly(best);
-      });
-    });
-  }, [session]);
+  // "Biggest mover": antes eran hasta 8 fetches del lado del cliente (mes
+  // actual + 3 pasados, cada uno con un fallback interno porque
+  // /categories/spending nunca existió como endpoint real — siempre fallaba
+  // y siempre caía al fallback). Ahora es un solo round-trip al backend.
+  const { data: anomaly = null } = useQuery({
+    queryKey: ["insights-anomaly", thisMonth, session?.user?.id],
+    queryFn: async (): Promise<Anomaly | null> => {
+      const r = await fetch(getApiUrl(`/api/insights/anomaly?month=${thisMonth}`), { headers: { Authorization: `Bearer ${token}` } });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return r.json();
+    },
+    enabled: !!session,
+    staleTime: STALE_TIME,
+  });
 
   const analyzeFinances = async () => {
     setIsAnalyzing(true);
@@ -313,7 +261,7 @@ export default function Insights() {
         fullText: narrative,
       };
       setLastAnalysis(analysis);
-      try { localStorage.setItem("ff-last-analysis", JSON.stringify(analysis)); } catch {}
+      try { localStorage.setItem(lastAnalysisKey(session?.user?.id), JSON.stringify(analysis)); } catch {}
 
       setInsights(narrative);
     } catch (e: any) {
@@ -406,7 +354,6 @@ export default function Insights() {
   }
 
   const scoreNum = lastAnalysis?.score ? parseFloat(lastAnalysis.score) : null;
-  const scorePercent = scoreNum ? (scoreNum / 10) * 100 : 0;
 
   return (
     <div className="space-y-3 animate-in fade-in duration-500">
@@ -422,9 +369,9 @@ export default function Insights() {
           </span>
         </div>
 
-        {/* Titulo */}
-        <h2 className="insights-hero-title font-title text-xl leading-tight">
-          Financial <span className="insights-hero-title-accent">Insights</span>
+        {/* Titulo — "Financial" sobraba, ya estás en la sección de Insights */}
+        <h2 className="insights-hero-title-accent font-title text-xl leading-tight">
+          Insights
         </h2>
         <p className="insights-hero-muted text-xs mt-1">
           Understand your money. Make smarter decisions.
@@ -464,7 +411,7 @@ export default function Insights() {
           <button
             onClick={analyzeFinances}
             disabled={isAnalyzing}
-            className="insights-hero-btn-primary flex-[1.4] rounded-2xl py-2.5 px-3 flex items-center justify-center gap-1.5 text-[13px] font-bold active:scale-[0.97] transition-transform disabled:opacity-70 border-0 min-w-0 whitespace-nowrap"
+            className="insights-hero-btn-primary flex-[1.4] min-h-11 rounded-2xl py-2.5 px-3 flex items-center justify-center gap-1.5 text-[13px] font-bold active:scale-[0.97] transition-transform disabled:opacity-70 border-0 min-w-0 whitespace-nowrap"
           >
             {isAnalyzing ? (
               <><Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" /><span className="truncate text-xs">{analyzePhase}</span></>
@@ -475,7 +422,7 @@ export default function Insights() {
           <button
             onClick={handleUpload}
             disabled={isImporting}
-            className="insights-hero-btn-secondary flex-1 rounded-2xl py-2.5 px-3 flex items-center justify-center gap-1.5 text-[13px] font-bold active:scale-[0.97] transition-transform disabled:opacity-70 relative overflow-hidden min-w-0 whitespace-nowrap"
+            className="insights-hero-btn-secondary flex-1 min-h-11 rounded-2xl py-2.5 px-3 flex items-center justify-center gap-1.5 text-[13px] font-bold active:scale-[0.97] transition-transform disabled:opacity-70 relative overflow-hidden min-w-0 whitespace-nowrap"
           >
             {isImporting ? (
               <><Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" /><span className="text-xs">{importProgress}%</span></>
@@ -547,10 +494,14 @@ export default function Insights() {
               lastAnalysis?.fullText && "active:scale-[0.99] cursor-pointer"
             )}
             onClick={() => { if (lastAnalysis?.fullText) setInsights(lastAnalysis.fullText); }}
+            onKeyDown={(e) => {
+              if (!lastAnalysis?.fullText) return;
+              if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setInsights(lastAnalysis.fullText!); }
+            }}
             role={lastAnalysis?.fullText ? "button" : undefined}
             tabIndex={lastAnalysis?.fullText ? 0 : undefined}
           >
-            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">Biggest mover this month</p>
+            <p className="text-xs font-bold text-muted-foreground mb-2">Biggest mover this month</p>
 
             <div className="flex items-baseline gap-2">
               <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: anomaly.categoryColor }} />
@@ -589,8 +540,8 @@ export default function Insights() {
 
             {lastAnalysis?.fullText && (
               <div className="flex items-center justify-between mt-3 pt-3 border-t border-border">
-                <span className="text-xs font-bold" style={{ color: ACCENT }}>Read full analysis</span>
-                <ChevronRight className="h-3.5 w-3.5" style={{ color: ACCENT }} />
+                <span className="insights-hero-title-accent text-xs font-bold">Read full analysis</span>
+                <ChevronRight className="insights-hero-title-accent h-3.5 w-3.5" />
               </div>
             )}
             {lastAnalysis?.fullText && (
@@ -604,7 +555,7 @@ export default function Insights() {
           pagados), siempre visible si hay data este mes, no depende de "Analyze". */}
       {fixedVsFlexible && (
         <div className="bg-card border border-card-border rounded-3xl px-5 py-4">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2.5">Fixed vs flexible this month</p>
+          <p className="text-xs font-bold text-muted-foreground mb-2.5">Fixed vs flexible this month</p>
           <div className="flex h-9 rounded-xl overflow-hidden">
             <div
               className="flex items-center justify-center text-[10px] font-bold uppercase tracking-wide bg-foreground text-background"

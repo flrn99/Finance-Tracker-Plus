@@ -22,16 +22,34 @@ const CURRENCY_LABELS: Record<string, string> = {
   GBP: "British Pound",
 };
 
-// Fixed vs flexible: cruza las transacciones de gasto del mes contra bill_logs
-// (que ya guarda transactionId cuando un Flow con auto-save generó la
-// transacción real) — sin heurística de texto/monto, es el link real que ya
-// existía en la DB para otra cosa (mostrar "pagado" en Goals). 100% aritmética,
-// no necesita Gemini ni tocar la página "Analyze".
+// Fixed vs flexible.
+// "Fixed" es el monto configurado de TODOS los Flows de gasto activos, estén
+// ya marcados como pagados este mes o no — el alquiler es un compromiso fijo
+// aunque todavía no lo hayas tildado el día 1. Antes esto solo contaba Flows
+// YA pagados (bill_logs.transactionId), así que alguien con Flows reales
+// cargados pero sin marcar nada todavía este mes veía "Fixed" en 0 — parecía
+// que la función no andaba.
+// "Flexible" es el resto: gasto real de este mes que no es un Flow ya pagado
+// (se excluye para no contarlo dos veces — ya está representado en "Fixed").
 router.get("/insights/fixed-vs-flexible", async (req, res) => {
   const userId = (req as any).userId;
   const month = typeof req.query.month === "string" ? req.query.month : new Date().toISOString().slice(0, 7);
 
   try {
+    const activeBills = await db
+      .select({ amount: billsTable.amount })
+      .from(billsTable)
+      .where(and(eq(billsTable.userId, userId), eq(billsTable.type, "expense")));
+
+    const fixedTotal = activeBills.reduce((sum, b) => sum + (b.amount ? parseFloat(b.amount) : 0), 0);
+
+    const paidLinks = await db
+      .select({ transactionId: billLogsTable.transactionId })
+      .from(billLogsTable)
+      .innerJoin(billsTable, eq(billLogsTable.billId, billsTable.id))
+      .where(and(eq(billsTable.userId, userId), eq(billLogsTable.month, month), eq(billsTable.type, "expense")));
+    const paidIds = new Set(paidLinks.map((f) => f.transactionId).filter((id): id is number => id !== null));
+
     const txs = await db
       .select({ id: transactionsTable.id, amount: transactionsTable.amount })
       .from(transactionsTable)
@@ -43,29 +61,86 @@ router.get("/insights/fixed-vs-flexible", async (req, res) => {
         ),
       );
 
-    if (txs.length === 0) {
-      return res.json({ month, fixedTotal: 0, flexibleTotal: 0, total: 0 });
-    }
-
-    const fixedLinks = await db
-      .select({ transactionId: billLogsTable.transactionId })
-      .from(billLogsTable)
-      .innerJoin(billsTable, eq(billLogsTable.billId, billsTable.id))
-      .where(and(eq(billsTable.userId, userId), eq(billLogsTable.month, month), eq(billsTable.type, "expense")));
-
-    const fixedIds = new Set(fixedLinks.map((f) => f.transactionId).filter((id): id is number => id !== null));
-
-    let fixedTotal = 0;
-    let total = 0;
+    let flexibleTotal = 0;
     for (const t of txs) {
-      const amt = parseFloat(t.amount);
-      total += amt;
-      if (fixedIds.has(t.id)) fixedTotal += amt;
+      if (paidIds.has(t.id)) continue; // ya representado en "Fixed"
+      flexibleTotal += parseFloat(t.amount);
     }
 
-    return res.json({ month, fixedTotal, flexibleTotal: total - fixedTotal, total });
+    const total = fixedTotal + flexibleTotal;
+    if (total === 0) return res.json({ month, fixedTotal: 0, flexibleTotal: 0, total: 0 });
+    return res.json({ month, fixedTotal, flexibleTotal, total });
   } catch {
     return res.status(500).json({ error: "Failed to compute fixed vs flexible." });
+  }
+});
+
+// Biggest mover: la categoría con mayor cambio vs. su propio promedio histórico.
+// Antes esto lo calculaba el cliente con hasta 8 fetches (mes actual + 3 pasados,
+// cada uno con un fallback interno porque /categories/spending nunca existió como
+// endpoint real) — todo en un solo round-trip acá.
+router.get("/insights/anomaly", async (req, res) => {
+  const userId = (req as any).userId;
+  const month = typeof req.query.month === "string" ? req.query.month : new Date().toISOString().slice(0, 7);
+
+  try {
+    const [baseYear, baseMonthNum] = month.split("-").map(Number);
+    const monthKeys = [0, -1, -2, -3].map((offset) => {
+      const d = new Date(baseYear, baseMonthNum - 1 + offset, 1);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    });
+
+    const spendingByCategory = async (m: string) => {
+      const rows = await db
+        .select({ categoryName: categoriesTable.name, categoryColor: categoriesTable.color, amount: transactionsTable.amount })
+        .from(transactionsTable)
+        .innerJoin(categoriesTable, eq(transactionsTable.categoryId, categoriesTable.id))
+        .where(and(eq(transactionsTable.userId, userId), eq(transactionsTable.type, "expense"), like(transactionsTable.date, `${m}%`)));
+      const grouped: Record<string, { total: number; color: string }> = {};
+      for (const r of rows) {
+        if (!grouped[r.categoryName]) grouped[r.categoryName] = { total: 0, color: r.categoryColor };
+        grouped[r.categoryName].total += parseFloat(r.amount);
+      }
+      return grouped;
+    };
+
+    const [current, ...pastData] = await Promise.all(monthKeys.map(spendingByCategory));
+
+    // Promedio solo sobre los meses que tuvieron gasto real en esa categoría —
+    // dividir siempre entre 3 dejaba el promedio artificialmente bajo en cuentas
+    // sin 3 meses completos de historial.
+    const history: Record<string, { sum: number; count: number }> = {};
+    for (const monthData of pastData) {
+      for (const [name, v] of Object.entries(monthData)) {
+        if (!history[name]) history[name] = { sum: 0, count: 0 };
+        history[name].sum += v.total;
+        history[name].count += 1;
+      }
+    }
+
+    let best: { categoryName: string; categoryColor: string; thisMonth: number; average: number; multiplier: number } | null = null;
+    for (const [name, v] of Object.entries(current)) {
+      const hist = history[name];
+      if (!hist || hist.count === 0) continue;
+      const average = hist.sum / hist.count;
+      if (average < 5) continue;
+      const multiplier = v.total / average;
+      if (!best || multiplier > best.multiplier) {
+        best = { categoryName: name, categoryColor: v.color, thisMonth: v.total, average, multiplier };
+      }
+    }
+    // Fallback: sin historial comparable todavía (cuenta nueva), mostrar la
+    // categoría más grande de este mes tal cual, sin multiplicador inventado.
+    if (!best) {
+      const entries = Object.entries(current);
+      if (entries.length > 0) {
+        const [name, v] = entries.sort((a, b) => b[1].total - a[1].total)[0]!;
+        best = { categoryName: name, categoryColor: v.color, thisMonth: v.total, average: v.total, multiplier: 1 };
+      }
+    }
+    return res.json(best);
+  } catch {
+    return res.status(500).json({ error: "Failed to compute anomaly." });
   }
 });
 
