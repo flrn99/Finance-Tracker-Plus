@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Capacitor } from "@capacitor/core";
 import { FilePicker } from "@capawesome/capacitor-file-picker";
-import { Sparkles, Upload, Loader2, AlertCircle, X, ChevronRight, ChevronDown, Lock, Target } from "lucide-react";
+import { Sparkles, Upload, Loader2, AlertCircle, X, ChevronRight, ChevronDown, Lock, Target, TrendingDown, TrendingUp } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useCurrency } from "@/lib/currency-context";
 import { getApiUrl } from "@/lib/api-config";
@@ -49,6 +49,20 @@ interface FixedVsFlexible {
   fixedTotal: number;
   flexibleTotal: number;
   total: number;
+}
+
+interface IncomeConsistency {
+  thisMonth: number;
+  average: number;
+  delta: number;
+  hasHistory: boolean;
+}
+
+interface SavingsRate {
+  rate: number;
+  income: number;
+  expense: number;
+  saved: number;
 }
 
 function InsightsModal({ insights, onClose }: { insights: string; onClose: () => void }) {
@@ -172,8 +186,9 @@ export default function Insights() {
       return saved ? JSON.parse(saved) : null;
     } catch { return null; }
   });
-  const [expandedLockedRow, setExpandedLockedRow] = useState<"mover" | "fixedflex" | null>(null);
+  const [expandedLockedRow, setExpandedLockedRow] = useState<"mover" | "fixedflex" | "income" | "savings" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [activeLens, setActiveLens] = useState<"expense" | "income">("expense");
 
   const now = new Date();
   const monthKey = (offset: number) => {
@@ -241,6 +256,21 @@ export default function Insights() {
     enabled: !!session,
     staleTime: STALE_TIME,
   });
+
+  // Income consistency + savings rate — mismo patrón de un solo round-trip
+  // que "biggest mover", para el lado de Income del lens toggle.
+  const { data: incomeSummary } = useQuery({
+    queryKey: ["insights-income-summary", thisMonth, session?.user?.id],
+    queryFn: async (): Promise<{ income: IncomeConsistency | null; savingsRate: SavingsRate | null }> => {
+      const r = await fetch(getApiUrl(`/api/insights/income-summary?month=${thisMonth}`), { headers: { Authorization: `Bearer ${token}` } });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return r.json();
+    },
+    enabled: !!session,
+    staleTime: STALE_TIME,
+  });
+  const incomeConsistency = incomeSummary?.income ?? null;
+  const savingsRate = incomeSummary?.savingsRate ?? null;
 
   const analyzeFinances = async () => {
     setIsAnalyzing(true);
@@ -455,16 +485,56 @@ export default function Insights() {
         </div>
       </div>
 
+      {/* Lens toggle — mismo look que el Expense/Income de EntrySheet (mismos
+          colores #FF4D4D/#00A870), para que se sienta como el mismo control,
+          no uno nuevo. Cada lente tiene su propio "getting started" abajo. */}
+      <div className="relative flex items-center rounded-full bg-muted p-1">
+        <div
+          className="absolute top-1 left-1 rounded-full transition-transform duration-300 ease-out"
+          style={{
+            bottom: "4px",
+            width: "calc(50% - 4px)",
+            transform: activeLens === "expense" ? "translateX(0%)" : "translateX(100%)",
+            background: activeLens === "expense" ? "#FF4D4D" : "#00A870",
+          }}
+        />
+        <button
+          type="button"
+          onClick={() => setActiveLens("expense")}
+          aria-pressed={activeLens === "expense"}
+          className={cn(
+            "relative z-10 flex-1 min-h-11 flex items-center justify-center gap-1.5 rounded-full px-4 py-2 text-sm font-bold transition-colors duration-300",
+            activeLens === "expense" ? "text-white" : "text-foreground/50"
+          )}
+        >
+          <TrendingDown className="h-3.5 w-3.5" strokeWidth={2.5} />
+          Expense
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveLens("income")}
+          aria-pressed={activeLens === "income"}
+          className={cn(
+            "relative z-10 flex-1 min-h-11 flex items-center justify-center gap-1.5 rounded-full px-4 py-2 text-sm font-bold transition-colors duration-300",
+            activeLens === "income" ? "text-white" : "text-foreground/50"
+          )}
+        >
+          <TrendingUp className="h-3.5 w-3.5" strokeWidth={2.5} />
+          Income
+        </button>
+      </div>
+
       {/* Getting started — cuando no hay nada de qué partir todavía (cuenta nueva
-          o mes sin gastos cargados), en vez de dejar el espacio en blanco sin
-          explicación se ve un candado por sección con una frase de qué la
-          desbloquea. Tocar una fila la despliega ahí mismo (mismo truco de
+          o mes sin datos de este lente cargados), en vez de dejar el espacio en
+          blanco sin explicación se ve un candado por sección con una frase de qué
+          la desbloquea. Tocar una fila la despliega ahí mismo (mismo truco de
           altura + overflow-hidden que la cápsula del biometric lock) con una
-          explicación más larga de qué es esa sección. */}
-      {(!anomaly || (!fixedVsFlexible && !fixedVsFlexibleError)) && (
+          explicación más larga de qué es esa sección. El ícono usa el mismo rojo/
+          verde que el toggle de arriba, para que quede claro de qué lente es. */}
+      {activeLens === "expense" && (!anomaly || (!fixedVsFlexible && !fixedVsFlexibleError)) && (
         <div className="bg-card border border-card-border rounded-3xl px-5 py-4 text-center">
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center mx-auto mb-2.5" style={{ background: "rgba(202,250,1,0.13)" }}>
-            <Target className="h-4 w-4" style={{ color: "#7CB518" }} />
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center mx-auto mb-2.5" style={{ background: "rgba(255,77,77,0.13)" }}>
+            <Target className="h-4 w-4" style={{ color: "#FF4D4D" }} />
           </div>
           <p className="text-sm font-bold text-foreground">Nothing to show yet</p>
           <p className="text-xs text-muted-foreground mt-1 max-w-[220px] mx-auto leading-relaxed">
@@ -493,6 +563,38 @@ export default function Insights() {
         </div>
       )}
 
+      {activeLens === "income" && (!incomeConsistency || !savingsRate) && (
+        <div className="bg-card border border-card-border rounded-3xl px-5 py-4 text-center">
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center mx-auto mb-2.5" style={{ background: "rgba(0,168,112,0.13)" }}>
+            <Target className="h-4 w-4" style={{ color: "#00A870" }} />
+          </div>
+          <p className="text-sm font-bold text-foreground">Nothing to show yet</p>
+          <p className="text-xs text-muted-foreground mt-1 max-w-[220px] mx-auto leading-relaxed">
+            Log a bit of income and these fill in on their own:
+          </p>
+          <div className="mt-3 flex flex-col gap-2 text-left">
+            {!incomeConsistency && (
+              <LockedRow
+                id="locked-income"
+                title="Income consistency this month"
+                explain="Compares this month's income to your recent average — flags anything unusually high or low, no matter where it came from."
+                expanded={expandedLockedRow === "income"}
+                onToggle={() => setExpandedLockedRow(v => v === "income" ? null : "income")}
+              />
+            )}
+            {!savingsRate && (
+              <LockedRow
+                id="locked-savings"
+                title="Savings rate this month"
+                explain="Shows how much of what you earned this month you actually kept, once fixed and flexible spending are subtracted."
+                expanded={expandedLockedRow === "savings"}
+                onToggle={() => setExpandedLockedRow(v => v === "savings" ? null : "savings")}
+              />
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Biggest mover — un solo headline, no una lista de frases. El número y
           las barras son aritmética real (anomaly, calculado acá mismo contra
           el promedio de 3 meses) y se muestran siempre que haya historial,
@@ -501,7 +603,7 @@ export default function Insights() {
           nunca inventa el suyo. Tappeable entera: reabre el reporte completo
           ya persistido (fullText), sin gastar otra llamada a Gemini —
           "Refresh analysis" en el hero sigue siendo el único que re-analiza. */}
-      {anomaly && (() => {
+      {activeLens === "expense" && anomaly && (() => {
         const isNotable = anomaly.multiplier >= 1.5;
         const multColor = isNotable ? "#B45309" : undefined;
         return (
@@ -570,7 +672,7 @@ export default function Insights() {
 
       {/* Fixed vs flexible — aritmética real (cruza transacciones con Flows ya
           pagados), siempre visible si hay data este mes, no depende de "Analyze". */}
-      {fixedVsFlexible && (
+      {activeLens === "expense" && fixedVsFlexible && (
         <div className="bg-card border border-card-border rounded-3xl px-5 py-4">
           <p className="text-xs font-bold text-muted-foreground mb-2.5">Fixed vs flexible spending this month</p>
           <div className="flex h-9 rounded-xl overflow-hidden">
@@ -599,8 +701,61 @@ export default function Insights() {
           </div>
         </div>
       )}
-      {!fixedVsFlexible && fixedVsFlexibleError && (
+      {activeLens === "expense" && !fixedVsFlexible && fixedVsFlexibleError && (
         <p className="text-[11px] text-muted-foreground px-1">Fixed vs flexible: {fixedVsFlexibleError}</p>
+      )}
+
+      {/* Income consistency — mismo criterio que "biggest mover": promedio solo
+          sobre meses con ingreso real, se muestra siempre que haya historial. */}
+      {activeLens === "income" && incomeConsistency && (
+        <div className="bg-card border border-card-border rounded-3xl px-5 py-4">
+          <p className="text-xs font-bold text-muted-foreground mb-2">Income consistency this month</p>
+          <div className="flex items-baseline gap-2">
+            <span className="font-entry-amount leading-[0.8] text-foreground" style={{ fontSize: "2.1rem" }}>
+              {formatAmount(incomeConsistency.thisMonth)}
+            </span>
+            {incomeConsistency.hasHistory && (
+              <span
+                className="text-xs font-bold px-2 py-0.5 rounded-full ml-auto"
+                style={{ color: "#00A870", background: "rgba(0,168,112,0.14)" }}
+              >
+                {incomeConsistency.delta >= 0 ? "+" : ""}{incomeConsistency.delta.toFixed(0)}%
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground mt-2.5 leading-relaxed">
+            {incomeConsistency.hasHistory
+              ? `Averaging ${formatAmount(incomeConsistency.average)} over the last few months — ${
+                  Math.abs(incomeConsistency.delta) < 10
+                    ? "steady, nothing to flag."
+                    : incomeConsistency.delta > 0
+                    ? "running ahead of your usual pace."
+                    : "running behind your usual pace."
+                }`
+              : "First month we can compare — check back next month for a trend."}
+          </p>
+        </div>
+      )}
+
+      {/* Savings rate — usa el gasto real transaccionado del mes (no el
+          "Fixed" configurado de Flows), así que puede diferir un poco de lo
+          que se ve en el lente de Expense si hay Flows sin pagar todavía. */}
+      {activeLens === "income" && savingsRate && (
+        <div className="bg-card border border-card-border rounded-3xl px-5 py-4">
+          <p className="text-xs font-bold text-muted-foreground mb-2">Savings rate this month</p>
+          <p className="font-entry-amount leading-[0.8] text-foreground" style={{ fontSize: "2.1rem" }}>
+            {savingsRate.rate.toFixed(0)}%
+          </p>
+          <div className="h-2 rounded-full bg-muted overflow-hidden mt-2.5">
+            <div
+              className="h-full rounded-full"
+              style={{ width: `${Math.max(0, Math.min(100, savingsRate.rate))}%`, background: "#00A870" }}
+            />
+          </div>
+          <p className="text-xs text-muted-foreground mt-2.5 leading-relaxed">
+            {formatAmount(savingsRate.saved)} kept out of {formatAmount(savingsRate.income)} earned ({formatAmount(savingsRate.expense)} spent this month).
+          </p>
+        </div>
       )}
 
       {/* Error */}

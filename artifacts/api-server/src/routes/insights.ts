@@ -144,6 +144,64 @@ router.get("/insights/anomaly", async (req, res) => {
   }
 });
 
+// Income summary: consistencia de ingreso (este mes vs. promedio de meses con
+// ingreso real) + savings rate (cuánto de lo ganado este mes quedó después del
+// gasto real). Ambos vienen del mismo lugar porque comparten el mismo gasto
+// real del mes — "Fixed vs flexible" usa el monto CONFIGURADO de los Flows
+// (compromiso, no necesariamente ya pagado), acá se necesita el gasto REAL
+// transaccionado para que el savings rate sea correcto.
+router.get("/insights/income-summary", async (req, res) => {
+  const userId = (req as any).userId;
+  const month = typeof req.query.month === "string" ? req.query.month : new Date().toISOString().slice(0, 7);
+
+  try {
+    const [baseYear, baseMonthNum] = month.split("-").map(Number);
+    const monthKeys = [0, -1, -2, -3].map((offset) => {
+      const d = new Date(baseYear, baseMonthNum - 1 + offset, 1);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    });
+
+    const totalByType = async (m: string, type: "income" | "expense") => {
+      const rows = await db
+        .select({ amount: transactionsTable.amount })
+        .from(transactionsTable)
+        .where(and(eq(transactionsTable.userId, userId), eq(transactionsTable.type, type), like(transactionsTable.date, `${m}%`)));
+      return rows.reduce((sum, r) => sum + parseFloat(r.amount), 0);
+    };
+
+    const [thisMonthIncome, ...pastIncomes] = await Promise.all(monthKeys.map((m) => totalByType(m, "income")));
+    const thisMonthExpense = await totalByType(monthKeys[0], "expense");
+
+    // Mismo criterio que "biggest mover": promediar solo sobre meses que
+    // tuvieron ingreso real, no dividir siempre entre 3 (eso arrastraba el
+    // promedio artificialmente bajo en cuentas sin 3 meses de historial).
+    const pastWithData = pastIncomes.filter((v) => v > 0);
+    const average = pastWithData.length > 0 ? pastWithData.reduce((a, b) => a + b, 0) / pastWithData.length : 0;
+
+    const income = thisMonthIncome > 0
+      ? {
+          thisMonth: thisMonthIncome,
+          average,
+          delta: average > 0 ? ((thisMonthIncome - average) / average) * 100 : 0,
+          hasHistory: average > 0,
+        }
+      : null;
+
+    const savingsRate = thisMonthIncome > 0
+      ? {
+          rate: ((thisMonthIncome - thisMonthExpense) / thisMonthIncome) * 100,
+          income: thisMonthIncome,
+          expense: thisMonthExpense,
+          saved: thisMonthIncome - thisMonthExpense,
+        }
+      : null;
+
+    return res.json({ income, savingsRate });
+  } catch {
+    return res.status(500).json({ error: "Failed to compute income summary." });
+  }
+});
+
 router.post("/insights/analyze", async (req, res) => {
   const userId = (req as any).userId;
   const currency = typeof req.body?.currency === "string" ? req.body.currency : "USD";
