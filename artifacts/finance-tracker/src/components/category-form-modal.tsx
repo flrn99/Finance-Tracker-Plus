@@ -211,7 +211,7 @@ export function FloatingModal({ open, onClose, title, children }: { open: boolea
       />
       <div
         className={cn(
-          "relative w-full max-w-xs bg-card rounded-2xl shadow-2xl duration-180 max-h-full overflow-y-auto",
+          "relative w-full max-w-xs bg-card rounded-[36px] shadow-2xl duration-180 max-h-full overflow-y-auto",
           closing ? "animate-out fade-out slide-out-to-bottom-4" : "animate-in fade-in slide-in-from-bottom-4"
         )}
         style={{

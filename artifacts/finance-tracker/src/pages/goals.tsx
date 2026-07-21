@@ -425,7 +425,7 @@ function FloatingModal({
       />
       <div
         className={cn(
-          "relative w-full max-w-sm bg-card rounded-2xl shadow-2xl duration-180 max-h-full overflow-y-auto",
+          "relative w-full max-w-sm bg-card rounded-[36px] shadow-2xl duration-180 max-h-full overflow-y-auto",
           closing ? "animate-out fade-out slide-out-to-bottom-4" : "animate-in fade-in slide-in-from-bottom-4"
         )}
         style={{
@@ -2091,11 +2091,6 @@ export default function Goals() {
   const detailGoal = goalDetailId !== null ? goals.find((g) => g.id === goalDetailId) ?? null : null;
   const isLoading = goalsQuery.isLoading || habitsQuery.isLoading || billsQuery.isLoading;
 
-  // Resumen para las cards pastel de zona
-  const totalSaved = goals.reduce((s, g) => s + g.currentAmount, 0);
-  const totalTarget = goals.reduce((s, g) => s + g.targetAmount, 0);
-  const activeStreaks = habits.filter((h) => h.streak > 0).length;
-  const bestStreak = habits.reduce((m, h) => Math.max(m, h.streak), 0);
   const billsPaidThisMonth = bills.filter((b) => b.paidThisMonth).length;
 
   // Auto-save real: si el Flow tiene auto-save + monto cargado y el día elegido ya
@@ -2135,27 +2130,6 @@ export default function Goals() {
   return (
     <div className="space-y-4 animate-in fade-in duration-500">
       <h2 className="font-title text-3xl pr-14 min-h-10 flex items-center">Goals</h2>
-
-      {/* Resumen — pasteles de zona (verde=ahorro, ambar=rachas) */}
-      {!isLoading && (goals.length > 0 || habits.length > 0) && (
-        <div className="grid grid-cols-2 gap-2">
-          <div className="rounded-3xl px-4 py-3.5 relative overflow-hidden" style={{ background: "linear-gradient(145deg, #F0FFD6 0%, #D6F9A4 100%)" }}>
-            <div className="absolute -top-8 -right-8 w-20 h-20 rounded-full pointer-events-none" style={{ background: "rgba(255,255,255,0.45)" }} />
-            <p className="text-[10px] font-bold uppercase tracking-widest relative" style={{ color: "#4D7C0F" }}>Total saved</p>
-            <p className="font-number text-xl mt-1 relative leading-tight" style={{ color: "#1A2E05" }}>{symbol} {fmtMoney(totalSaved)}</p>
-            <p className="text-[11px] relative" style={{ color: "rgba(26,46,5,0.55)" }}>of {symbol} {fmtMoney(totalTarget)}</p>
-          </div>
-          <div className="rounded-3xl px-4 py-3.5 relative overflow-hidden" style={{ background: "linear-gradient(145deg, #FFF6DA 0%, #FFE7A8 100%)" }}>
-            <div className="absolute -top-8 -right-8 w-20 h-20 rounded-full pointer-events-none" style={{ background: "rgba(255,255,255,0.5)" }} />
-            <p className="text-[10px] font-bold uppercase tracking-widest relative" style={{ color: "#B45309" }}>Active streaks</p>
-            <div className="flex items-center gap-1.5 mt-1 relative">
-              <Flame className="h-5 w-5" style={{ color: "#F59E0B" }} />
-              <p className="font-number text-xl leading-tight" style={{ color: "#451A03" }}>{activeStreaks}</p>
-            </div>
-            <p className="text-[11px] relative" style={{ color: "rgba(69,26,3,0.55)" }}>{bestStreak > 0 ? `best ${bestStreak} days` : "start one today"}</p>
-          </div>
-        </div>
-      )}
 
       {/* Switcher — Flows / Savings / Habits, track plano + thumb verde (mismo lenguaje que RangeSwitch del dashboard) */}
       <div className="relative grid grid-cols-3 rounded-full bg-muted p-1">
@@ -2205,7 +2179,7 @@ export default function Goals() {
                 <p className="text-xs font-bold uppercase tracking-widest text-foreground">Savings</p>
                 <span className="text-xs text-muted-foreground">({goals.length})</span>
               </div>
-              <button onClick={openCreateGoal} className="h-7 px-2.5 flex items-center gap-1 rounded-lg bg-[#CAFA01] text-black text-xs font-bold active:scale-95 transition-transform">
+              <button onClick={openCreateGoal} className="relative h-7 px-2.5 flex items-center gap-1 rounded-lg bg-[#CAFA01] text-black text-xs font-bold active:scale-95 transition-transform before:absolute before:-inset-2 before:content-['']">
                 <Plus className="h-3.5 w-3.5" strokeWidth={3} />
                 New
               </button>
@@ -2271,7 +2245,7 @@ export default function Goals() {
                 <p className="text-xs font-bold uppercase tracking-widest text-foreground">Habits</p>
                 <span className="text-xs text-muted-foreground">({habits.length})</span>
               </div>
-              <button onClick={openCreateHabit} className="h-7 px-2.5 flex items-center gap-1 rounded-lg bg-[#CAFA01] text-black text-xs font-bold active:scale-95 transition-transform">
+              <button onClick={openCreateHabit} className="relative h-7 px-2.5 flex items-center gap-1 rounded-lg bg-[#CAFA01] text-black text-xs font-bold active:scale-95 transition-transform before:absolute before:-inset-2 before:content-['']">
                 <Plus className="h-3.5 w-3.5" strokeWidth={3} />
                 New
               </button>
@@ -2307,7 +2281,9 @@ export default function Goals() {
                         </button>
                         <button
                           onClick={() => { if (h.id < 0) return; toggleLog.mutate({ id: h.id, date: today }); }}
-                          className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-all active:scale-90"
+                          aria-label={doneToday ? `Mark ${h.name} as not done today` : `Mark ${h.name} as done today`}
+                          aria-pressed={doneToday}
+                          className="relative w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-all active:scale-90 before:absolute before:-inset-1 before:content-['']"
                           style={{ backgroundColor: doneToday ? color : `${color}30` }}
                         >
                           <Check className="h-4 w-4" style={{ color: doneToday ? "#000" : color }} strokeWidth={3} />
@@ -2333,7 +2309,7 @@ export default function Goals() {
                 <p className="text-xs font-bold uppercase tracking-widest text-foreground">Flows</p>
                 <span className="text-xs text-muted-foreground">({bills.length})</span>
               </div>
-              <button onClick={openCreateBill} className="h-7 px-2.5 flex items-center gap-1 rounded-lg bg-[#CAFA01] text-black text-xs font-bold active:scale-95 transition-transform">
+              <button onClick={openCreateBill} className="relative h-7 px-2.5 flex items-center gap-1 rounded-lg bg-[#CAFA01] text-black text-xs font-bold active:scale-95 transition-transform before:absolute before:-inset-2 before:content-['']">
                 <Plus className="h-3.5 w-3.5" strokeWidth={3} />
                 New
               </button>
@@ -2389,7 +2365,9 @@ export default function Goals() {
                                 <button
                                   onClick={() => handleToggleBillMonth(b, currentMonthKey())}
                                   disabled={isPending}
-                                  className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-all active:scale-90"
+                                  aria-label={b.paidThisMonth ? `Mark ${b.name} as unpaid this month` : `Mark ${b.name} as paid this month`}
+                                  aria-pressed={b.paidThisMonth}
+                                  className="relative w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-all active:scale-90 before:absolute before:-inset-1 before:content-['']"
                                   style={{ backgroundColor: b.paidThisMonth ? color : `${color}30` }}
                                 >
                                   <Check className="h-4 w-4" style={{ color: b.paidThisMonth ? "#000" : color }} strokeWidth={3} />
