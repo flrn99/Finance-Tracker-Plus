@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Capacitor } from "@capacitor/core";
 import { FilePicker } from "@capawesome/capacitor-file-picker";
@@ -105,16 +105,33 @@ function InsightsModal({ insights, onClose }: { insights: string; onClose: () =>
  * lugar (mismo truco de altura explícita + overflow-hidden que ya usa la cápsula
  * del biometric lock) en vez de abrir algo aparte, para explicar qué es esa
  * sección sin que el usuario tenga que adivinar por qué está vacía. */
+const LOCKED_ROW_BUTTON_HEIGHT = 44;
+
 function LockedRow({
   id, title, explain, expanded, onToggle,
 }: {
   id: string; title: string; explain: string; expanded: boolean; onToggle: () => void;
 }) {
   const reducedMotion = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  // Antes esto era un número fijo (116px) que asumía que el texto de explicación
+  // entraba en 3 líneas — "Biggest mover" es más largo que "Fixed vs flexible" y
+  // se cortaba a la mitad de una palabra por el overflow-hidden. Medimos la
+  // altura real del párrafo (incluye su propio padding) para que la fila crezca
+  // lo que el texto realmente necesita, sea cual sea su largo o el ancho de pantalla.
+  const contentRef = useRef<HTMLParagraphElement>(null);
+  const [contentHeight, setContentHeight] = useState(0);
+
+  useEffect(() => {
+    if (contentRef.current) setContentHeight(contentRef.current.scrollHeight);
+  }, [explain]);
+
   return (
     <div
       className="rounded-xl border border-dashed border-border overflow-hidden"
-      style={{ height: expanded ? 116 : 44, transition: reducedMotion ? "none" : "height 300ms cubic-bezier(0.25,0.46,0.45,0.94)" }}
+      style={{
+        height: expanded ? LOCKED_ROW_BUTTON_HEIGHT + contentHeight : LOCKED_ROW_BUTTON_HEIGHT,
+        transition: reducedMotion ? "none" : "height 300ms cubic-bezier(0.25,0.46,0.45,0.94)",
+      }}
     >
       <button
         type="button"
@@ -130,7 +147,7 @@ function LockedRow({
       {/* pl-[30px] alinea con el título de arriba (10px de padding del botón +
           12px del ícono de candado + 8px de gap), no con el borde del botón —
           antes quedaba corrido a la izquierda respecto al texto de la fila. */}
-      <p id={id} className="pl-[30px] pr-2.5 pt-1 pb-2.5 text-[11px] text-muted-foreground leading-relaxed">{explain}</p>
+      <p ref={contentRef} id={id} className="pl-[30px] pr-2.5 pt-1 pb-2.5 text-[11px] text-muted-foreground leading-relaxed">{explain}</p>
     </div>
   );
 }
@@ -457,7 +474,7 @@ export default function Insights() {
             {!anomaly && (
               <LockedRow
                 id="locked-mover"
-                title="Biggest mover this month"
+                title="Biggest spending mover this month"
                 explain="Shows the category that changed the most vs. its own recent average — e.g. “Dining is running 2× higher than usual.” Updates on its own as you log expenses, no need to run an analysis."
                 expanded={expandedLockedRow === "mover"}
                 onToggle={() => setExpandedLockedRow(v => v === "mover" ? null : "mover")}
@@ -466,7 +483,7 @@ export default function Insights() {
             {!fixedVsFlexible && !fixedVsFlexibleError && (
               <LockedRow
                 id="locked-fixedflex"
-                title="Fixed vs flexible"
+                title="Fixed vs flexible spending"
                 explain="Splits this month's spending into what was already committed (paid Flows) vs. what was your choice — so you can see how much real wiggle room you have."
                 expanded={expandedLockedRow === "fixedflex"}
                 onToggle={() => setExpandedLockedRow(v => v === "fixedflex" ? null : "fixedflex")}
@@ -501,7 +518,7 @@ export default function Insights() {
             role={lastAnalysis?.fullText ? "button" : undefined}
             tabIndex={lastAnalysis?.fullText ? 0 : undefined}
           >
-            <p className="text-xs font-bold text-muted-foreground mb-2">Biggest mover this month</p>
+            <p className="text-xs font-bold text-muted-foreground mb-2">Biggest spending mover this month</p>
 
             <div className="flex items-baseline gap-2">
               <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: anomaly.categoryColor }} />
@@ -555,7 +572,7 @@ export default function Insights() {
           pagados), siempre visible si hay data este mes, no depende de "Analyze". */}
       {fixedVsFlexible && (
         <div className="bg-card border border-card-border rounded-3xl px-5 py-4">
-          <p className="text-xs font-bold text-muted-foreground mb-2.5">Fixed vs flexible this month</p>
+          <p className="text-xs font-bold text-muted-foreground mb-2.5">Fixed vs flexible spending this month</p>
           <div className="flex h-9 rounded-xl overflow-hidden">
             <div
               className="flex items-center justify-center text-[10px] font-bold uppercase tracking-wide bg-foreground text-background"
