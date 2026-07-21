@@ -57,6 +57,7 @@ function ProtectedRouter() {
   const { isLocked } = useBiometric();
   const [, navigate] = useLocation();
   const [isResetting, setIsResetting] = useState(false);
+  const [justUnlocked, setJustUnlocked] = useState(false);
   const wasAuthenticated = useRef(false);
   const wasLocked = useRef(false);
 
@@ -85,6 +86,14 @@ function ProtectedRouter() {
     else if (wasLocked.current) {
       wasLocked.current = false;
       navigate("/", { replace: true });
+      // El último tap del PIN puede generar un click sintético demorado (ghost
+      // click, típico de WebView) que cae sobre lo que sea que quede montado en
+      // esa misma posición de pantalla una vez que el lock desaparece — con mala
+      // suerte, el botón "All transactions" del Dashboard. Este escudo invisible
+      // se come cualquier tap residual en la ventana en la que eso puede pasar.
+      setJustUnlocked(true);
+      const t = setTimeout(() => setJustUnlocked(false), 400);
+      return () => clearTimeout(t);
     }
   }, [isLocked, navigate]);
 
@@ -105,7 +114,19 @@ function ProtectedRouter() {
   // antes de entrar al Dashboard.
   if (isNewAccount) return <Onboarding onDone={acknowledgeOnboarded} />;
 
-  return <Router />;
+  return (
+    <>
+      <Router />
+      {justUnlocked && (
+        <div
+          aria-hidden="true"
+          className="fixed inset-0 z-[9999]"
+          onPointerDownCapture={(e) => e.preventDefault()}
+          onClickCapture={(e) => { e.preventDefault(); e.stopPropagation(); }}
+        />
+      )}
+    </>
+  );
 }
 
 function App() {

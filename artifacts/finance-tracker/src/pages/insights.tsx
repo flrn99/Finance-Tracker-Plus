@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Capacitor } from "@capacitor/core";
 import { FilePicker } from "@capawesome/capacitor-file-picker";
-import { Sparkles, Upload, Loader2, AlertCircle, X, Zap } from "lucide-react";
+import { Sparkles, Upload, Loader2, AlertCircle, X, Zap, ChevronRight, AlertTriangle, CheckCircle2, Lightbulb } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useCurrency, CURRENCY_INFO } from "@/lib/currency-context";
 import { getApiUrl } from "@/lib/api-config";
@@ -42,6 +42,57 @@ interface LastAnalysis {
   date: string;
   score: string | null;
   quickTakes: string[];
+  /** Reporte completo — persistido para que "Read full analysis" reabra el
+   * último análisis sin gastar otra llamada a Gemini. Entradas viejas de
+   * localStorage (guardadas antes de este campo) simplemente no lo tienen. */
+  fullText?: string;
+}
+
+// Heurística de palabras clave, no un dato real de Gemini — mejor esfuerzo para
+// darle un ícono a cada quick take mientras no le pedimos al backend una
+// respuesta estructurada (warning/positive/tip real). El de "surprise" sí es
+// dato real (viene de anomaly, calculado acá mismo contra el historial).
+type TakeType = "warning" | "positive" | "tip" | "surprise";
+
+const TAKE_STYLES: Record<TakeType, { bg: string; color: string; Icon: typeof Zap }> = {
+  warning: { bg: "rgba(217,119,6,0.15)", color: "#B45309", Icon: AlertTriangle },
+  positive: { bg: "rgba(16,185,129,0.15)", color: "#047857", Icon: CheckCircle2 },
+  tip: { bg: "rgba(14,165,233,0.15)", color: "#0369A1", Icon: Lightbulb },
+  surprise: { bg: "rgba(180,83,9,0.15)", color: "#B45309", Icon: Zap },
+};
+
+const WARN_WORDS = ["increase", "jumped", "spent more", "over budget", "higher", "risky", "concern", "too much", "exceed", "spike"];
+const GOOD_WORDS = ["under budget", "saved", "good job", "great", "improved", "decreased", "lower", "on track", "well done", "consistent", "healthy"];
+
+function classifyTake(text: string): TakeType {
+  const t = text.toLowerCase();
+  if (WARN_WORDS.some(w => t.includes(w))) return "warning";
+  if (GOOD_WORDS.some(w => t.includes(w))) return "positive";
+  return "tip";
+}
+
+function QuickTakeRow({ type, children }: { type: TakeType; children: React.ReactNode }) {
+  const { bg, color, Icon } = TAKE_STYLES[type];
+  return (
+    <div className="flex gap-2.5 items-start">
+      <div className="h-5 w-5 rounded-md flex items-center justify-center shrink-0 mt-0.5" style={{ background: bg }}>
+        <Icon className="h-3 w-3" style={{ color }} />
+      </div>
+      <div className="flex-1 min-w-0">{children}</div>
+    </div>
+  );
+}
+
+function GhostTakeRow({ type, example }: { type: TakeType; example: string }) {
+  const { color, Icon } = TAKE_STYLES[type];
+  return (
+    <div className="flex gap-2.5 items-start opacity-50">
+      <div className="h-5 w-5 rounded-md flex items-center justify-center shrink-0 mt-0.5 border border-dashed" style={{ borderColor: color }}>
+        <Icon className="h-3 w-3" style={{ color }} />
+      </div>
+      <p className="text-sm italic text-muted-foreground leading-relaxed">{example}</p>
+    </div>
+  );
 }
 
 // Gasto por categoría de un mes dado — misma llamada que ya usaba "Top spending",
@@ -234,11 +285,14 @@ export default function Insights() {
       const text = result.text;
       if (!text) throw new Error("No response from AI");
 
-      // Save last analysis to localStorage
+      // Save last analysis to localStorage — fullText incluido para poder reabrir
+      // el reporte completo después ("Read full analysis" en Quick take) sin
+      // gastar otra llamada a Gemini.
       const analysis: LastAnalysis = {
         date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
         score: extractScore(text),
         quickTakes: extractQuickTakes(text),
+        fullText: text,
       };
       setLastAnalysis(analysis);
       try { localStorage.setItem("ff-last-analysis", JSON.stringify(analysis)); } catch {}
@@ -419,58 +473,78 @@ export default function Insights() {
         </div>
       </div>
 
-      {/* Quick take — 1-2 frases del último análisis, fijas en la página en vez de
-          escondidas atrás del modal. Reemplaza el viejo "Top spending" (redundante
-          con el treemap del dashboard). */}
-      <div className="bg-card border border-card-border rounded-3xl px-5 py-4">
+      {/* Quick take — una sola card: la anomalía ("Biggest surprise") ya no vive
+          suelta abajo, es una fila más acá (tipada, con su mini-gráfico inline).
+          Tappeable entera: reabre el reporte completo YA persistido (fullText),
+          sin gastar otra llamada a Gemini — "Refresh analysis" en el hero sigue
+          siendo el único botón que re-analiza de verdad. */}
+      <div
+        className={cn(
+          "bg-card border border-card-border rounded-3xl px-5 py-4 transition-transform",
+          lastAnalysis?.fullText && "active:scale-[0.99] cursor-pointer"
+        )}
+        onClick={() => { if (lastAnalysis?.fullText) setInsights(lastAnalysis.fullText); }}
+        role={lastAnalysis?.fullText ? "button" : undefined}
+        tabIndex={lastAnalysis?.fullText ? 0 : undefined}
+      >
         <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-foreground/80 mb-3">
           <Sparkles className="h-3.5 w-3.5" style={{ color: ACCENT }} />
           Quick take
         </p>
-        {(lastAnalysis?.quickTakes?.length ?? 0) > 0 ? (
+        {lastAnalysis ? (
           <>
             <div className="space-y-2.5">
-              {lastAnalysis!.quickTakes.map((take, i) => (
-                <div key={i} className="flex gap-2.5">
-                  <span className="mt-1.5 h-1.5 w-1.5 rounded-full shrink-0" style={{ background: ACCENT }} />
+              {anomaly && (
+                <QuickTakeRow type="surprise">
+                  <p className="text-sm text-foreground leading-relaxed">
+                    <b className="font-bold">{anomaly.categoryName}</b> is running {anomaly.multiplier.toFixed(1)}× your usual — biggest surprise this month
+                  </p>
+                  <div className="flex items-center gap-3 mt-1.5">
+                    <div className="flex-1">
+                      <div className="h-1 rounded-full bg-muted overflow-hidden">
+                        <div className="h-full rounded-full bg-muted-foreground/40" style={{ width: `${Math.min(100, Math.round((anomaly.average / anomaly.thisMonth) * 100))}%` }} />
+                      </div>
+                      <span className="text-[10px] text-muted-foreground">avg {formatAmount(anomaly.average)}</span>
+                    </div>
+                    <div className="flex-1">
+                      <div className="h-1 rounded-full bg-muted overflow-hidden">
+                        <div className="h-full rounded-full" style={{ width: "100%", background: "#B45309" }} />
+                      </div>
+                      <span className="text-[10px] text-muted-foreground">now {formatAmount(anomaly.thisMonth)}</span>
+                    </div>
+                  </div>
+                </QuickTakeRow>
+              )}
+              {lastAnalysis.quickTakes.map((take, i) => (
+                <QuickTakeRow key={i} type={classifyTake(take)}>
                   <p className="text-sm text-foreground leading-relaxed">{take}</p>
-                </div>
+                </QuickTakeRow>
               ))}
             </div>
-            <p className="text-[11px] text-muted-foreground mt-3">Based on your last analysis · {lastAnalysis!.date}</p>
+
+            {lastAnalysis.fullText && (
+              <div className="flex items-center justify-between mt-3 pt-3 border-t border-border">
+                <span className="text-xs font-bold" style={{ color: ACCENT }}>Read full analysis</span>
+                <ChevronRight className="h-3.5 w-3.5" style={{ color: ACCENT }} />
+              </div>
+            )}
+            <p className="text-[11px] text-muted-foreground mt-2">
+              {lastAnalysis.fullText ? `saved · ${lastAnalysis.date} · tap to reopen, no new AI call` : `Based on your last analysis · ${lastAnalysis.date}`}
+            </p>
           </>
         ) : (
-          <p className="text-xs text-muted-foreground leading-relaxed">Run your first analysis above to get personalized takes on your spending.</p>
+          <>
+            <div className="space-y-2.5">
+              <GhostTakeRow type="surprise" example={'e.g. "Dining spend jumped vs. your usual"'} />
+              <GhostTakeRow type="positive" example={'e.g. "Where you\'re staying on budget"'} />
+              <GhostTakeRow type="tip" example={'e.g. "A concrete way to save more"'} />
+            </div>
+            <p className="text-xs font-bold mt-3 pt-3 border-t border-border" style={{ color: ACCENT }}>
+              ↑ Tap Analyze above — these fill in with your real numbers
+            </p>
+          </>
         )}
       </div>
-
-      {/* Anomalía — compara cada categoría de este mes contra su promedio de los
-          últimos 3 meses. Solo aparece si el salto es real (>=1.5x). */}
-      {anomaly && (
-        <div className="bg-card border border-card-border rounded-3xl px-5 py-4">
-          <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "#B45309" }}>
-            <Zap className="h-3.5 w-3.5" />
-            Biggest surprise this month
-          </p>
-          <div className="flex items-center justify-between gap-3 mb-3">
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: anomaly.categoryColor }} />
-              <p className="text-sm font-bold text-foreground truncate">{anomaly.categoryName}</p>
-            </div>
-            <p className="font-number text-base shrink-0" style={{ color: "#B45309" }}>{anomaly.multiplier.toFixed(1)}×</p>
-          </div>
-          <div className="flex items-end gap-4">
-            <div className="flex-1 flex flex-col items-center gap-1.5">
-              <div className="w-full rounded-t bg-muted" style={{ height: Math.max(4, Math.round(40 * (anomaly.average / anomaly.thisMonth))) }} />
-              <span className="text-[10px] text-muted-foreground">avg {formatAmount(anomaly.average)}</span>
-            </div>
-            <div className="flex-1 flex flex-col items-center gap-1.5">
-              <div className="w-full rounded-t" style={{ height: 40, background: anomaly.categoryColor }} />
-              <span className="text-[10px] text-muted-foreground">now {formatAmount(anomaly.thisMonth)}</span>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Error */}
       {error && (
