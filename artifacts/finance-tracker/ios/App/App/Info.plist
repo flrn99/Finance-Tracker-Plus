@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
     <key>NSFaceIDUsageDescription</key>
-    <string>Flow Finance uses Face ID to protect your financial data.</string>
+    <string>Flow! uses Face ID to protect your financial data.</string>
     <key>NSMicrophoneUsageDescription</key>
     <string>Flow! uses your microphone to log transactions by voice.</string>
     <key>CAPACITOR_DEBUG</key>
@@ -11,7 +11,7 @@
     <key>CFBundleDevelopmentRegion</key>
     <string>en</string>
     <key>CFBundleDisplayName</key>
-        <string>Flow Finance</string>
+        <string>Flow!</string>
     <key>CFBundleExecutable</key>
     <string>$(EXECUTABLE_NAME)</string>
     <key>CFBundleIdentifier</key>

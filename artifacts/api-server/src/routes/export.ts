@@ -38,7 +38,7 @@ router.get("/export/excel", async (req, res) => {
     .orderBy(transactionsTable.date);
 
   const wb = new ExcelJS.Workbook();
-  wb.creator = "Flow Finance";
+  wb.creator = "Flow!";
   wb.created = new Date();
 
   const ws = wb.addWorksheet("Transactions", {
@@ -51,7 +51,7 @@ router.get("/export/excel", async (req, res) => {
   } catch {}
 
   ws.addRow([]);
-  ws.addRow(["", "", "", "FLOW FINANCE"]);
+  ws.addRow(["", "", "", "FLOW!"]);
   ws.addRow(["", "", "", `Financial Report — ${new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" })}`]);
   ws.addRow([]);
 
