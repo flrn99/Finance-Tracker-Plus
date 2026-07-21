@@ -105,6 +105,17 @@
   color: #7DD3FC;
 }
 
+/* Mismo par de tonos que insights-hero-title-accent, ya verificados contra
+   contraste (ver comentario arriba) — nombrado aparte porque se usa en las
+   cards de datos, fuera del hero, y "insights-hero-title-accent" ahí confundía
+   sobre dónde aplica. */
+.insights-accent-text {
+  color: #0369A1;
+}
+.dark .insights-accent-text {
+  color: #7DD3FC;
+}
+
 .insights-hero-muted {
   color: #075985;
 }

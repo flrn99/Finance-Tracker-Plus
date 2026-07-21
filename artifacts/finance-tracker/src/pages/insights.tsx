@@ -4,7 +4,7 @@ import { Capacitor } from "@capacitor/core";
 import { FilePicker } from "@capawesome/capacitor-file-picker";
 import { Sparkles, Upload, Loader2, AlertCircle, X, ChevronRight, ChevronDown, Lock, Target } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
-import { useCurrency, CURRENCY_INFO } from "@/lib/currency-context";
+import { useCurrency } from "@/lib/currency-context";
 import { getApiUrl } from "@/lib/api-config";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
@@ -540,8 +540,8 @@ export default function Insights() {
 
             {lastAnalysis?.fullText && (
               <div className="flex items-center justify-between mt-3 pt-3 border-t border-border">
-                <span className="insights-hero-title-accent text-xs font-bold">Read full analysis</span>
-                <ChevronRight className="insights-hero-title-accent h-3.5 w-3.5" />
+                <span className="insights-accent-text text-xs font-bold">Read full analysis</span>
+                <ChevronRight className="insights-accent-text h-3.5 w-3.5" />
               </div>
             )}
             {lastAnalysis?.fullText && (
