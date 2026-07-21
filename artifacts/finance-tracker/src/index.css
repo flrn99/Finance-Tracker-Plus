@@ -382,6 +382,15 @@
     user-select: none;
     -webkit-user-select: none;
   }
+  /* Fallback parejo para toda la app: los componentes shadcn (Button, Input, etc.)
+     ya traen su propio focus-visible:ring y ganan por especificidad — esto solo
+     cubre los <button>/<div role="button"> hechos a mano en las páginas
+     (dashboard, insights, goals, biometric-lock...) que antes no tenían ningún
+     indicador de foco por teclado. */
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
 }
 
 @layer utilities {
