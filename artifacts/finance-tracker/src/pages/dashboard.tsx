@@ -73,7 +73,7 @@ function BillsWidget({ filterMode }: { filterMode: "month" | "all" }) {
     return (
       <Link href="/goals?tab=bills" className={cn(BILLS_SECTION_CLS, "flex items-center gap-4")}>
         <div className="shrink-0 text-center leading-none">
-          <p className="font-entry-amount leading-[0.75]" style={{ fontSize: "3rem", color: "#FF66D9" }}>
+          <p className="font-entry-amount leading-[0.75] text-[#c429a3] dark:text-[#FF66D9]" style={{ fontSize: "3rem" }}>
             {paid}
           </p>
           <p className="mt-1.5 text-[11px] font-bold text-muted-foreground">of {total}</p>
@@ -95,7 +95,7 @@ function BillsWidget({ filterMode }: { filterMode: "month" | "all" }) {
   return (
     <Link href="/goals?tab=bills" className={cn(BILLS_SECTION_CLS, "flex items-center gap-4")}>
       <div className="shrink-0 text-center leading-none">
-        <p className="font-entry-amount leading-[0.75]" style={{ fontSize: "3rem", color: "#FF66D9" }}>
+        <p className="font-entry-amount leading-[0.75] text-[#c429a3] dark:text-[#FF66D9]" style={{ fontSize: "3rem" }}>
           {fullyPaidMonths}
         </p>
         <p className="mt-1.5 text-[11px] font-bold text-muted-foreground">of {months.length}</p>

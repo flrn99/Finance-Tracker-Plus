@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 import { Lock, Eye, EyeOff } from "lucide-react";
@@ -9,6 +9,8 @@ export default function ResetPassword({ onDone }: { onDone: () => void }) {
   const [confirm, setConfirm] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const newPasswordId = useId();
+  const confirmPasswordId = useId();
 
   const handleReset = async () => {
     if (!password || !confirm) {
@@ -45,10 +47,11 @@ export default function ResetPassword({ onDone }: { onDone: () => void }) {
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">New Password</label>
+          <label htmlFor={newPasswordId} className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">New Password</label>
           <div className="relative">
             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
+              id={newPasswordId}
               type={showPassword ? "text" : "password"}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -62,10 +65,11 @@ export default function ResetPassword({ onDone }: { onDone: () => void }) {
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Confirm Password</label>
+          <label htmlFor={confirmPasswordId} className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Confirm Password</label>
           <div className="relative">
             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
+              id={confirmPasswordId}
               type={showPassword ? "text" : "password"}
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}

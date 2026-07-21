@@ -461,6 +461,7 @@ export function EntrySheet({
                     key={c.id}
                     type="button"
                     onClick={() => setCategoryId(c.id)}
+                    aria-pressed={isSelected}
                     className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-2 text-[13px] font-bold transition-colors"
                     style={{
                       background: isSelected ? "#14140F" : "hsl(var(--muted))",
@@ -488,7 +489,7 @@ export function EntrySheet({
           </div>
 
           {/* Note */}
-          <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Add a note…"
+          <input value={note} onChange={(e) => setNote(e.target.value)} aria-label="Note" placeholder="Add a note…"
             className="mt-3 w-full rounded-2xl border-0 bg-muted px-4 py-3.5 text-base text-foreground outline-none placeholder:text-muted-foreground" />
 
           {/* Keypad — mismo flujo que el resto, sin separarlo en su propio contenedor */}

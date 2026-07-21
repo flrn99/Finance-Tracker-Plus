@@ -434,11 +434,19 @@ export default function VoiceCapture({
 
   const close = () => { closedRef.current = true; stopEverything(); onClose(); };
 
+  const liveMessage =
+    phase === "listening" ? "Listening for your transaction."
+    : phase === "processing" ? "Reading your transaction…"
+    : phase === "revealing" && result ? `Heard: ${result.description || result.categoryName || "transaction"}, ${formatAmount(result.amount)}.`
+    : phase === "error" ? error
+    : "";
+
   return createPortal(
     <div
       className="fixed inset-0 z-[999] flex flex-col items-center justify-center px-6 animate-in fade-in duration-300"
       style={{ background: PAPER }}
     >
+      <span className="sr-only" aria-live="polite" aria-atomic="true">{liveMessage}</span>
       {/* Cerrar */}
       <button
         onClick={close}

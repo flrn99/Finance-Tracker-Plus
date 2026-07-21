@@ -183,6 +183,9 @@ export function FloatingModal({ open, onClose, title, children }: { open: boolea
   if (!mounted) return null;
   return (
     <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
       className="fixed z-50 flex items-center justify-center px-5"
       style={{
         top: 0, left: 0, right: 0, bottom: 0,
@@ -251,6 +254,8 @@ function IconPicker({ value, onChange, color }: { value: string; onChange: (i: s
               key={key}
               type="button"
               onClick={() => onChange(key)}
+              aria-pressed={active}
+              aria-label={key}
               className={cn(
                 "w-10 h-10 rounded-lg flex items-center justify-center shrink-0 transition-all active:scale-90",
                 active ? "" : "bg-muted"
@@ -322,6 +327,7 @@ export function CategoryForm({
                 <div className="px-3 py-1 flex items-center justify-between gap-2 bg-card">
                   <FormControl>
                     <input
+                      aria-label="Category name"
                       placeholder="Category name"
                       autoComplete="off"
                       className="min-w-0 flex-1 bg-transparent border-0 outline-none text-sm font-bold text-foreground placeholder:text-muted-foreground/40 py-1.5"

@@ -403,6 +403,9 @@ function FloatingModal({
   if (!mounted) return null;
   return (
     <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={title || undefined}
       className="fixed inset-0 z-50 flex items-center justify-center px-5"
       style={{
         // respeta status bar y nav — el modal nunca los invade
@@ -513,6 +516,8 @@ function IconPicker({
               key={key}
               type="button"
               onClick={() => onChange(key)}
+              aria-pressed={active}
+              aria-label={key}
               className={cn(
                 "w-10 h-10 rounded-lg flex items-center justify-center shrink-0 transition-all active:scale-90",
                 active ? "" : "bg-muted"
@@ -566,6 +571,7 @@ function AmountInput({
       <input
         type="text"
         inputMode="decimal"
+        aria-label="Amount"
         placeholder="0.00"
         className={cn("font-number font-bold bg-transparent border-0 outline-none text-center min-w-0 w-full", sizeClass)}
         value={text}
@@ -648,6 +654,7 @@ function GoalForm({
                   <FormItem>
                     <FormControl>
                       <input
+                        aria-label="Goal name"
                         placeholder="e.g. Vacation fund"
                         autoComplete="off"
                         className="w-full bg-transparent border-0 outline-none font-title text-lg leading-tight text-white placeholder:[color:var(--ph)]"
@@ -744,6 +751,7 @@ function HabitForm({
                   <FormItem>
                     <FormControl>
                       <input
+                        aria-label="Habit name"
                         placeholder="e.g. No delivery"
                         autoComplete="off"
                         className="w-full bg-transparent border-0 outline-none font-title text-lg leading-tight text-white placeholder:[color:var(--ph)]"
@@ -847,6 +855,7 @@ function BillForm({
                   <FormItem>
                     <FormControl>
                       <input
+                        aria-label="Flow name"
                         placeholder="e.g. Insurance"
                         autoComplete="off"
                         className="w-full bg-transparent border-0 outline-none font-title text-lg leading-tight text-white placeholder:[color:var(--ph)]"

@@ -294,6 +294,12 @@ export default function Layout({ children }: LayoutProps) {
           boxShadow: '0 4px 24px rgba(0,0,0,0.12), inset 0 1px 0 hsl(var(--foreground) / 0.06), inset 0 -1px 0 hsl(var(--background) / 0.2)',
           transform: 'translateX(-50%)',
           transition: 'width 0.4s cubic-bezier(0.25,0.46,0.45,0.94), max-width 0.4s cubic-bezier(0.25,0.46,0.45,0.94), padding 0.4s cubic-bezier(0.25,0.46,0.45,0.94), gap 0.4s cubic-bezier(0.25,0.46,0.45,0.94), background 0.4s ease',
+          // El blur+saturate de fondo recalcula en cada frame mientras width/padding
+          // animan (400ms cada vez que cruza el umbral de scroll) — contain aísla el
+          // repintado a este nodo en vez de invalidar layout del padre, will-change
+          // le avisa al compositor con anticipación cuáles props van a animar.
+          contain: 'layout paint',
+          willChange: 'width, max-width, padding, gap',
         }}
       >
         {navItems.map((item) => {
@@ -329,7 +335,7 @@ export default function Layout({ children }: LayoutProps) {
                         ? '#0ea5e9'
                         : isActive
                         ? 'hsl(var(--foreground))'
-                        : 'hsl(var(--muted-foreground) / 0.6)',
+                        : 'hsl(var(--muted-foreground) / 0.85)',
                       transition: 'all 0.4s cubic-bezier(0.25,0.46,0.45,0.94)',
                     }}
                   />
