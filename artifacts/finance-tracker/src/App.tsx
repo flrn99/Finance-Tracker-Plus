@@ -58,6 +58,7 @@ function ProtectedRouter() {
   const [, navigate] = useLocation();
   const [isResetting, setIsResetting] = useState(false);
   const wasAuthenticated = useRef(false);
+  const wasLocked = useRef(false);
 
   useEffect(() => {
     globalSetIsResetting = setIsResetting;
@@ -74,6 +75,18 @@ function ProtectedRouter() {
     }
     if (!user) wasAuthenticated.current = false;
   }, [user, navigate]);
+
+  // Mismo problema que el login: el biometric lock no toca `user`, así que wouter
+  // conserva el path de antes de bloquearse (ej. Transactions, si el timeout de
+  // 5min agarró a la app ahí) y el desbloqueo te devolvía a esa página en vez del
+  // Dashboard. Se resetea al Dashboard cada vez que el lock pasa de abierto a cerrado.
+  useEffect(() => {
+    if (isLocked) wasLocked.current = true;
+    else if (wasLocked.current) {
+      wasLocked.current = false;
+      navigate("/", { replace: true });
+    }
+  }, [isLocked, navigate]);
 
   if (isResetting && user) return <ResetPassword onDone={() => setIsResetting(false)} />;
 
