@@ -35,7 +35,11 @@ function UnderlineField({
         <input
           id={id}
           {...props}
-          className={cn("flex-1 min-w-0 bg-transparent text-sm font-semibold text-foreground outline-none placeholder:text-muted-foreground placeholder:font-medium", className)}
+          // text-base (16px), no text-sm (14px): en iOS, Safari/WKWebView hace
+          // zoom automático al enfocar cualquier input con font-size < 16px —
+          // eso es el "zoom raro" al tocar Email/Password. Es el umbral real,
+          // no un valor arbitrario.
+          className={cn("flex-1 min-w-0 bg-transparent text-base font-semibold text-foreground outline-none placeholder:text-muted-foreground placeholder:font-medium", className)}
         />
         {right}
       </div>
