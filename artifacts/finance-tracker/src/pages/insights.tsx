@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Capacitor } from "@capacitor/core";
 import { FilePicker } from "@capawesome/capacitor-file-picker";
-import { Sparkles, Upload, Loader2, AlertCircle, X, Zap, ChevronRight, AlertTriangle, CheckCircle2, Lightbulb } from "lucide-react";
+import { Sparkles, Upload, Loader2, AlertCircle, X, ChevronRight } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useCurrency, CURRENCY_INFO } from "@/lib/currency-context";
 import { getApiUrl } from "@/lib/api-config";
@@ -38,58 +38,61 @@ interface Anomaly {
   multiplier: number;
 }
 
+type TakeType = "warning" | "positive" | "tip" | "surprise";
+
+interface Finding {
+  type: TakeType;
+  text: string;
+}
+
 interface LastAnalysis {
   date: string;
   score: string | null;
-  quickTakes: string[];
+  /** Hallazgos reales de Gemini (respuesta JSON estructurada, no texto libre
+   * recortado con regex) — siempre 3, con tipo real. El de "surprise" no viene
+   * acá, se agrega aparte porque es dato calculado en el cliente (anomaly). */
+  findings: Finding[];
   /** Reporte completo — persistido para que "Read full analysis" reabra el
    * último análisis sin gastar otra llamada a Gemini. Entradas viejas de
    * localStorage (guardadas antes de este campo) simplemente no lo tienen. */
   fullText?: string;
 }
 
-// Heurística de palabras clave, no un dato real de Gemini — mejor esfuerzo para
-// darle un ícono a cada quick take mientras no le pedimos al backend una
-// respuesta estructurada (warning/positive/tip real). El de "surprise" sí es
-// dato real (viene de anomaly, calculado acá mismo contra el historial).
-type TakeType = "warning" | "positive" | "tip" | "surprise";
-
-const TAKE_STYLES: Record<TakeType, { bg: string; color: string; Icon: typeof Zap }> = {
-  warning: { bg: "rgba(217,119,6,0.15)", color: "#B45309", Icon: AlertTriangle },
-  positive: { bg: "rgba(16,185,129,0.15)", color: "#047857", Icon: CheckCircle2 },
-  tip: { bg: "rgba(14,165,233,0.15)", color: "#0369A1", Icon: Lightbulb },
-  surprise: { bg: "rgba(180,83,9,0.15)", color: "#B45309", Icon: Zap },
+// Antes un ícono de 20px era la única señal de "tipo" — muy chico para leerse
+// de un vistazo, terminaba pareciendo "todo el mismo color". La etiqueta de
+// palabra en color de fondo sólido es la señal real: se lee antes que el texto.
+const TAKE_STYLES: Record<TakeType, { bg: string; label: string }> = {
+  warning: { bg: "#B45309", label: "Heads up" },
+  positive: { bg: "#047857", label: "Nice" },
+  tip: { bg: "#0369A1", label: "Try this" },
+  surprise: { bg: "#B45309", label: "Surprise" },
 };
 
-const WARN_WORDS = ["increase", "jumped", "spent more", "over budget", "higher", "risky", "concern", "too much", "exceed", "spike"];
-const GOOD_WORDS = ["under budget", "saved", "good job", "great", "improved", "decreased", "lower", "on track", "well done", "consistent", "healthy"];
-
-function classifyTake(text: string): TakeType {
-  const t = text.toLowerCase();
-  if (WARN_WORDS.some(w => t.includes(w))) return "warning";
-  if (GOOD_WORDS.some(w => t.includes(w))) return "positive";
-  return "tip";
-}
-
 function QuickTakeRow({ type, children }: { type: TakeType; children: React.ReactNode }) {
-  const { bg, color, Icon } = TAKE_STYLES[type];
+  const { bg, label } = TAKE_STYLES[type];
   return (
     <div className="flex gap-2.5 items-start">
-      <div className="h-5 w-5 rounded-md flex items-center justify-center shrink-0 mt-0.5" style={{ background: bg }}>
-        <Icon className="h-3 w-3" style={{ color }} />
-      </div>
+      <span
+        className="shrink-0 mt-0.5 text-[9px] font-black uppercase tracking-wide text-white px-1.5 py-0.5 rounded"
+        style={{ background: bg }}
+      >
+        {label}
+      </span>
       <div className="flex-1 min-w-0">{children}</div>
     </div>
   );
 }
 
 function GhostTakeRow({ type, example }: { type: TakeType; example: string }) {
-  const { color, Icon } = TAKE_STYLES[type];
+  const { bg, label } = TAKE_STYLES[type];
   return (
     <div className="flex gap-2.5 items-start opacity-50">
-      <div className="h-5 w-5 rounded-md flex items-center justify-center shrink-0 mt-0.5 border border-dashed" style={{ borderColor: color }}>
-        <Icon className="h-3 w-3" style={{ color }} />
-      </div>
+      <span
+        className="shrink-0 mt-0.5 text-[9px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded border border-dashed"
+        style={{ borderColor: bg, color: bg }}
+      >
+        {label}
+      </span>
       <p className="text-sm italic text-muted-foreground leading-relaxed">{example}</p>
     </div>
   );
@@ -140,17 +143,6 @@ async function fetchCategorySpending(month: string, token: string | undefined): 
   } catch {
     return [];
   }
-}
-
-// Saca 1-2 frases cortas del texto de Gemini para mostrarlas fijas en la página
-// (antes solo vivían en el modal, detrás del tap en "Refresh analysis").
-function extractQuickTakes(text: string): string[] {
-  const bullets = [...text.matchAll(/^(?:[-*]|\d+\.)\s+(.+)$/gm)].map(m => m[1]);
-  const source = bullets.length > 0 ? bullets : text.split(/(?<=[.!?])\s+/);
-  return source
-    .map(s => s.replace(/\*\*/g, "").replace(/[_`#]/g, "").trim())
-    .filter(s => s.length > 12 && s.length < 160)
-    .slice(0, 2);
 }
 
 function InsightsModal({ insights, onClose }: { insights: string; onClose: () => void }) {
@@ -256,12 +248,6 @@ export default function Insights() {
     });
   }, [session]);
 
-  // Extract score from insights text
-  const extractScore = (text: string): string | null => {
-    const match = text.match(/(\d+(?:\.\d+)?)\s*\/\s*10/);
-    return match ? match[1] : null;
-  };
-
   const analyzeFinances = async () => {
     setIsAnalyzing(true);
     setError(null);
@@ -282,22 +268,22 @@ export default function Insights() {
         setError(result?.error || "Failed to analyze finances");
         return;
       }
-      const text = result.text;
-      if (!text) throw new Error("No response from AI");
+      const narrative = result.narrative;
+      if (!narrative || !Array.isArray(result.findings)) throw new Error("No response from AI");
 
       // Save last analysis to localStorage — fullText incluido para poder reabrir
       // el reporte completo después ("Read full analysis" en Quick take) sin
       // gastar otra llamada a Gemini.
       const analysis: LastAnalysis = {
         date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
-        score: extractScore(text),
-        quickTakes: extractQuickTakes(text),
-        fullText: text,
+        score: typeof result.score === "number" ? result.score.toFixed(1) : null,
+        findings: result.findings,
+        fullText: narrative,
       };
       setLastAnalysis(analysis);
       try { localStorage.setItem("ff-last-analysis", JSON.stringify(analysis)); } catch {}
 
-      setInsights(text);
+      setInsights(narrative);
     } catch (e: any) {
       setError(e.message || "Failed to analyze finances");
     } finally {
@@ -515,9 +501,9 @@ export default function Insights() {
                   </div>
                 </QuickTakeRow>
               )}
-              {lastAnalysis.quickTakes.map((take, i) => (
-                <QuickTakeRow key={i} type={classifyTake(take)}>
-                  <p className="text-sm text-foreground leading-relaxed">{take}</p>
+              {(lastAnalysis.findings ?? []).map((f, i) => (
+                <QuickTakeRow key={i} type={f.type}>
+                  <p className="text-sm text-foreground leading-relaxed">{f.text}</p>
                 </QuickTakeRow>
               ))}
             </div>
