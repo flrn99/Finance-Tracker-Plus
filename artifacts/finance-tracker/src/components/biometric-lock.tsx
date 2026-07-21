@@ -1,10 +1,17 @@
 import { useEffect, useRef, useState } from "react";
-import { Trash2, ShieldAlert } from "lucide-react";
+import { Fingerprint, Trash2 } from "lucide-react";
 import { useBiometric, verifyPin } from "@/lib/biometric-context";
 import { cn } from "@/lib/utils";
 import { LogoMark } from "@/components/logo-mark";
 
-const MAX_ATTEMPTS = 3;
+// Reintenta una vez en silencio antes de caer a PIN — nunca hace falta tocar
+// "Try Again": si el primer toque de biometría falla, se reintenta solo tras
+// RETRY_DELAY_MS; si el segundo también falla, pasa a PIN solo tras SWITCH_DELAY_MS.
+// El delay entre intentos es a propósito (no instantáneo): relanzar el prompt
+// nativo de biometría pegado al anterior se siente como un parpadeo, no como
+// un reintento — y le da tiempo al toast a leerse.
+const RETRY_DELAY_MS = 700;
+const SWITCH_DELAY_MS = 900;
 
 // 🚀 CACHÉ DE HAPTICS (Optimización de velocidad)
 let hapticsModule: any = null;
@@ -23,38 +30,62 @@ export default function BiometricLock() {
   const { triggerAuth, unlock } = useBiometric();
   const [mode, setMode] = useState<"biometric" | "pin">("biometric");
   const [pin, setPin] = useState("");
-  const [attempts, setAttempts] = useState(0);
   const [error, setError] = useState("");
-  const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const [toast, setToast] = useState("");
   const [shake, setShake] = useState(false);
   const didAutoTrigger = useRef(false);
+  const retryTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Evita que un tap/click dispare la acción dos veces (pointerdown + click sintético),
   // pero deja pasar el click "puro" que llega de Enter/Espacio por teclado (sin pointerdown antes).
   const firedByPointer = useRef(false);
 
-  // Auto-trigger biometric on mount
+  const clearRetryTimer = () => {
+    if (retryTimeout.current) { clearTimeout(retryTimeout.current); retryTimeout.current = null; }
+  };
+
+  // attemptIndex 0 = primer intento (al montar), 1 = el reintento silencioso.
+  // Nunca hay un botón "Try Again": si falla, esta misma función se reprograma sola.
+  const runBiometricAttempt = async (attemptIndex: number) => {
+    const success = await triggerAuth();
+    if (success) return; // unlock() ya lo dispara el context
+
+    if (attemptIndex === 0) {
+      setToast("Retrying automatically");
+      retryTimeout.current = setTimeout(() => {
+        setToast("");
+        runBiometricAttempt(1);
+      }, RETRY_DELAY_MS);
+    } else {
+      setToast("Switched to PIN — automatic");
+      retryTimeout.current = setTimeout(() => {
+        setToast("");
+        setMode("pin");
+      }, SWITCH_DELAY_MS);
+    }
+  };
+
   useEffect(() => {
     if (didAutoTrigger.current) return;
     didAutoTrigger.current = true;
-    handleBiometric();
+    runBiometricAttempt(0);
+    return clearRetryTimer;
   }, []);
 
-  const handleBiometric = async () => {
-    if (isAuthenticating) return;
-    setIsAuthenticating(true);
+  // Escape hatch manual — salta a PIN sin esperar a que el segundo intento falle solo.
+  const skipToPin = () => {
+    clearRetryTimer();
+    setToast("");
+    setMode("pin");
+  };
+
+  // Desde PIN, volver a intentar biometría a propósito reinicia la secuencia entera.
+  const retryBiometric = () => {
+    clearRetryTimer();
+    setToast("");
     setError("");
-    const success = await triggerAuth();
-    setIsAuthenticating(false);
-    if (!success) {
-      const newAttempts = attempts + 1;
-      setAttempts(newAttempts);
-      if (newAttempts >= MAX_ATTEMPTS) {
-        setMode("pin");
-        setError("Too many failed attempts. Enter your backup PIN.");
-      } else {
-        setError(`Authentication failed. ${MAX_ATTEMPTS - newAttempts} attempt${MAX_ATTEMPTS - newAttempts === 1 ? "" : "s"} remaining.`);
-      }
-    }
+    setPin("");
+    setMode("biometric");
+    runBiometricAttempt(0);
   };
 
   const handlePinDigit = (digit: string) => {
@@ -132,95 +163,91 @@ export default function BiometricLock() {
         @media (prefers-reduced-motion: reduce) {
           .ff-bg-glow { animation: none !important; background: rgba(168,255,62,0.22) !important; }
         }
-        @keyframes ff-dot-wave {
-          0%, 60%, 100% { opacity: 0.25; transform: translateY(0); }
-          30% { opacity: 1; transform: translateY(-3px); }
+        @keyframes ff-fp-pulse {
+          0%, 100% { transform: scale(1); opacity: 1; }
+          50% { transform: scale(1.12); opacity: 0.7; }
         }
-        .ff-dot { animation: ff-dot-wave 1.4s ease-in-out infinite; }
+        .ff-fp-pulse { animation: ff-fp-pulse 1.6s ease-in-out infinite; }
+        @media (prefers-reduced-motion: reduce) { .ff-fp-pulse { animation: none; } }
+
+        /* Molded — cápsula prensada del mismo color que el fondo, sombras dobles
+           tintadas con los mismos 4 colores del glow (cicla en fase con .ff-bg-glow,
+           misma duración) para que se sienta "hecha de la luz" que tiene atrás, no
+           puesta encima. La luz clara (highlight) es casi invisible en dark porque
+           un blanco fuerte ahí se ve pegado/falso sobre un fondo casi negro. */
+        .ff-capsule {
+          --ff-capsule-highlight: rgba(255,255,255,0.6);
+          background: hsl(var(--background));
+          animation: ff-capsule-glow 10s ease-in-out infinite;
+        }
+        .dark .ff-capsule { --ff-capsule-highlight: rgba(255,255,255,0.04); }
+        @keyframes ff-capsule-glow {
+          0%   { box-shadow: -6px -6px 14px var(--ff-capsule-highlight), 6px 8px 20px rgba(168,255,62,0.22); }
+          25%  { box-shadow: -6px -6px 14px var(--ff-capsule-highlight), 6px 8px 20px rgba(34,211,238,0.20); }
+          50%  { box-shadow: -6px -6px 14px var(--ff-capsule-highlight), 6px 8px 20px rgba(167,139,250,0.20); }
+          75%  { box-shadow: -6px -6px 14px var(--ff-capsule-highlight), 6px 8px 20px rgba(52,211,153,0.18); }
+          100% { box-shadow: -6px -6px 14px var(--ff-capsule-highlight), 6px 8px 20px rgba(168,255,62,0.22); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .ff-capsule { animation: none; box-shadow: -6px -6px 14px var(--ff-capsule-highlight), 6px 8px 20px rgba(168,255,62,0.2); }
+        }
+        .ff-key {
+          background: hsl(var(--background));
+          box-shadow: -3px -3px 6px var(--ff-capsule-highlight), 3px 4px 8px rgba(0,0,0,0.1);
+        }
+        .ff-key:active { box-shadow: inset -2px -2px 5px var(--ff-capsule-highlight), inset 2px 3px 6px rgba(0,0,0,0.12); }
+
+        /* PIN shake — "animate-shake" no existe como utility real en el proyecto
+           (ni Tailwind ni tw-animate-css la definen), así que el shake de un PIN
+           incorrecto nunca se veía. Reemplazado por esta clase local. */
+        @keyframes ff-pin-shake {
+          10%, 90% { transform: translateX(-1px); }
+          20%, 80% { transform: translateX(2px); }
+          30%, 50%, 70% { transform: translateX(-4px); }
+          40%, 60% { transform: translateX(4px); }
+        }
+        .ff-pin-shake { animation: ff-pin-shake 0.5s cubic-bezier(.36,.07,.19,.97) both; }
+        @media (prefers-reduced-motion: reduce) { .ff-pin-shake { animation: none; } }
       `}</style>
 
-      {/* Logo — antes era un <img> crudo con el padding transparente de logo.png
-          intacto (mismo problema que login.tsx tenía y se arregló con LogoMark:
-          el glifo real ocupa solo ~50% de la altura del PNG, así que se veía
-          chico y encima ese padding invisible se sumaba al margen de abajo). */}
-      <div className="relative z-10 mt-24 flex items-center justify-center">
-        <LogoMark height={72} />
+      {/* Logo — chico y quieto a propósito: esta pantalla se ve muchas veces por
+          día, así que es más ancla de "esta es tu app de verdad" que momento de
+          marca. Antes medía 72px (tamaño de splash), bajado a 40px. */}
+      <div className="relative z-10 mt-16 flex items-center justify-center">
+        <LogoMark height={40} />
       </div>
 
-      {mode === "biometric" ? (
-        isAuthenticating ? (
-          /* El prompt nativo de Android está arriba en este momento — el centro de
-             la pantalla queda vacío a propósito, es donde cae su card. Nada de
-             ícono ni título compitiendo con eso. */
-          <>
-            <div className="relative z-10 mt-4 flex flex-col items-center gap-2.5">
-              <p className="text-sm font-semibold text-muted-foreground">Waiting for verification…</p>
-              <div className="flex gap-1.5" aria-hidden="true">
-                {[0, 1, 2].map((i) => (
-                  <span
-                    key={i}
-                    className="ff-dot h-1.5 w-1.5 rounded-full bg-muted-foreground/50"
-                    style={{ animationDelay: `${i * 150}ms` }}
-                  />
-                ))}
-              </div>
-            </div>
-            <div className="flex-1" />
-            <button
-              onClick={() => { setMode("pin"); setError(""); }}
-              className="relative z-10 mb-10 h-11 px-6 rounded-full flex items-center justify-center text-sm font-semibold text-foreground/60 hover:text-foreground hover:bg-muted transition-colors active:scale-95"
-            >
-              Use PIN instead
-            </button>
-          </>
+      <div className="flex-1" />
+
+      {/* Una sola cápsula — en reposo espera la biometría; si hace falta PIN,
+          la MISMA cápsula crece para contenerlo en vez de reemplazar la pantalla
+          entera. overflow-hidden a propósito: durante la transición de altura,
+          recorta el contenido de PIN que ya está montado debajo (revela, no tapa). */}
+      <div
+        className="ff-capsule relative z-10 w-full max-w-[280px] rounded-[28px] overflow-hidden flex flex-col items-center transition-[height] duration-500 ease-out"
+        style={{ height: mode === "pin" ? 432 : 152 }}
+      >
+        {toast && (
+          <p role="status" aria-live="polite" className="mt-4 text-[11px] font-bold px-3 py-1.5 rounded-full bg-foreground text-background animate-in fade-in duration-200">
+            {toast}
+          </p>
+        )}
+
+        {mode === "biometric" ? (
+          <div className="flex-1 flex flex-col items-center justify-center gap-2.5 animate-in fade-in duration-300">
+            <Fingerprint className="ff-fp-pulse h-7 w-7 text-foreground/80" strokeWidth={1.75} />
+            <p className="text-sm font-semibold text-muted-foreground">Verifying…</p>
+          </div>
         ) : (
-          /* El prompt nativo se cerró (todavía no arrancó, o falló) — acá sí tenemos
-             toda la pantalla para nosotros. */
-          <>
-            <div className="flex-1" />
-            <div className="relative z-10 flex flex-col items-center gap-5 w-full max-w-[280px] mb-10 animate-in fade-in zoom-in-95 duration-300">
-              <div className="text-center space-y-1.5">
-                <p className="text-xl font-bold tracking-tight text-foreground">Verify Identity</p>
-                <p className="text-sm font-medium text-muted-foreground">Use Face ID or fingerprint to unlock</p>
-              </div>
+          <div className="w-full flex flex-col items-center gap-3 px-5 pt-5 pb-4 animate-in fade-in duration-300">
+            <p className="text-lg font-bold tracking-tight text-foreground">Enter PIN</p>
 
-              {error && (
-                <div role="alert" className="flex items-center gap-2.5 bg-destructive/10 text-destructive rounded-2xl px-4 py-3.5 w-full">
-                  <ShieldAlert className="h-4 w-4 shrink-0" />
-                  <p className="text-xs font-semibold leading-tight">{error}</p>
-                </div>
-              )}
+            {error && (
+              <p role="alert" className="text-xs font-bold text-[#E11D48] dark:text-[#FFA3A3] text-center animate-in fade-in duration-200">{error}</p>
+            )}
 
-              <button
-                onClick={handleBiometric}
-                disabled={isAuthenticating}
-                className="w-full py-4 rounded-2xl font-bold text-black active:scale-[0.98] transition-all disabled:opacity-60 flex items-center justify-center"
-                style={{ background: "#CAFA01", boxShadow: "0 4px 14px rgba(168,255,62,0.3), inset 0 1px 1px rgba(255,255,255,0.4)" }}
-              >
-                Try Again
-              </button>
-
-              <button
-                onClick={() => { setMode("pin"); setError(""); }}
-                className="h-11 px-6 rounded-full flex items-center justify-center text-sm font-semibold text-foreground/70 hover:text-foreground hover:bg-muted transition-colors active:scale-95"
-              >
-                Use PIN instead
-              </button>
-            </div>
-          </>
-        )
-      ) : (
-        /* PIN — nunca lo tapa el sistema, vive centrado sin restricciones */
-        <>
-          <div className="flex-1" />
-          <div className="relative z-10 flex flex-col items-center gap-5 w-full max-w-[280px] mb-8 animate-in fade-in slide-in-from-bottom-4 duration-300">
-            <div className="text-center space-y-1.5">
-              <p className="text-xl font-bold tracking-tight text-foreground">Enter PIN</p>
-              <p className="text-sm font-medium text-muted-foreground">Enter your 6-digit security PIN</p>
-            </div>
-
-            {/* 💎 PIN dots — el progreso real se anuncia aparte */}
-            <div aria-hidden="true" className={cn("flex gap-3 py-2 justify-center items-center h-4", shake && "animate-shake")}>
+            {/* PIN dots — el progreso real se anuncia aparte */}
+            <div aria-hidden="true" className={cn("flex gap-3 py-1 justify-center items-center h-4", shake && "ff-pin-shake")}>
               {Array.from({ length: 6 }).map((_, i) => (
                 <div
                   key={i}
@@ -236,11 +263,7 @@ export default function BiometricLock() {
             </div>
             <span className="sr-only" aria-live="polite">{pin.length} of 6 digits entered</span>
 
-            {error && (
-              <p role="alert" className="text-xs font-bold text-[#E11D48] dark:text-[#FFA3A3] text-center animate-in fade-in duration-200">{error}</p>
-            )}
-
-            <div className="grid grid-cols-3 gap-4 w-full max-w-[220px] mx-auto pb-1">
+            <div className="grid grid-cols-3 gap-3 w-full max-w-[220px] mx-auto pb-1">
               {DIGITS.flat().map((digit, i) => {
                 if (digit === "") return <div key={i} />;
                 if (digit === "del") return (
@@ -254,7 +277,7 @@ export default function BiometricLock() {
                       handleDelete();
                     }}
                     disabled={pin.length === 0}
-                    className="relative h-14 w-14 rounded-full mx-auto flex items-center justify-center overflow-hidden active:scale-[0.88] transition-transform duration-75 ease-out disabled:opacity-20 shrink-0 bg-black/[0.03] dark:bg-white/[0.04] active:bg-black/[0.08] dark:active:bg-white/[0.1] will-change-transform"
+                    className="ff-key relative h-14 w-14 rounded-full mx-auto flex items-center justify-center overflow-hidden transition-all duration-100 ease-out disabled:opacity-20 shrink-0 will-change-transform"
                     style={{ touchAction: "manipulation" }}
                   >
                     <Trash2 className="relative z-10 h-5 w-5 text-foreground/90" />
@@ -270,26 +293,37 @@ export default function BiometricLock() {
                       handlePinDigit(digit);
                     }}
                     disabled={pin.length >= 6}
-                    className="relative h-14 w-14 rounded-full mx-auto flex items-center justify-center overflow-hidden active:scale-[0.88] transition-transform duration-75 ease-out disabled:opacity-20 shrink-0 bg-black/[0.03] dark:bg-white/[0.04] active:bg-black/[0.08] dark:active:bg-white/[0.1] will-change-transform"
+                    className="ff-key relative h-14 w-14 rounded-full mx-auto flex items-center justify-center overflow-hidden transition-all duration-100 ease-out disabled:opacity-20 shrink-0 will-change-transform"
                     style={{ touchAction: "manipulation", fontFeatureSettings: "'tnum' on" }}
                   >
-                    <span className="relative z-10 text-[22px] font-medium tracking-tight text-foreground/90">{digit}</span>
+                    <span className="relative z-10 text-[20px] font-medium tracking-tight text-foreground/90">{digit}</span>
                   </button>
                 );
               })}
             </div>
-
-            {attempts < MAX_ATTEMPTS && (
-              <button
-                onClick={() => { setMode("biometric"); setError(""); setPin(""); handleBiometric(); }}
-                className="h-11 px-6 rounded-full flex items-center justify-center text-sm font-semibold text-foreground/70 hover:text-foreground hover:bg-muted transition-colors active:scale-95"
-              >
-                Use biometrics instead
-              </button>
-            )}
           </div>
-        </>
-      )}
+        )}
+      </div>
+
+      <div className="flex-1" />
+
+      <div className="relative z-10 mb-8">
+        {mode === "biometric" ? (
+          <button
+            onClick={skipToPin}
+            className="h-11 px-6 rounded-full flex items-center justify-center text-sm font-semibold text-foreground/60 hover:text-foreground hover:bg-muted transition-colors active:scale-95"
+          >
+            Use PIN instead
+          </button>
+        ) : (
+          <button
+            onClick={retryBiometric}
+            className="h-11 px-6 rounded-full flex items-center justify-center text-sm font-semibold text-foreground/70 hover:text-foreground hover:bg-muted transition-colors active:scale-95"
+          >
+            Use biometrics instead
+          </button>
+        )}
+      </div>
     </div>
   );
 }
