@@ -38,64 +38,23 @@ interface Anomaly {
   multiplier: number;
 }
 
-type TakeType = "warning" | "positive" | "tip" | "surprise";
-
-interface Finding {
-  type: TakeType;
-  text: string;
-}
-
 interface LastAnalysis {
   date: string;
   score: string | null;
-  /** Hallazgos reales de Gemini (respuesta JSON estructurada, no texto libre
-   * recortado con regex) — siempre 3, con tipo real. El de "surprise" no viene
-   * acá, se agrega aparte porque es dato calculado en el cliente (anomaly). */
-  findings: Finding[];
+  /** Una sola frase de interpretación de Gemini, anclada al "biggest mover"
+   * real (anomaly) — no una lista de hallazgos inventados. Si no hubo nada
+   * notorio ese mes, Gemini lo dice honestamente en vez de omitir la frase. */
+  note: string;
   /** Reporte completo — persistido para que "Read full analysis" reabra el
    * último análisis sin gastar otra llamada a Gemini. Entradas viejas de
    * localStorage (guardadas antes de este campo) simplemente no lo tienen. */
   fullText?: string;
 }
 
-// Antes un ícono de 20px era la única señal de "tipo" — muy chico para leerse
-// de un vistazo, terminaba pareciendo "todo el mismo color". La etiqueta de
-// palabra en color de fondo sólido es la señal real: se lee antes que el texto.
-const TAKE_STYLES: Record<TakeType, { bg: string; label: string }> = {
-  warning: { bg: "#B45309", label: "Heads up" },
-  positive: { bg: "#047857", label: "Nice" },
-  tip: { bg: "#0369A1", label: "Try this" },
-  surprise: { bg: "#B45309", label: "Surprise" },
-};
-
-function QuickTakeRow({ type, children }: { type: TakeType; children: React.ReactNode }) {
-  const { bg, label } = TAKE_STYLES[type];
-  return (
-    <div className="flex gap-2.5 items-start">
-      <span
-        className="shrink-0 mt-0.5 text-[9px] font-black uppercase tracking-wide text-white px-1.5 py-0.5 rounded"
-        style={{ background: bg }}
-      >
-        {label}
-      </span>
-      <div className="flex-1 min-w-0">{children}</div>
-    </div>
-  );
-}
-
-function GhostTakeRow({ type, example }: { type: TakeType; example: string }) {
-  const { bg, label } = TAKE_STYLES[type];
-  return (
-    <div className="flex gap-2.5 items-start opacity-50">
-      <span
-        className="shrink-0 mt-0.5 text-[9px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded border border-dashed"
-        style={{ borderColor: bg, color: bg }}
-      >
-        {label}
-      </span>
-      <p className="text-sm italic text-muted-foreground leading-relaxed">{example}</p>
-    </div>
-  );
+interface FixedVsFlexible {
+  fixedTotal: number;
+  flexibleTotal: number;
+  total: number;
 }
 
 // Gasto por categoría de un mes dado — misma llamada que ya usaba "Top spending",
@@ -204,6 +163,7 @@ export default function Insights() {
       return saved ? JSON.parse(saved) : null;
     } catch { return null; }
   });
+  const [fixedVsFlexible, setFixedVsFlexible] = useState<FixedVsFlexible | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -220,11 +180,20 @@ export default function Insights() {
       const d = new Date(now.getFullYear(), now.getMonth() + offset, 1);
       return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
     };
+    const thisMonth = monthKey(0);
 
-    fetchCategorySpending(monthKey(0), token).then(data => {
-      // Anomalía: comparar cada categoría de este mes contra su promedio de los
-      // últimos 3 meses. Solo se muestra si hay historial real y el salto es
-      // grande — si no, se queda en null y la card ni aparece.
+    // Fixed vs flexible — aritmética real (cruza transacciones con Flows ya
+    // pagados vía bill_logs.transactionId), no necesita IA ni tocar "Analyze".
+    fetch(getApiUrl(`/api/insights/fixed-vs-flexible?month=${thisMonth}`), { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json())
+      .then(d => { if (d.total > 0) setFixedVsFlexible(d); })
+      .catch(() => {});
+
+    fetchCategorySpending(thisMonth, token).then(data => {
+      // "Biggest mover": la categoría con mayor cambio vs su propio promedio de
+      // los últimos 3 meses — siempre se muestra alguna (aunque el cambio sea
+      // chico, un mes tranquilo lo dice honestamente), no solo cuando hay un
+      // salto grande. isNotable (>=1.5x) solo cambia el tono, no si se muestra.
       Promise.all([1, 2, 3].map(o => fetchCategorySpending(monthKey(-o), token))).then(pastMonths => {
         const history: Record<string, { sum: number; color: string }> = {};
         for (const monthData of pastMonths) {
@@ -239,7 +208,7 @@ export default function Insights() {
           const average = hist ? hist.sum / 3 : 0;
           if (average < 5) continue;
           const multiplier = c.total / average;
-          if (multiplier >= 1.5 && (!best || multiplier > best.multiplier)) {
+          if (!best || multiplier > best.multiplier) {
             best = { categoryName: c.categoryName, categoryColor: c.categoryColor, thisMonth: c.total, average, multiplier };
           }
         }
@@ -260,7 +229,10 @@ export default function Insights() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${session?.access_token}`,
         },
-        body: JSON.stringify({ currency }),
+        // Le mandamos el "biggest mover" que ya calculamos acá mismo, para que
+        // Gemini escriba UNA frase de contexto anclada a ESE número real en vez
+        // de inventar su propio hallazgo que podría no coincidir con la pantalla.
+        body: JSON.stringify({ currency, anomaly }),
       });
 
       const result = await response.json();
@@ -269,7 +241,7 @@ export default function Insights() {
         return;
       }
       const narrative = result.narrative;
-      if (!narrative || !Array.isArray(result.findings)) throw new Error("No response from AI");
+      if (!narrative || typeof result.note !== "string") throw new Error("No response from AI");
 
       // Save last analysis to localStorage — fullText incluido para poder reabrir
       // el reporte completo después ("Read full analysis" en Quick take) sin
@@ -277,7 +249,7 @@ export default function Insights() {
       const analysis: LastAnalysis = {
         date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
         score: typeof result.score === "number" ? result.score.toFixed(1) : null,
-        findings: result.findings,
+        note: result.note,
         fullText: narrative,
       };
       setLastAnalysis(analysis);
@@ -459,78 +431,108 @@ export default function Insights() {
         </div>
       </div>
 
-      {/* Quick take — una sola card: la anomalía ("Biggest surprise") ya no vive
-          suelta abajo, es una fila más acá (tipada, con su mini-gráfico inline).
-          Tappeable entera: reabre el reporte completo YA persistido (fullText),
-          sin gastar otra llamada a Gemini — "Refresh analysis" en el hero sigue
-          siendo el único botón que re-analiza de verdad. */}
-      <div
-        className={cn(
-          "bg-card border border-card-border rounded-3xl px-5 py-4 transition-transform",
-          lastAnalysis?.fullText && "active:scale-[0.99] cursor-pointer"
-        )}
-        onClick={() => { if (lastAnalysis?.fullText) setInsights(lastAnalysis.fullText); }}
-        role={lastAnalysis?.fullText ? "button" : undefined}
-        tabIndex={lastAnalysis?.fullText ? 0 : undefined}
-      >
-        <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-foreground/80 mb-3">
-          <Sparkles className="h-3.5 w-3.5" style={{ color: ACCENT }} />
-          Quick take
-        </p>
-        {lastAnalysis ? (
-          <>
-            <div className="space-y-2.5">
-              {anomaly && (
-                <QuickTakeRow type="surprise">
-                  <p className="text-sm text-foreground leading-relaxed">
-                    <b className="font-bold">{anomaly.categoryName}</b> is running {anomaly.multiplier.toFixed(1)}× your usual — biggest surprise this month
-                  </p>
-                  <div className="flex items-center gap-3 mt-1.5">
-                    <div className="flex-1">
-                      <div className="h-1 rounded-full bg-muted overflow-hidden">
-                        <div className="h-full rounded-full bg-muted-foreground/40" style={{ width: `${Math.min(100, Math.round((anomaly.average / anomaly.thisMonth) * 100))}%` }} />
-                      </div>
-                      <span className="text-[10px] text-muted-foreground">avg {formatAmount(anomaly.average)}</span>
-                    </div>
-                    <div className="flex-1">
-                      <div className="h-1 rounded-full bg-muted overflow-hidden">
-                        <div className="h-full rounded-full" style={{ width: "100%", background: "#B45309" }} />
-                      </div>
-                      <span className="text-[10px] text-muted-foreground">now {formatAmount(anomaly.thisMonth)}</span>
-                    </div>
-                  </div>
-                </QuickTakeRow>
-              )}
-              {(lastAnalysis.findings ?? []).map((f, i) => (
-                <QuickTakeRow key={i} type={f.type}>
-                  <p className="text-sm text-foreground leading-relaxed">{f.text}</p>
-                </QuickTakeRow>
-              ))}
+      {/* Biggest mover — un solo headline, no una lista de frases. El número y
+          las barras son aritmética real (anomaly, calculado acá mismo contra
+          el promedio de 3 meses) y se muestran siempre que haya historial,
+          sea o no un salto grande — un mes tranquilo lo dice honesto en vez de
+          desaparecer. La única frase de Gemini interpreta ESE número real,
+          nunca inventa el suyo. Tappeable entera: reabre el reporte completo
+          ya persistido (fullText), sin gastar otra llamada a Gemini —
+          "Refresh analysis" en el hero sigue siendo el único que re-analiza. */}
+      {anomaly && (() => {
+        const isNotable = anomaly.multiplier >= 1.5;
+        const multColor = isNotable ? "#B45309" : undefined;
+        return (
+          <div
+            className={cn(
+              "bg-card border border-card-border rounded-3xl px-5 py-4 transition-transform",
+              lastAnalysis?.fullText && "active:scale-[0.99] cursor-pointer"
+            )}
+            onClick={() => { if (lastAnalysis?.fullText) setInsights(lastAnalysis.fullText); }}
+            role={lastAnalysis?.fullText ? "button" : undefined}
+            tabIndex={lastAnalysis?.fullText ? 0 : undefined}
+          >
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">Biggest mover this month</p>
+
+            <div className="flex items-baseline gap-2">
+              <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: anomaly.categoryColor }} />
+              <span className="text-sm font-bold text-foreground">{anomaly.categoryName}</span>
+              <span
+                className={cn("font-entry-amount leading-[0.8] ml-auto", !isNotable && "text-muted-foreground")}
+                style={{ fontSize: "2.1rem", color: multColor }}
+              >
+                {anomaly.multiplier.toFixed(1)}×
+              </span>
             </div>
 
-            {lastAnalysis.fullText && (
+            <div className="flex items-center gap-3 mt-2.5">
+              <div className="flex-1">
+                <div className="h-1 rounded-full bg-muted overflow-hidden">
+                  <div className="h-full rounded-full bg-muted-foreground/40" style={{ width: `${Math.min(100, Math.round((anomaly.average / anomaly.thisMonth) * 100))}%` }} />
+                </div>
+                <span className="text-[10px] text-muted-foreground">avg {formatAmount(anomaly.average)}</span>
+              </div>
+              <div className="flex-1">
+                <div className="h-1 rounded-full bg-muted overflow-hidden">
+                  <div className="h-full rounded-full" style={{ width: "100%", background: isNotable ? "#B45309" : "hsl(var(--muted-foreground))" }} />
+                </div>
+                <span className="text-[10px] text-muted-foreground">now {formatAmount(anomaly.thisMonth)}</span>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-2 mt-3 pt-3 border-t border-border">
+              <Sparkles className="h-3.5 w-3.5 shrink-0 mt-0.5" style={{ color: ACCENT }} />
+              {lastAnalysis?.note ? (
+                <p className="text-sm text-foreground leading-relaxed">{lastAnalysis.note}</p>
+              ) : (
+                <p className="text-sm italic text-muted-foreground leading-relaxed">Tap Analyze above for AI context on this</p>
+              )}
+            </div>
+
+            {lastAnalysis?.fullText && (
               <div className="flex items-center justify-between mt-3 pt-3 border-t border-border">
                 <span className="text-xs font-bold" style={{ color: ACCENT }}>Read full analysis</span>
                 <ChevronRight className="h-3.5 w-3.5" style={{ color: ACCENT }} />
               </div>
             )}
-            <p className="text-[11px] text-muted-foreground mt-2">
-              {lastAnalysis.fullText ? `saved · ${lastAnalysis.date} · tap to reopen, no new AI call` : `Based on your last analysis · ${lastAnalysis.date}`}
-            </p>
-          </>
-        ) : (
-          <>
-            <div className="space-y-2.5">
-              <GhostTakeRow type="surprise" example={'e.g. "Dining spend jumped vs. your usual"'} />
-              <GhostTakeRow type="positive" example={'e.g. "Where you\'re staying on budget"'} />
-              <GhostTakeRow type="tip" example={'e.g. "A concrete way to save more"'} />
+            {lastAnalysis?.fullText && (
+              <p className="text-[11px] text-muted-foreground mt-2">saved · {lastAnalysis.date} · tap to reopen, no new AI call</p>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* Fixed vs flexible — aritmética real (cruza transacciones con Flows ya
+          pagados), siempre visible si hay data este mes, no depende de "Analyze". */}
+      {fixedVsFlexible && (
+        <div className="bg-card border border-card-border rounded-3xl px-5 py-4">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2.5">Fixed vs flexible this month</p>
+          <div className="flex h-9 rounded-xl overflow-hidden">
+            <div
+              className="flex items-center justify-center text-[10px] font-bold uppercase tracking-wide bg-foreground text-background"
+              style={{ width: `${Math.max(8, Math.round((fixedVsFlexible.fixedTotal / fixedVsFlexible.total) * 100))}%` }}
+            >
+              {fixedVsFlexible.fixedTotal > 0 && "Fixed"}
             </div>
-            <p className="text-xs font-bold mt-3 pt-3 border-t border-border" style={{ color: ACCENT }}>
-              ↑ Tap Analyze above — these fill in with your real numbers
-            </p>
-          </>
-        )}
-      </div>
+            <div
+              className="flex items-center justify-center text-[10px] font-bold uppercase tracking-wide text-white"
+              style={{ width: `${Math.max(8, Math.round((fixedVsFlexible.flexibleTotal / fixedVsFlexible.total) * 100))}%`, background: ACCENT }}
+            >
+              {fixedVsFlexible.flexibleTotal > 0 && "Flexible"}
+            </div>
+          </div>
+          <div className="flex gap-4 mt-3">
+            <div className="flex-1">
+              <p className="font-entry-amount text-2xl leading-none text-foreground">{formatAmount(fixedVsFlexible.fixedTotal)}</p>
+              <p className="text-[10px] text-muted-foreground mt-1 leading-snug">Fixed — Flows already committed</p>
+            </div>
+            <div className="flex-1">
+              <p className="font-entry-amount text-2xl leading-none text-foreground">{formatAmount(fixedVsFlexible.flexibleTotal)}</p>
+              <p className="text-[10px] text-muted-foreground mt-1 leading-snug">Flexible — your call</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Error */}
       {error && (

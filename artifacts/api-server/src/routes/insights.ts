@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { transactionsTable, categoriesTable } from "@workspace/db";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { transactionsTable, categoriesTable, billsTable, billLogsTable } from "@workspace/db";
+import { eq, and, desc, like } from "drizzle-orm";
 import { authMiddleware } from "../middlewares/auth";
 
 const router = Router();
@@ -22,10 +22,62 @@ const CURRENCY_LABELS: Record<string, string> = {
   GBP: "British Pound",
 };
 
+// Fixed vs flexible: cruza las transacciones de gasto del mes contra bill_logs
+// (que ya guarda transactionId cuando un Flow con auto-save generó la
+// transacción real) — sin heurística de texto/monto, es el link real que ya
+// existía en la DB para otra cosa (mostrar "pagado" en Goals). 100% aritmética,
+// no necesita Gemini ni tocar la página "Analyze".
+router.get("/insights/fixed-vs-flexible", async (req, res) => {
+  const userId = (req as any).userId;
+  const month = typeof req.query.month === "string" ? req.query.month : new Date().toISOString().slice(0, 7);
+
+  try {
+    const txs = await db
+      .select({ id: transactionsTable.id, amount: transactionsTable.amount })
+      .from(transactionsTable)
+      .where(
+        and(
+          eq(transactionsTable.userId, userId),
+          eq(transactionsTable.type, "expense"),
+          like(transactionsTable.date, `${month}%`),
+        ),
+      );
+
+    if (txs.length === 0) {
+      return res.json({ month, fixedTotal: 0, flexibleTotal: 0, total: 0 });
+    }
+
+    const fixedLinks = await db
+      .select({ transactionId: billLogsTable.transactionId })
+      .from(billLogsTable)
+      .innerJoin(billsTable, eq(billLogsTable.billId, billsTable.id))
+      .where(and(eq(billsTable.userId, userId), eq(billLogsTable.month, month), eq(billsTable.type, "expense")));
+
+    const fixedIds = new Set(fixedLinks.map((f) => f.transactionId).filter((id): id is number => id !== null));
+
+    let fixedTotal = 0;
+    let total = 0;
+    for (const t of txs) {
+      const amt = parseFloat(t.amount);
+      total += amt;
+      if (fixedIds.has(t.id)) fixedTotal += amt;
+    }
+
+    return res.json({ month, fixedTotal, flexibleTotal: total - fixedTotal, total });
+  } catch {
+    return res.status(500).json({ error: "Failed to compute fixed vs flexible." });
+  }
+});
+
 router.post("/insights/analyze", async (req, res) => {
   const userId = (req as any).userId;
   const currency = typeof req.body?.currency === "string" ? req.body.currency : "USD";
   const currencyLabel = CURRENCY_LABELS[currency] ?? currency;
+  // La "biggest mover" ya la calcula el cliente (categoría vs su propio promedio
+  // de 3 meses) — se le manda a Gemini como contexto para que escriba UNA sola
+  // frase de interpretación anclada a ESE número real, en vez de que invente su
+  // propio hallazgo que puede no coincidir con lo que ya se ve en pantalla.
+  const anomaly = req.body?.anomaly && typeof req.body.anomaly === "object" ? req.body.anomaly : null;
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
@@ -56,24 +108,26 @@ router.post("/insights/analyze", async (req, res) => {
       .map((t) => `${t.date} | ${t.type} | ${t.amount} | ${t.description} | ${t.categoryName ?? "Unknown"}`)
       .join("\n");
 
-    // Antes esto devolvía un solo bloque de texto libre y el frontend le
-    // arrancaba 1-2 oraciones con una regex para el "Quick take" — resultaba
-    // en fragmentos random, a veces vagos, a veces ausentes si Gemini no
-    // tocaba ese tema. Pidiendo JSON estructurado con "findings" fijos (3,
-    // siempre, con tipo real) el frontend ya no adivina nada.
+    // Antes esto le pedía a Gemini 3 "findings" cortos que terminaban siendo
+    // frases genéricas desconectadas del resto de la página. Ahora Gemini
+    // recibe el mismo numero que ya se ve en pantalla (el "biggest mover" que
+    // calcula el cliente) y su único trabajo es UNA frase de interpretación —
+    // por qué puede estar pasando, o una tranquilidad honesta si no hay nada
+    // raro — nunca repetir el dato.
+    const anomalyContext = anomaly
+      ? `The user's biggest spending mover this month: "${anomaly.categoryName}" is running ${Number(anomaly.multiplier).toFixed(1)}x its usual pace (${currency} ${anomaly.thisMonth} this month vs. a ${currency} ${anomaly.average} average).`
+      : `Nothing moved unusually this month — every category stayed close to its own recent average.`;
+
     const prompt = `You are a personal finance advisor analyzing a user's transactions.
 
 IMPORTANT: The user's currency is ${currency} (${currencyLabel}). Always display amounts using the correct symbol and currency code in "narrative" — never convert to USD or any other currency.
 
-Respond with findings and a narrative report about the transactions below.
+${anomalyContext}
 
-Rules for "findings":
-- Always exactly 3, never fewer, never omitted.
-- Each "text" must stand on its own — no "as shown above", no filler, no vague generalities. Name real categories and amounts from the data.
-- Vary the type across the 3 when the data supports it, but pick whatever is true — don't force one of each if it's not honest.
-- If nothing negative or surprising happened, still fill that slot honestly and reassuringly (e.g. "No category spiked unusually this month — spending stayed steady across the board") instead of skipping it or inventing a problem.
-
-Rules for "narrative": a full markdown report — spending summary by category, top expense categories, income sources analysis, 3-5 specific actionable recommendations. Keep it compact: brief sections, no large blank lines, tight bullet lists, light emoji use.
+Respond with:
+- "note": exactly ONE short sentence of interpretation or context for the mover above — a plausible reason, a pattern worth watching, or (if nothing moved) an honest, reassuring line that it was a quiet, on-plan month. Never restate the number itself, the user already sees it. No filler, no "as shown above".
+- "score": overall financial health score, 1-10, based on the full transaction history below.
+- "narrative": a full markdown report — spending summary by category, top expense categories, income sources analysis, 3-5 specific actionable recommendations. Keep it compact: brief sections, no large blank lines, tight bullet lists, light emoji use.
 
 Transactions:
 ${txText}`;
@@ -91,20 +145,10 @@ ${txText}`;
               type: "OBJECT",
               properties: {
                 score: { type: "NUMBER", description: "Overall financial health score, 1-10" },
-                findings: {
-                  type: "ARRAY",
-                  items: {
-                    type: "OBJECT",
-                    properties: {
-                      type: { type: "STRING", enum: ["warning", "positive", "tip"] },
-                      text: { type: "STRING" },
-                    },
-                    required: ["type", "text"],
-                  },
-                },
+                note: { type: "STRING" },
                 narrative: { type: "STRING" },
               },
-              required: ["score", "findings", "narrative"],
+              required: ["score", "note", "narrative"],
             },
           },
         }),
@@ -121,7 +165,7 @@ ${txText}`;
       return res.status(502).json({ error: "No response from AI. Please try again." });
     }
 
-    let parsed: { score: number; findings: { type: string; text: string }[]; narrative: string };
+    let parsed: { score: number; note: string; narrative: string };
     try {
       parsed = JSON.parse(raw);
     } catch {
