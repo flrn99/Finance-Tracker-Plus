@@ -127,7 +127,7 @@ ${anomalyContext}
 Respond with:
 - "note": exactly ONE short sentence of interpretation or context for the mover above — a plausible reason, a pattern worth watching, or (if nothing moved) an honest, reassuring line that it was a quiet, on-plan month. Never restate the number itself, the user already sees it. No filler, no "as shown above".
 - "score": overall financial health score, 1-10, based on the full transaction history below.
-- "narrative": a full markdown report — spending summary by category, top expense categories, income sources analysis, 3-5 specific actionable recommendations. Keep it compact: brief sections, no large blank lines, tight bullet lists, light emoji use.
+- "narrative": a full, substantive markdown report, AT LEAST 300 words — this is the one place in the whole response where you have real room, use it. Structure: ## Spending summary (by category, with real amounts), ## Top expense categories (ranked, with amounts and % of total), ## Income sources (breakdown + consistency), ## Recommendations (3-5 specific, actionable, tied to real numbers from the data — not generic advice like "save more"). Compact formatting (tight bullets, no huge blank gaps) is about whitespace, not about cutting content short — depth and specificity matter more than brevity here.
 
 Transactions:
 ${txText}`;

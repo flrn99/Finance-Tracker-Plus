@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Capacitor } from "@capacitor/core";
 import { FilePicker } from "@capawesome/capacitor-file-picker";
-import { Sparkles, Upload, Loader2, AlertCircle, X, ChevronRight } from "lucide-react";
+import { Sparkles, Upload, Loader2, AlertCircle, X, ChevronRight, ChevronDown, Lock, Target } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useCurrency, CURRENCY_INFO } from "@/lib/currency-context";
 import { getApiUrl } from "@/lib/api-config";
@@ -145,6 +145,37 @@ function InsightsModal({ insights, onClose }: { insights: string; onClose: () =>
   );
 }
 
+/** Fila "bloqueada" dentro de la card de empty state — tocarla la despliega en el
+ * lugar (mismo truco de altura explícita + overflow-hidden que ya usa la cápsula
+ * del biometric lock) en vez de abrir algo aparte, para explicar qué es esa
+ * sección sin que el usuario tenga que adivinar por qué está vacía. */
+function LockedRow({
+  id, title, explain, expanded, onToggle,
+}: {
+  id: string; title: string; explain: string; expanded: boolean; onToggle: () => void;
+}) {
+  const reducedMotion = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  return (
+    <div
+      className="rounded-xl border border-dashed border-border overflow-hidden"
+      style={{ height: expanded ? 112 : 40, transition: reducedMotion ? "none" : "height 300ms cubic-bezier(0.25,0.46,0.45,0.94)" }}
+    >
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={expanded}
+        aria-controls={id}
+        className="w-full h-10 flex items-center gap-2 px-2.5 text-left"
+      >
+        <Lock className="h-3 w-3 text-muted-foreground shrink-0" />
+        <span className="text-xs font-bold text-muted-foreground flex-1 truncate">{title}</span>
+        <ChevronDown className={cn("h-3 w-3 text-muted-foreground shrink-0 transition-transform duration-300", expanded && "rotate-180")} />
+      </button>
+      <p id={id} className="px-2.5 pb-2.5 text-[11px] text-muted-foreground leading-relaxed">{explain}</p>
+    </div>
+  );
+}
+
 export default function Insights() {
   const { session } = useAuth();
   const { currency, formatAmount } = useCurrency();
@@ -164,6 +195,12 @@ export default function Insights() {
     } catch { return null; }
   });
   const [fixedVsFlexible, setFixedVsFlexible] = useState<FixedVsFlexible | null>(null);
+  /** Diagnóstico visible del fetch de fixed-vs-flexible — el usuario no usa ADB,
+   * así que un console.error no le sirve para nada en el teléfono real. Si falla
+   * por algo que no sea "no hay datos este mes", se ve un aviso chico en la UI
+   * en vez de que la card simplemente no aparezca sin explicación. */
+  const [fixedVsFlexibleError, setFixedVsFlexibleError] = useState<string | null>(null);
+  const [expandedLockedRow, setExpandedLockedRow] = useState<"mover" | "fixedflex" | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -184,33 +221,56 @@ export default function Insights() {
 
     // Fixed vs flexible — aritmética real (cruza transacciones con Flows ya
     // pagados vía bill_logs.transactionId), no necesita IA ni tocar "Analyze".
+    // Si esto falla (401/500/ruta vieja en un deploy que todavía no llegó), antes
+    // quedaba en silencio total — ahora se ve un aviso chico en la propia página.
     fetch(getApiUrl(`/api/insights/fixed-vs-flexible?month=${thisMonth}`), { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => r.json())
-      .then(d => { if (d.total > 0) setFixedVsFlexible(d); })
-      .catch(() => {});
+      .then(async r => {
+        if (!r.ok) { setFixedVsFlexibleError(`HTTP ${r.status}${r.status === 404 ? " — backend deploy pendiente" : ""}`); return null; }
+        return r.json();
+      })
+      .then(d => { if (d && d.total > 0) setFixedVsFlexible(d); })
+      .catch(() => setFixedVsFlexibleError("Network error"));
 
     fetchCategorySpending(thisMonth, token).then(data => {
-      // "Biggest mover": la categoría con mayor cambio vs su propio promedio de
-      // los últimos 3 meses — siempre se muestra alguna (aunque el cambio sea
-      // chico, un mes tranquilo lo dice honestamente), no solo cuando hay un
-      // salto grande. isNotable (>=1.5x) solo cambia el tono, no si se muestra.
+      // "Biggest mover": la categoría con mayor cambio vs su propio promedio
+      // histórico — siempre se muestra alguna (aunque el cambio sea chico, un
+      // mes tranquilo lo dice honestamente), no solo cuando hay un salto grande.
+      // isNotable (>=1.5x) solo cambia el tono, no si se muestra.
       Promise.all([1, 2, 3].map(o => fetchCategorySpending(monthKey(-o), token))).then(pastMonths => {
-        const history: Record<string, { sum: number; color: string }> = {};
+        // Antes esto dividía siempre entre 3 meses, incluso si la categoría solo
+        // tenía historial en 1 de esos 3 — el promedio quedaba artificialmente
+        // bajo (o en 0 si no hubo NINGÚN mes con esa categoría), lo que en una
+        // cuenta sin 3 meses completos de historial dejaba a "best" siempre en
+        // null: la card entera no aparecía nunca, sin importar cuántas veces se
+        // reanalizara. Ahora se promedia solo sobre los meses que sí tuvieron
+        // gasto real en esa categoría.
+        const history: Record<string, { sum: number; count: number; color: string }> = {};
         for (const monthData of pastMonths) {
           for (const c of monthData) {
-            if (!history[c.categoryName]) history[c.categoryName] = { sum: 0, color: c.categoryColor };
+            if (!history[c.categoryName]) history[c.categoryName] = { sum: 0, count: 0, color: c.categoryColor };
             history[c.categoryName].sum += c.total;
+            history[c.categoryName].count += 1;
           }
         }
         let best: Anomaly | null = null;
         for (const c of data) {
           const hist = history[c.categoryName];
-          const average = hist ? hist.sum / 3 : 0;
+          if (!hist || hist.count === 0) continue;
+          const average = hist.sum / hist.count;
           if (average < 5) continue;
           const multiplier = c.total / average;
           if (!best || multiplier > best.multiplier) {
             best = { categoryName: c.categoryName, categoryColor: c.categoryColor, thisMonth: c.total, average, multiplier };
           }
+        }
+        // Fallback real: si ninguna categoría tiene historial comparable todavía
+        // (cuenta nueva, o categorías que cambian mes a mes), no dejar la card
+        // vacía — mostrar la categoría más grande de este mes tal cual, sin
+        // multiplicador inventado (1.0×, se lee como "recién estamos empezando
+        // a comparar", no como una sorpresa real).
+        if (!best && data.length > 0) {
+          const top = [...data].sort((a, b) => b.total - a.total)[0]!;
+          best = { categoryName: top.categoryName, categoryColor: top.categoryColor, thisMonth: top.total, average: top.total, multiplier: 1 };
         }
         setAnomaly(best);
       });
@@ -431,6 +491,44 @@ export default function Insights() {
         </div>
       </div>
 
+      {/* Getting started — cuando no hay nada de qué partir todavía (cuenta nueva
+          o mes sin gastos cargados), en vez de dejar el espacio en blanco sin
+          explicación se ve un candado por sección con una frase de qué la
+          desbloquea. Tocar una fila la despliega ahí mismo (mismo truco de
+          altura + overflow-hidden que la cápsula del biometric lock) con una
+          explicación más larga de qué es esa sección. */}
+      {(!anomaly || (!fixedVsFlexible && !fixedVsFlexibleError)) && (
+        <div className="bg-card border border-card-border rounded-3xl px-5 py-4 text-center">
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center mx-auto mb-2.5" style={{ background: "rgba(202,250,1,0.13)" }}>
+            <Target className="h-4 w-4" style={{ color: "#7CB518" }} />
+          </div>
+          <p className="text-sm font-bold text-foreground">Nothing to show yet</p>
+          <p className="text-xs text-muted-foreground mt-1 max-w-[220px] mx-auto leading-relaxed">
+            Log a few expenses and these fill in on their own:
+          </p>
+          <div className="mt-3 flex flex-col gap-2 text-left">
+            {!anomaly && (
+              <LockedRow
+                id="locked-mover"
+                title="Biggest mover this month"
+                explain="Shows the category that changed the most vs. its own recent average — e.g. “Dining is running 2× higher than usual.” Updates on its own as you log expenses, no need to run an analysis."
+                expanded={expandedLockedRow === "mover"}
+                onToggle={() => setExpandedLockedRow(v => v === "mover" ? null : "mover")}
+              />
+            )}
+            {!fixedVsFlexible && !fixedVsFlexibleError && (
+              <LockedRow
+                id="locked-fixedflex"
+                title="Fixed vs flexible"
+                explain="Splits this month's spending into what was already committed (paid Flows) vs. what was your choice — so you can see how much real wiggle room you have."
+                expanded={expandedLockedRow === "fixedflex"}
+                onToggle={() => setExpandedLockedRow(v => v === "fixedflex" ? null : "fixedflex")}
+              />
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Biggest mover — un solo headline, no una lista de frases. El número y
           las barras son aritmética real (anomaly, calculado acá mismo contra
           el promedio de 3 meses) y se muestran siempre que haya historial,
@@ -532,6 +630,9 @@ export default function Insights() {
             </div>
           </div>
         </div>
+      )}
+      {!fixedVsFlexible && fixedVsFlexibleError && (
+        <p className="text-[11px] text-muted-foreground px-1">Fixed vs flexible: {fixedVsFlexibleError}</p>
       )}
 
       {/* Error */}
