@@ -1,5 +1,5 @@
 import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -81,7 +81,13 @@ function ProtectedRouter() {
   // conserva el path de antes de bloquearse (ej. Transactions, si el timeout de
   // 5min agarró a la app ahí) y el desbloqueo te devolvía a esa página en vez del
   // Dashboard. Se resetea al Dashboard cada vez que el lock pasa de abierto a cerrado.
-  useEffect(() => {
+  //
+  // useLayoutEffect (no useEffect): con useEffect hay un frame real, ya pintado,
+  // en el que el Dashboard queda visible y tocable ANTES de que este efecto
+  // active el escudo — si el tap/click fantasma del último dígito del PIN cae
+  // justo ahí, pasa de largo. useLayoutEffect corre antes del paint, así que el
+  // escudo ya está puesto en el primer frame que el usuario llega a ver.
+  useLayoutEffect(() => {
     if (isLocked) wasLocked.current = true;
     else if (wasLocked.current) {
       wasLocked.current = false;
