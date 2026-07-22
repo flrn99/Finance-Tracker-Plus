@@ -21,6 +21,12 @@ import { useToast } from "@/hooks/use-toast";
 // La API key de Gemini vive en el backend — ya NO se hornea en el APK
 
 const ACCENT = "#0EA5E9";
+// Terracota/naranja para Fixed vs flexible — complementario del celeste del
+// hero (opuestos en la rueda cromática, arman contraste real en vez de
+// perderse al lado) y no pisa ningún significado ya usado en la app (verde =
+// income, rojo = expense-negativo, ambos intocables).
+const FIXED_COLOR = "#C2410C";
+const FLEXIBLE_COLOR = "#FB923C";
 
 interface EditableTx {
   date: string;
@@ -727,39 +733,48 @@ export default function Insights() {
           El Flow más grande dentro de "Fixed" vivía antes en una card aparte
           ("Biggest expense") que terminaba mostrando la misma categoría que
           "Category on the move" casi siempre — acá vive donde pertenece
-          conceptualmente, como parte de lo que ya es fijo. */}
-      {activeLens === "expense" && fixedVsFlexible && (
-        <div className="bg-card border border-card-border rounded-3xl px-5 py-4">
-          <p className="text-xs font-bold text-muted-foreground mb-2.5">Fixed vs flexible spending this month</p>
-          <div className="flex h-9 rounded-xl overflow-hidden">
-            <div
-              className="flex items-center justify-center text-[10px] font-bold uppercase tracking-wide bg-foreground text-background"
-              style={{ width: `${Math.max(8, Math.round((fixedVsFlexible.fixedTotal / fixedVsFlexible.total) * 100))}%` }}
-            >
-              {fixedVsFlexible.fixedTotal > 0 && "Fixed"}
+          conceptualmente, como parte de lo que ya es fijo. Terracota/naranja
+          en vez de negro/celeste: complementario del celeste del hero, y no
+          pisa ningún significado ya usado (verde=income, rojo=expense-negativo). */}
+      {activeLens === "expense" && fixedVsFlexible && (() => {
+        const { fixedTotal, flexibleTotal, total, biggestFixedFlow } = fixedVsFlexible;
+        let caption: string;
+        if (fixedTotal === 0) {
+          caption = `Nothing committed yet — all ${formatAmount(flexibleTotal)} this month was your call.`;
+        } else if (flexibleTotal === 0) {
+          caption = biggestFixedFlow
+            ? `${biggestFixedFlow.name} is your largest fixed commitment at ${formatAmount(biggestFixedFlow.amount)}. Nothing flexible this month — it was all already committed.`
+            : `${formatAmount(fixedTotal)} was already committed. Nothing flexible this month.`;
+        } else if (biggestFixedFlow) {
+          caption = `${biggestFixedFlow.name} is your largest fixed commitment at ${formatAmount(biggestFixedFlow.amount)}. The rest (${formatAmount(flexibleTotal)}) was your call this month.`;
+        } else {
+          caption = `${formatAmount(fixedTotal)} was already committed. The rest (${formatAmount(flexibleTotal)}) was your call this month.`;
+        }
+        return (
+          <div className="bg-card border border-card-border rounded-3xl px-5 py-4">
+            <p className="text-xs font-bold text-muted-foreground mb-2.5">Fixed vs flexible spending this month</p>
+            <div className="flex items-center gap-4 mb-2">
+              <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                <span className="h-2 w-2 rounded-full shrink-0" style={{ background: FIXED_COLOR }} />
+                Fixed
+              </span>
+              <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                <span className="h-2 w-2 rounded-full shrink-0" style={{ background: FLEXIBLE_COLOR }} />
+                Flexible
+              </span>
             </div>
-            <div
-              className="flex items-center justify-center text-[10px] font-bold uppercase tracking-wide text-white"
-              style={{ width: `${Math.max(8, Math.round((fixedVsFlexible.flexibleTotal / fixedVsFlexible.total) * 100))}%`, background: ACCENT }}
-            >
-              {fixedVsFlexible.flexibleTotal > 0 && "Flexible"}
+            <div className="flex h-2.5 rounded-full overflow-hidden">
+              <div style={{ width: `${Math.max(4, Math.round((fixedTotal / total) * 100))}%`, background: FIXED_COLOR }} />
+              <div style={{ width: `${Math.max(4, Math.round((flexibleTotal / total) * 100))}%`, background: FLEXIBLE_COLOR }} />
             </div>
+            <div className="flex gap-5 mt-2.5">
+              <span className="font-entry-amount text-2xl leading-none" style={{ color: FIXED_COLOR }}>{formatAmount(fixedTotal)}</span>
+              <span className="font-entry-amount text-2xl leading-none text-foreground">{formatAmount(flexibleTotal)}</span>
+            </div>
+            <p className="text-xs text-muted-foreground mt-2.5 leading-relaxed">{caption}</p>
           </div>
-          <div className="flex gap-4 mt-3">
-            <div className="flex-1">
-              <p className="font-entry-amount text-2xl leading-none text-foreground">{formatAmount(fixedVsFlexible.fixedTotal)}</p>
-              <p className="text-[10px] text-muted-foreground mt-1 leading-snug">
-                Fixed — Flows already committed
-                {fixedVsFlexible.biggestFixedFlow && ` (${fixedVsFlexible.biggestFixedFlow.name} is the largest, ${formatAmount(fixedVsFlexible.biggestFixedFlow.amount)})`}
-              </p>
-            </div>
-            <div className="flex-1">
-              <p className="font-entry-amount text-2xl leading-none text-foreground">{formatAmount(fixedVsFlexible.flexibleTotal)}</p>
-              <p className="text-[10px] text-muted-foreground mt-1 leading-snug">Flexible — your call</p>
-            </div>
-          </div>
-        </div>
-      )}
+        );
+      })()}
       {activeLens === "expense" && !fixedVsFlexible && fixedVsFlexibleError && (
         <p className="text-[11px] text-muted-foreground px-1">Fixed vs flexible: {fixedVsFlexibleError}</p>
       )}
