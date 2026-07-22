@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
@@ -764,7 +764,10 @@ function BillForm({
   const type = form.watch("type");
   const day = form.watch("day");
   const autoSave = form.watch("autoSave");
-  const categoryId = form.watch("categoryId");
+  // useWatch (API reactiva), no form.watch (API imperativa) — recomendado por
+  // la propia librería para leer un valor durante el render; confirmado con
+  // logging real que este sí se mantiene sincronizado con cada setValue().
+  const categoryId = useWatch({ control: form.control, name: "categoryId" });
   const isIncome = type === "income";
   const categories = isIncome ? incomeCategories : expenseCategories;
   const selectedCategory = categories.find((c) => c.id === categoryId);
@@ -974,7 +977,14 @@ function BillForm({
               <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Category</FormLabel>
               <div className="flex gap-1.5 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
                 {categories.map((c) => {
-                  const isSelected = field.value === c.id;
+                  // categoryId (useWatch de arriba), no field.value: el Controller de este
+                  // field queda "congelado" en su valor inicial y no refleja los
+                  // form.setValue("categoryId", ...) que dispara el toggle de type al
+                  // cambiar — field.value seguía mostrando la categoría vieja como
+                  // seleccionada al volver a un type que la admite de nuevo, aunque el
+                  // resto del form (incluido el aviso de auto-save) ya viera el valor
+                  // real. field.onChange sigue siendo el correcto para ESCRIBIR el valor.
+                  const isSelected = categoryId === c.id;
                   return (
                     <button
                       key={c.id}
