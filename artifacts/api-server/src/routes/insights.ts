@@ -142,11 +142,18 @@ router.get("/insights/anomaly", async (req, res) => {
     // dólares — independiente de si cambió o no. Un Flow fijo grande (rent)
     // nunca "se mueve" (su promedio ≈ el de este mes), así que mover casi
     // nunca lo elige aunque sea el gasto más grande del mes.
+    // Se excluye la categoría que ya ganó en "mover" a propósito — si el
+    // salto de esa categoría es grande, fácilmente también termina siendo la
+    // más grande en dólares ese mes, y mostrarla dos veces no aporta nada
+    // nuevo. Así las dos cards siempre hablan de categorías distintas.
     const currentEntries = Object.entries(current);
     const monthTotal = currentEntries.reduce((sum, [, v]) => sum + v.total, 0);
+    const biggestExpenseCandidates = mover
+      ? currentEntries.filter(([name]) => name !== mover!.categoryName)
+      : currentEntries;
     let biggestExpense: { categoryName: string; categoryColor: string; total: number; percentage: number; monthTotal: number } | null = null;
-    if (currentEntries.length > 0) {
-      const [name, v] = currentEntries.sort((a, b) => b[1].total - a[1].total)[0]!;
+    if (biggestExpenseCandidates.length > 0) {
+      const [name, v] = biggestExpenseCandidates.sort((a, b) => b[1].total - a[1].total)[0]!;
       biggestExpense = {
         categoryName: name,
         categoryColor: v.color,
