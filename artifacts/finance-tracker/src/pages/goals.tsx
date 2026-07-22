@@ -1921,11 +1921,24 @@ export default function Goals() {
   // Al marcar (cualquier mes del heatmap, no solo el actual): si el bill tiene auto-save,
   // se pide el monto real y se crea la transacción antes de loguear el mes como pagado
   // (para poder linkear transactionId). Sin auto-save, solo se loguea el mes.
+  //
+  // pendingToggles: sin esto, un doble-toque (o un click fantasma del WebView,
+  // ya nos pasó antes con el biometric lock) dispara DOS mutations para el
+  // mismo bill+mes antes de que la primera vuelva del servidor — cada una
+  // toggleaba el estado, así que a veces terminaba marcando dos veces seguidas
+  // (quedaba igual que empezó) o el usuario tocaba una vez para desmarcar y
+  // el segundo toggle fantasma lo volvía a marcar. Mientras hay un toggle en
+  // vuelo para ESE bill+mes puntual, los toques siguientes se ignoran — no
+  // bloquea tocar otros Flows mientras tanto.
+  const pendingToggles = useRef<Set<string>>(new Set());
   const handleToggleBillMonth = (b: Bill, month: string) => {
     if (b.id < 0) return;
+    const key = `${b.id}:${month}`;
+    if (pendingToggles.current.has(key)) return;
     const isPaid = new Set(b.logs).has(month);
     if (isPaid) {
-      toggleBillLog.mutate({ id: b.id, month });
+      pendingToggles.current.add(key);
+      toggleBillLog.mutate({ id: b.id, month }, { onSettled: () => pendingToggles.current.delete(key) });
       return;
     }
     if (b.autoSave && b.categoryId) {
@@ -1935,7 +1948,8 @@ export default function Goals() {
       setPayAmount(b.amount ? formatAmountInput(String(b.amount)) : "");
       return;
     }
-    toggleBillLog.mutate({ id: b.id, month });
+    pendingToggles.current.add(key);
+    toggleBillLog.mutate({ id: b.id, month }, { onSettled: () => pendingToggles.current.delete(key) });
   };
 
   const handlePaySubmit = () => {
