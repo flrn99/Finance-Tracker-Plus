@@ -183,7 +183,7 @@ const BILL_ICON_KEYS = ["creditcard", "home", "car", "smartphone", "wallet", "za
 
 const COLOR_OPTIONS: { hex: string; name: string }[] = [
   { hex: "#FF4D4D", name: "Flow! Red" },
-  { hex: "#00FF9C", name: "Flow! Green" },
+  { hex: "#00A870", name: "Flow! Green" },
   { hex: "#CAFA01", name: "Flow Green" },
   { hex: "#22c55e", name: "Matcha Rush" },
   { hex: "#14b8a6", name: "Caribbean Wave" },
@@ -370,7 +370,7 @@ function resolveIsDark(theme: Theme): boolean {
 
 /** Color de ícono/texto legible para un chip `${color}25` — antes se usaba el
  * mismo `color` a opacidad completa encima de su propio tinte, que con tonos
- * muy claros y saturados (Flow Green #CAFA01, Flow! Green #00FF9C — los
+ * muy claros y saturados (Flow Green #CAFA01, Flow! Green #00A870 — los
  * primeros de la paleta, los más obvios de elegir) quedaba en ~1.16:1 de
  * contraste contra su propio chip, prácticamente invisible. Ajusta la
  * luminosidad del mismo hue hasta pasar 4.5:1 contra el chip real. */
@@ -832,7 +832,7 @@ function BillForm({
                     // que el color default que se asigna al elegir el type — antes este
                     // toggle usaba un tercer par (#FF3B3B/#1DB954) sin relación con esos.
                     background: isIncome
-                      ? "linear-gradient(135deg, rgba(0,255,156,0.95), rgba(0,255,156,0.75))"
+                      ? "linear-gradient(135deg, rgba(0,168,112,0.95), rgba(0,168,112,0.75))"
                       : "linear-gradient(135deg, rgba(255,77,77,0.95), rgba(255,77,77,0.75))",
                     boxShadow: "inset 0 1px 1px rgba(255,255,255,0.4), 0 2px 6px rgba(0,0,0,0.18)",
                   }}
@@ -853,7 +853,7 @@ function BillForm({
                   type="button"
                   onClick={() => {
                     field.onChange("income");
-                    form.setValue("color", "#00FF9C");
+                    form.setValue("color", "#00A870");
                     if (!incomeCategories.some((c) => c.id === form.getValues("categoryId"))) form.setValue("categoryId", undefined);
                   }}
                   className={cn("relative z-10 flex-1 flex items-center justify-center gap-1.5 py-2 text-sm font-semibold transition-colors duration-300 rounded-full", isIncome ? "text-white" : "text-foreground/50")}
@@ -1837,6 +1837,33 @@ export default function Goals() {
     onSettled: () => invalidateBills(),
   });
 
+  // Migración transparente del verde viejo de Flows (#00FF9C, nunca coincidió con
+  // el "Income green" real que usa el resto de la app — #00A870, en New Entry,
+  // el treemap del dashboard, Insights, etc.) al valor vigente — una sola pasada
+  // por sesión, silenciosa. Mismo patrón que la migración de colores de Categories.
+  const hasMigratedBillColors = useRef(false);
+  useEffect(() => {
+    if (hasMigratedBillColors.current || !billsQuery.data) return;
+    const stale = billsQuery.data.filter((b) => b.color === "#00FF9C");
+    if (stale.length === 0) return;
+    hasMigratedBillColors.current = true;
+    stale.forEach((b) => {
+      updateBill.mutate({
+        id: b.id,
+        data: {
+          name: b.name,
+          icon: b.icon ?? "creditcard",
+          color: "#00A870",
+          type: b.type,
+          day: b.day,
+          amount: b.amount ?? undefined,
+          categoryId: b.categoryId ?? undefined,
+          autoSave: b.autoSave,
+        },
+      });
+    });
+  }, [billsQuery.data]);
+
   const deleteBill = useMutation({
     mutationFn: ({ id, deleteTransactions }: { id: number; deleteTransactions: boolean }) =>
       api(`/bills/${id}${deleteTransactions ? "?deleteTransactions=true" : ""}`, { method: "DELETE" }),
@@ -2351,7 +2378,7 @@ export default function Goals() {
               <div className="space-y-5">
                 {([
                   ["expense", "Money Out", "#FF4D4D", expenseCategories],
-                  ["income", "Money In", "#00FF9C", incomeCategories],
+                  ["income", "Money In", "#00A870", incomeCategories],
                 ] as const).map(([sectionType, label, dotColor, categoryList]) => {
                   const sectionBills = bills
                     .filter((b) => b.type === sectionType)
