@@ -1834,9 +1834,21 @@ export default function Goals() {
         (old ?? []).map((b) => {
           if (b.id !== id) return b;
           const set = new Set(b.logs);
-          if (set.has(month)) set.delete(month);
+          const wasPaid = set.has(month);
+          if (wasPaid) set.delete(month);
           else set.add(month);
-          return { ...b, logs: Array.from(set), paidThisMonth: set.has(currentMonthKey()) };
+          // Sin esto, el optimistic update dejaba una ventana donde el bill se veía
+          // "no pagado Y no dismissed" a la vez (logs ya se actualizó, pero
+          // dismissedThisMonth todavía no) — el auto-heal reacciona a ese mismo
+          // cambio de caché y en esa ventana se cuela a re-marcarlo antes de que
+          // vuelva la respuesta real del servidor.
+          const isCurrentMonth = month === currentMonthKey();
+          return {
+            ...b,
+            logs: Array.from(set),
+            paidThisMonth: set.has(currentMonthKey()),
+            dismissedThisMonth: isCurrentMonth ? wasPaid : b.dismissedThisMonth,
+          };
         })
       );
       return { prev };
