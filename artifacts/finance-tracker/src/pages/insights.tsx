@@ -442,7 +442,7 @@ export default function Insights() {
   const scoreNum = lastAnalysis?.score ? parseFloat(lastAnalysis.score) : null;
 
   return (
-    <div className="space-y-3 animate-in fade-in duration-500">
+    <div className="space-y-2.5 animate-in fade-in duration-500">
 
       {/* Hero — gradiente sky pastel (vuelta a la composición original), con su propia
           variante oscura esta vez y contraste real verificado en los dos temas. */}
@@ -569,14 +569,14 @@ export default function Insights() {
           data en vez de que estaba cargando. */}
       {((activeLens === "expense" && expenseLoading) || (activeLens === "income" && incomeLoading)) && (
         <>
-          <div className="bg-card border border-card-border rounded-3xl px-5 py-4 animate-pulse">
-            <div className="h-3 w-32 rounded-full bg-muted mb-3" />
-            <div className="h-7 w-40 rounded-full bg-muted mb-3" />
+          <div className="bg-card border border-card-border rounded-3xl px-4 py-3.5 animate-pulse">
+            <div className="h-3 w-32 rounded-full bg-muted mb-2.5" />
+            <div className="h-6 w-40 rounded-full bg-muted mb-2.5" />
             <div className="h-1 w-full rounded-full bg-muted" />
           </div>
-          <div className="bg-card border border-card-border rounded-3xl px-5 py-4 animate-pulse">
-            <div className="h-3 w-32 rounded-full bg-muted mb-3" />
-            <div className="h-9 w-full rounded-xl bg-muted" />
+          <div className="bg-card border border-card-border rounded-3xl px-4 py-3.5 animate-pulse">
+            <div className="h-3 w-32 rounded-full bg-muted mb-2.5" />
+            <div className="h-8 w-full rounded-xl bg-muted" />
           </div>
         </>
       )}
@@ -589,8 +589,8 @@ export default function Insights() {
           explicación más larga de qué es esa sección. El ícono usa el mismo rojo/
           verde que el toggle de arriba, para que quede claro de qué lente es. */}
       {activeLens === "expense" && !expenseLoading && (!anomaly || (!fixedVsFlexible && !fixedVsFlexibleError)) && (
-        <div className="bg-card border border-card-border rounded-3xl px-5 py-4 text-center">
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center mx-auto mb-2.5" style={{ background: "rgba(255,77,77,0.13)" }}>
+        <div className="bg-card border border-card-border rounded-3xl px-4 py-3.5 text-center">
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center mx-auto mb-2" style={{ background: "rgba(255,77,77,0.13)" }}>
             <Target className="h-4 w-4" style={{ color: "#FF4D4D" }} />
           </div>
           <p className="text-sm font-bold text-foreground">Nothing to show yet</p>
@@ -621,8 +621,8 @@ export default function Insights() {
       )}
 
       {activeLens === "income" && !incomeLoading && (!incomeConsistency || !savingsRate) && (
-        <div className="bg-card border border-card-border rounded-3xl px-5 py-4 text-center">
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center mx-auto mb-2.5" style={{ background: "rgba(0,168,112,0.13)" }}>
+        <div className="bg-card border border-card-border rounded-3xl px-4 py-3.5 text-center">
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center mx-auto mb-2" style={{ background: "rgba(0,168,112,0.13)" }}>
             <Target className="h-4 w-4" style={{ color: "#00A870" }} />
           </div>
           <p className="text-sm font-bold text-foreground">Nothing to show yet</p>
@@ -666,7 +666,7 @@ export default function Insights() {
         return (
           <div
             className={cn(
-              "bg-card border border-card-border rounded-3xl px-5 py-4 transition-transform",
+              "bg-card border border-card-border rounded-3xl px-4 py-3.5 transition-transform",
               lastAnalysis?.fullText && "active:scale-[0.99] cursor-pointer"
             )}
             onClick={() => { if (lastAnalysis?.fullText) setInsights(lastAnalysis.fullText); }}
@@ -677,21 +677,21 @@ export default function Insights() {
             role={lastAnalysis?.fullText ? "button" : undefined}
             tabIndex={lastAnalysis?.fullText ? 0 : undefined}
           >
-            <p className="text-xs font-bold text-muted-foreground mb-2">Category on the move this month</p>
+            <p className="text-xs font-bold text-muted-foreground mb-1.5">Category on the move this month</p>
 
             <div className="flex items-baseline gap-2">
               <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: anomaly.categoryColor }} />
               <span className="text-sm font-bold text-foreground">{anomaly.categoryName}</span>
               <span
                 className={cn("font-entry-amount leading-[0.8] ml-auto flex items-baseline gap-1", !isNotable && "text-muted-foreground")}
-                style={{ fontSize: "2.1rem", color: multColor }}
+                style={{ fontSize: "1.7rem", color: multColor }}
               >
                 {anomaly.multiplier.toFixed(1)}×
                 <span className="text-[10px] font-bold text-muted-foreground">usual</span>
               </span>
             </div>
 
-            <div className="flex items-center gap-3 mt-2.5">
+            <div className="flex items-center gap-3 mt-2">
               <div className="flex-1">
                 <div className="h-1 rounded-full bg-muted overflow-hidden">
                   <div className="h-full rounded-full bg-muted-foreground/40" style={{ width: `${Math.min(100, Math.round((anomaly.average / anomaly.thisMonth) * 100))}%` }} />
@@ -706,23 +706,23 @@ export default function Insights() {
               </div>
             </div>
 
-            <div className="flex items-start gap-2 mt-3 pt-3 border-t border-border">
+            <div className="flex items-start gap-2 mt-2.5 pt-2.5 border-t border-border">
               <Sparkles className="h-3.5 w-3.5 shrink-0 mt-0.5" style={{ color: ACCENT }} />
               {lastAnalysis?.note ? (
                 <p className="text-sm text-foreground leading-relaxed">{lastAnalysis.note}</p>
               ) : (
-                <p className="text-sm italic text-muted-foreground leading-relaxed">Tap Analyze above for AI context on this</p>
+                <p className="text-xs italic text-muted-foreground leading-relaxed">Tap Analyze above for AI context on this</p>
               )}
             </div>
 
             {lastAnalysis?.fullText && (
-              <div className="flex items-center justify-between mt-3 pt-3 border-t border-border">
+              <div className="flex items-center justify-between mt-2.5 pt-2.5 border-t border-border">
                 <span className="insights-accent-text text-xs font-bold">Read full analysis</span>
                 <ChevronRight className="insights-accent-text h-3.5 w-3.5" />
               </div>
             )}
             {lastAnalysis?.fullText && (
-              <p className="text-[11px] text-muted-foreground mt-2">saved · {lastAnalysis.date} · tap to reopen, no new AI call</p>
+              <p className="text-[11px] text-muted-foreground mt-1.5">saved · {lastAnalysis.date} · tap to reopen, no new AI call</p>
             )}
           </div>
         );
@@ -751,9 +751,9 @@ export default function Insights() {
           caption = `${formatAmount(fixedTotal)} was already committed. The rest (${formatAmount(flexibleTotal)}) was your call this month.`;
         }
         return (
-          <div className="bg-card border border-card-border rounded-3xl px-5 py-4">
-            <p className="text-xs font-bold text-muted-foreground mb-2.5">Fixed vs flexible spending this month</p>
-            <div className="flex h-2.5 rounded-full overflow-hidden">
+          <div className="bg-card border border-card-border rounded-3xl px-4 py-3.5">
+            <p className="text-xs font-bold text-muted-foreground mb-2">Fixed vs flexible spending this month</p>
+            <div className="flex h-2 rounded-full overflow-hidden">
               <div style={{ width: `${Math.max(4, Math.round((fixedTotal / total) * 100))}%`, background: FIXED_COLOR }} />
               <div style={{ width: `${Math.max(4, Math.round((flexibleTotal / total) * 100))}%`, background: FLEXIBLE_COLOR }} />
             </div>
@@ -761,23 +761,23 @@ export default function Insights() {
                 separadas como una leyenda compartida y el único vínculo entre
                 cada número y su nombre era el color, había que ir y volver
                 con la vista para asociarlos. */}
-            <div className="flex gap-5 mt-3">
+            <div className="flex gap-5 mt-2.5">
               <div className="flex-1">
-                <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground mb-1">
+                <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground mb-0.5">
                   <span className="h-2 w-2 rounded-full shrink-0" style={{ background: FIXED_COLOR }} />
                   Fixed
                 </span>
-                <p className="font-entry-amount text-2xl leading-none" style={{ color: FIXED_COLOR }}>{formatAmount(fixedTotal)}</p>
+                <p className="font-entry-amount text-xl leading-none" style={{ color: FIXED_COLOR }}>{formatAmount(fixedTotal)}</p>
               </div>
               <div className="flex-1">
-                <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground mb-1">
+                <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground mb-0.5">
                   <span className="h-2 w-2 rounded-full shrink-0" style={{ background: FLEXIBLE_COLOR }} />
                   Flexible
                 </span>
-                <p className="font-entry-amount text-2xl leading-none text-foreground">{formatAmount(flexibleTotal)}</p>
+                <p className="font-entry-amount text-xl leading-none text-foreground">{formatAmount(flexibleTotal)}</p>
               </div>
             </div>
-            <p className="text-xs text-muted-foreground mt-2.5 leading-relaxed">{caption}</p>
+            <p className="text-xs text-muted-foreground mt-2 leading-relaxed">{caption}</p>
           </div>
         );
       })()}
@@ -788,10 +788,10 @@ export default function Insights() {
       {/* Income consistency — mismo criterio que "biggest mover": promedio solo
           sobre meses con ingreso real, se muestra siempre que haya historial. */}
       {activeLens === "income" && incomeConsistency && (
-        <div className="bg-card border border-card-border rounded-3xl px-5 py-4">
-          <p className="text-xs font-bold text-muted-foreground mb-2">Income consistency this month</p>
+        <div className="bg-card border border-card-border rounded-3xl px-4 py-3.5">
+          <p className="text-xs font-bold text-muted-foreground mb-1.5">Income consistency this month</p>
           <div className="flex items-baseline gap-2">
-            <span className="font-entry-amount leading-[0.8] text-foreground" style={{ fontSize: "2.1rem" }}>
+            <span className="font-entry-amount leading-[0.8] text-foreground" style={{ fontSize: "1.7rem" }}>
               {formatAmount(incomeConsistency.thisMonth)}
             </span>
             {incomeConsistency.hasHistory && (
@@ -803,7 +803,7 @@ export default function Insights() {
               </span>
             )}
           </div>
-          <p className="text-xs text-muted-foreground mt-2.5 leading-relaxed">
+          <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
             {incomeConsistency.hasHistory
               ? `Averaging ${formatAmount(incomeConsistency.average)} over the last few months — ${
                   Math.abs(incomeConsistency.delta) < 10
@@ -821,18 +821,18 @@ export default function Insights() {
           "Fixed" configurado de Flows), así que puede diferir un poco de lo
           que se ve en el lente de Expense si hay Flows sin pagar todavía. */}
       {activeLens === "income" && savingsRate && (
-        <div className="bg-card border border-card-border rounded-3xl px-5 py-4">
-          <p className="text-xs font-bold text-muted-foreground mb-2">Savings rate this month</p>
-          <p className="font-entry-amount leading-[0.8] text-foreground" style={{ fontSize: "2.1rem" }}>
+        <div className="bg-card border border-card-border rounded-3xl px-4 py-3.5">
+          <p className="text-xs font-bold text-muted-foreground mb-1.5">Savings rate this month</p>
+          <p className="font-entry-amount leading-[0.8] text-foreground" style={{ fontSize: "1.7rem" }}>
             {savingsRate.rate.toFixed(0)}%
           </p>
-          <div className="h-2 rounded-full bg-muted overflow-hidden mt-2.5">
+          <div className="h-1.5 rounded-full bg-muted overflow-hidden mt-2">
             <div
               className="h-full rounded-full"
               style={{ width: `${Math.max(0, Math.min(100, savingsRate.rate))}%`, background: "#00A870" }}
             />
           </div>
-          <p className="text-xs text-muted-foreground mt-2.5 leading-relaxed">
+          <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
             {formatAmount(savingsRate.saved)} kept out of {formatAmount(savingsRate.income)} earned ({formatAmount(savingsRate.expense)} spent this month).
           </p>
         </div>
