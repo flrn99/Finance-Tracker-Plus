@@ -39,14 +39,6 @@ interface Anomaly {
   multiplier: number;
 }
 
-interface BiggestExpense {
-  categoryName: string;
-  categoryColor: string;
-  total: number;
-  percentage: number;
-  monthTotal: number;
-}
-
 interface LastAnalysis {
   date: string;
   score: string | null;
@@ -64,6 +56,7 @@ interface FixedVsFlexible {
   fixedTotal: number;
   flexibleTotal: number;
   total: number;
+  biggestFixedFlow: { name: string; amount: number; color: string | null } | null;
 }
 
 interface IncomeConsistency {
@@ -202,7 +195,7 @@ export default function Insights() {
       return saved ? JSON.parse(saved) : null;
     } catch { return null; }
   });
-  const [expandedLockedRow, setExpandedLockedRow] = useState<"mover" | "biggestexpense" | "fixedflex" | "income" | "savings" | null>(null);
+  const [expandedLockedRow, setExpandedLockedRow] = useState<"mover" | "fixedflex" | "income" | "savings" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeLens, setActiveLens] = useState<"expense" | "income">("expense");
 
@@ -265,7 +258,7 @@ export default function Insights() {
   // que devuelve las dos señales juntas porque comparten la misma consulta base.
   const { data: anomalyData, isLoading: anomalyLoading } = useQuery({
     queryKey: ["insights-anomaly", thisMonth, session?.user?.id],
-    queryFn: async (): Promise<{ mover: Anomaly | null; biggestExpense: BiggestExpense | null }> => {
+    queryFn: async (): Promise<{ mover: Anomaly | null }> => {
       const r = await fetch(getApiUrl(`/api/insights/anomaly?month=${thisMonth}`), { headers: { Authorization: `Bearer ${token}` } });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       return r.json();
@@ -274,7 +267,6 @@ export default function Insights() {
     staleTime: STALE_TIME,
   });
   const anomaly = anomalyData?.mover ?? null;
-  const biggestExpense = anomalyData?.biggestExpense ?? null;
 
   // Income consistency + savings rate — mismo patrón de un solo round-trip
   // que "biggest mover", para el lado de Income del lens toggle.
@@ -590,7 +582,7 @@ export default function Insights() {
           altura + overflow-hidden que la cápsula del biometric lock) con una
           explicación más larga de qué es esa sección. El ícono usa el mismo rojo/
           verde que el toggle de arriba, para que quede claro de qué lente es. */}
-      {activeLens === "expense" && !expenseLoading && (!anomaly || !biggestExpense || (!fixedVsFlexible && !fixedVsFlexibleError)) && (
+      {activeLens === "expense" && !expenseLoading && (!anomaly || (!fixedVsFlexible && !fixedVsFlexibleError)) && (
         <div className="bg-card border border-card-border rounded-3xl px-5 py-4 text-center">
           <div className="w-10 h-10 rounded-xl flex items-center justify-center mx-auto mb-2.5" style={{ background: "rgba(255,77,77,0.13)" }}>
             <Target className="h-4 w-4" style={{ color: "#FF4D4D" }} />
@@ -607,15 +599,6 @@ export default function Insights() {
                 explain="Shows the category that changed the most vs. its own recent average — e.g. “Dining is running 2× higher than usual.” Updates on its own as you log expenses, no need to run an analysis."
                 expanded={expandedLockedRow === "mover"}
                 onToggle={() => setExpandedLockedRow(v => v === "mover" ? null : "mover")}
-              />
-            )}
-            {!biggestExpense && (
-              <LockedRow
-                id="locked-biggestexpense"
-                title="Biggest expense this month"
-                explain="Shows the category with the largest total this month, no matter if it changed or not — so a big fixed Flow (like rent) shows up even though it never “moves.”"
-                expanded={expandedLockedRow === "biggestexpense"}
-                onToggle={() => setExpandedLockedRow(v => v === "biggestexpense" ? null : "biggestexpense")}
               />
             )}
             {!fixedVsFlexible && !fixedVsFlexibleError && (
@@ -739,34 +722,12 @@ export default function Insights() {
         );
       })()}
 
-      {/* Biggest expense — monto absoluto, no cambio relativo. Un Flow fijo
-          grande (rent) casi nunca gana en "Category on the move" porque su
-          promedio ≈ el de este mes (nunca "se mueve"), pero acá sí aparece,
-          porque esto mide tamaño, no cambio. */}
-      {activeLens === "expense" && biggestExpense && (
-        <div className="bg-card border border-card-border rounded-3xl px-5 py-4">
-          <p className="text-xs font-bold text-muted-foreground mb-2">Biggest expense this month</p>
-          <div className="flex items-baseline gap-2">
-            <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: biggestExpense.categoryColor }} />
-            <span className="text-sm font-bold text-foreground">{biggestExpense.categoryName}</span>
-            <span className="font-entry-amount leading-[0.8] text-foreground ml-auto" style={{ fontSize: "2.1rem" }}>
-              {formatAmount(biggestExpense.total)}
-            </span>
-          </div>
-          <div className="h-1.5 rounded-full bg-muted overflow-hidden mt-2.5">
-            <div
-              className="h-full rounded-full"
-              style={{ width: `${Math.max(4, Math.round(biggestExpense.percentage))}%`, background: biggestExpense.categoryColor }}
-            />
-          </div>
-          <p className="text-xs text-muted-foreground mt-2.5 leading-relaxed">
-            {biggestExpense.percentage.toFixed(0)}% of your total spending this month ({formatAmount(biggestExpense.monthTotal)}).
-          </p>
-        </div>
-      )}
-
       {/* Fixed vs flexible — aritmética real (cruza transacciones con Flows ya
-          pagados), siempre visible si hay data este mes, no depende de "Analyze". */}
+          pagados), siempre visible si hay data este mes, no depende de "Analyze".
+          El Flow más grande dentro de "Fixed" vivía antes en una card aparte
+          ("Biggest expense") que terminaba mostrando la misma categoría que
+          "Category on the move" casi siempre — acá vive donde pertenece
+          conceptualmente, como parte de lo que ya es fijo. */}
       {activeLens === "expense" && fixedVsFlexible && (
         <div className="bg-card border border-card-border rounded-3xl px-5 py-4">
           <p className="text-xs font-bold text-muted-foreground mb-2.5">Fixed vs flexible spending this month</p>
@@ -787,7 +748,10 @@ export default function Insights() {
           <div className="flex gap-4 mt-3">
             <div className="flex-1">
               <p className="font-entry-amount text-2xl leading-none text-foreground">{formatAmount(fixedVsFlexible.fixedTotal)}</p>
-              <p className="text-[10px] text-muted-foreground mt-1 leading-snug">Fixed — Flows already committed</p>
+              <p className="text-[10px] text-muted-foreground mt-1 leading-snug">
+                Fixed — Flows already committed
+                {fixedVsFlexible.biggestFixedFlow && ` (${fixedVsFlexible.biggestFixedFlow.name} is the largest, ${formatAmount(fixedVsFlexible.biggestFixedFlow.amount)})`}
+              </p>
             </div>
             <div className="flex-1">
               <p className="font-entry-amount text-2xl leading-none text-foreground">{formatAmount(fixedVsFlexible.flexibleTotal)}</p>

@@ -37,11 +37,25 @@ router.get("/insights/fixed-vs-flexible", async (req, res) => {
 
   try {
     const activeBills = await db
-      .select({ amount: billsTable.amount })
+      .select({ name: billsTable.name, amount: billsTable.amount, color: billsTable.color })
       .from(billsTable)
       .where(and(eq(billsTable.userId, userId), eq(billsTable.type, "expense")));
 
     const fixedTotal = activeBills.reduce((sum, b) => sum + (b.amount ? parseFloat(b.amount) : 0), 0);
+
+    // El Flow individual más grande dentro de "Fixed" — antes esto vivía en
+    // una card separada ("Biggest expense") que terminaba mostrando la misma
+    // categoría que "Category on the move" casi siempre (si una categoría
+    // salta mucho, fácilmente también es la más grande en $ ese mes). Acá
+    // vive donde conceptualmente pertenece: es parte de lo que ya es fijo.
+    let biggestFixedFlow: { name: string; amount: number; color: string | null } | null = null;
+    for (const b of activeBills) {
+      const amt = b.amount ? parseFloat(b.amount) : 0;
+      if (amt <= 0) continue;
+      if (!biggestFixedFlow || amt > biggestFixedFlow.amount) {
+        biggestFixedFlow = { name: b.name, amount: amt, color: b.color };
+      }
+    }
 
     const paidLinks = await db
       .select({ transactionId: billLogsTable.transactionId })
@@ -68,8 +82,8 @@ router.get("/insights/fixed-vs-flexible", async (req, res) => {
     }
 
     const total = fixedTotal + flexibleTotal;
-    if (total === 0) return res.json({ month, fixedTotal: 0, flexibleTotal: 0, total: 0 });
-    return res.json({ month, fixedTotal, flexibleTotal, total });
+    if (total === 0) return res.json({ month, fixedTotal: 0, flexibleTotal: 0, total: 0, biggestFixedFlow: null });
+    return res.json({ month, fixedTotal, flexibleTotal, total, biggestFixedFlow });
   } catch {
     return res.status(500).json({ error: "Failed to compute fixed vs flexible." });
   }
@@ -134,36 +148,12 @@ router.get("/insights/anomaly", async (req, res) => {
       }
     }
     // Ya no hay fallback acá a "categoría más grande como si fuera mover 1.0x"
-    // — eso confundía tamaño con cambio. Para "sin historial todavía, cuál es
-    // mi gasto más grande" está biggestExpense abajo, que no depende de tener
-    // meses previos para comparar.
-
-    // Biggest expense: la categoría con el monto más grande este mes en
-    // dólares — independiente de si cambió o no. Un Flow fijo grande (rent)
-    // nunca "se mueve" (su promedio ≈ el de este mes), así que mover casi
-    // nunca lo elige aunque sea el gasto más grande del mes.
-    // Se excluye la categoría que ya ganó en "mover" a propósito — si el
-    // salto de esa categoría es grande, fácilmente también termina siendo la
-    // más grande en dólares ese mes, y mostrarla dos veces no aporta nada
-    // nuevo. Así las dos cards siempre hablan de categorías distintas.
-    const currentEntries = Object.entries(current);
-    const monthTotal = currentEntries.reduce((sum, [, v]) => sum + v.total, 0);
-    const biggestExpenseCandidates = mover
-      ? currentEntries.filter(([name]) => name !== mover!.categoryName)
-      : currentEntries;
-    let biggestExpense: { categoryName: string; categoryColor: string; total: number; percentage: number; monthTotal: number } | null = null;
-    if (biggestExpenseCandidates.length > 0) {
-      const [name, v] = biggestExpenseCandidates.sort((a, b) => b[1].total - a[1].total)[0]!;
-      biggestExpense = {
-        categoryName: name,
-        categoryColor: v.color,
-        total: v.total,
-        percentage: monthTotal > 0 ? (v.total / monthTotal) * 100 : 0,
-        monthTotal,
-      };
-    }
-
-    return res.json({ mover, biggestExpense });
+    // — eso confundía tamaño con cambio.
+    // "Biggest expense" como card aparte se sacó: terminaba mostrando la misma
+    // categoría que mover casi siempre (si el salto es grande, fácilmente
+    // también es la más grande en $ ese mes) — esa info ahora vive dentro de
+    // "Fixed vs flexible" (el Flow más grande dentro de "Fixed").
+    return res.json({ mover });
   } catch {
     return res.status(500).json({ error: "Failed to compute anomaly." });
   }
