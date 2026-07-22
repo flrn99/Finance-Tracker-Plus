@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState, type RefObject } from "react";
+import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { TrendingDown, TrendingUp } from "lucide-react";
-import { cn, categoryTextColor } from "@/lib/utils";
+import { cn, readableTextColor } from "@/lib/utils";
 import { useCurrency } from "@/lib/currency-context";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -168,22 +168,57 @@ export function SpendingBreakdown({
     });
   }, [data, total]);
 
-  // Retrigger el grow-in cada vez que cambia el dataset (toggle de tipo o fetch nuevo)
-  const [grown, setGrown] = useState(false);
-  useEffect(() => {
-    setGrown(false);
-    if (!chartInView || !data || data.length === 0) return;
-    let raf2 = 0;
-    const raf1 = requestAnimationFrame(() => {
-      raf2 = requestAnimationFrame(() => setGrown(true));
-    });
-    return () => {
-      cancelAnimationFrame(raf1);
-      cancelAnimationFrame(raf2);
-    };
-  }, [type, data, chartInView]);
-
   const reducedMotion = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+
+  // Retrigger el grow-in cada vez que cambia el dataset (toggle de tipo o fetch nuevo).
+  // Al cambiar de tipo específicamente (expense↔income, no un refetch del mismo tipo)
+  // las tiles viejas desaparecían de un salto mientras las nuevas crecían con stagger —
+  // asimetría real. displayTiles retrasa el swap un beat (fade-out breve del set viejo)
+  // antes de dejar entrar al nuevo con el mismo grow-in de siempre.
+  const [displayTiles, setDisplayTiles] = useState(tiles);
+  const [grown, setGrown] = useState(false);
+  const [leaving, setLeaving] = useState(false);
+  const prevTypeRef = useRef(type);
+
+  useEffect(() => {
+    const typeChanged = prevTypeRef.current !== type;
+    prevTypeRef.current = type;
+
+    const startGrowth = () => {
+      setGrown(false);
+      if (!chartInView || !data || data.length === 0) return;
+      let raf2 = 0;
+      const raf1 = requestAnimationFrame(() => {
+        raf2 = requestAnimationFrame(() => setGrown(true));
+      });
+      return () => {
+        cancelAnimationFrame(raf1);
+        cancelAnimationFrame(raf2);
+      };
+    };
+
+    if (typeChanged && !reducedMotion) {
+      // Fade-out breve del set viejo (queda como estaba, grown/scale intactos)
+      // antes de swapear a los datos nuevos y recién ahí arrancar el grow-in —
+      // sin esto, "grown" volvía a true casi al toque (2 rAF) y las tiles
+      // nuevas aparecían ya crecidas apenas montaban, sin animación visible.
+      setLeaving(true);
+      let cleanupGrowth: (() => void) | undefined;
+      const t = setTimeout(() => {
+        setDisplayTiles(tiles);
+        setLeaving(false);
+        cleanupGrowth = startGrowth();
+      }, 150);
+      return () => {
+        clearTimeout(t);
+        cleanupGrowth?.();
+      };
+    }
+
+    setDisplayTiles(tiles);
+    return startGrowth();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [type, tiles, chartInView]);
 
   return (
     <div>
@@ -244,8 +279,16 @@ export function SpendingBreakdown({
         ) : data && data.length > 0 ? (
           <div className="flex flex-col">
             {/* Decorativo: la leyenda de abajo ya expone cada categoría como texto real */}
-            <div aria-hidden="true" className="relative w-full overflow-hidden" style={{ aspectRatio: `${CANVAS_W} / ${CANVAS_H}` }}>
-              {tiles.map((t, i) => {
+            <div
+              aria-hidden="true"
+              className="relative w-full overflow-hidden"
+              style={{
+                aspectRatio: `${CANVAS_W} / ${CANVAS_H}`,
+                opacity: leaving ? 0 : 1,
+                transition: reducedMotion ? "none" : "opacity 150ms ease-out",
+              }}
+            >
+              {displayTiles.map((t, i) => {
                 // El texto escala con el tamaño real del tile (calculado en JS a partir
                 // del rect de squarify) — así cada tile queda legible a su propia escala,
                 // como un mapa de países: el gigante grita, el chico susurra.
@@ -258,11 +301,14 @@ export function SpendingBreakdown({
                 // el % pegado a la esquina en tiles chicos (4px de aire y una letra
                 // de 7px se leía como si se estuviera saliendo del tile).
                 const padding = 8;
-                // Mismo truco que categoryTextColor en transactions.tsx, pero arrancando
-                // desde blanco: ajusta luminosidad (mismo H/C) hasta pasar 4.5:1 contra
-                // el color real del tile. El shadow solo tiene sentido si el resultado
-                // sigue siendo blanco — sobre un gris oscuro no aporta nada.
-                const tileTextColor = categoryTextColor("#f9f8f8", t.categoryColor);
+                // readableTextColor: blanco o negro FIJO, el que más contraste dé —
+                // antes usaba categoryTextColor, que busca un gris intermedio que
+                // "alcance" 4.5:1 contra cada color puntual. Como la paleta de income
+                // es en promedio más clara que la de expense, ese gris quedaba más
+                // claro en income y más oscuro (casi negro) en expense — mismo criterio,
+                // resultado inconsistente entre las dos pestañas. Fijo a blanco/negro
+                // reales, sin variantes intermedias.
+                const tileTextColor = readableTextColor(t.categoryColor);
                 const tileTextShadow = tileTextColor === "#f9f8f8" ? WHITE_TEXT_SHADOW : undefined;
                 return (
                   <div
