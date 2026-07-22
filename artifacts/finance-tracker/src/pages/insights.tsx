@@ -753,23 +753,29 @@ export default function Insights() {
         return (
           <div className="bg-card border border-card-border rounded-3xl px-5 py-4">
             <p className="text-xs font-bold text-muted-foreground mb-2.5">Fixed vs flexible spending this month</p>
-            <div className="flex items-center gap-4 mb-2">
-              <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
-                <span className="h-2 w-2 rounded-full shrink-0" style={{ background: FIXED_COLOR }} />
-                Fixed
-              </span>
-              <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
-                <span className="h-2 w-2 rounded-full shrink-0" style={{ background: FLEXIBLE_COLOR }} />
-                Flexible
-              </span>
-            </div>
             <div className="flex h-2.5 rounded-full overflow-hidden">
               <div style={{ width: `${Math.max(4, Math.round((fixedTotal / total) * 100))}%`, background: FIXED_COLOR }} />
               <div style={{ width: `${Math.max(4, Math.round((flexibleTotal / total) * 100))}%`, background: FLEXIBLE_COLOR }} />
             </div>
-            <div className="flex gap-5 mt-2.5">
-              <span className="font-entry-amount text-2xl leading-none" style={{ color: FIXED_COLOR }}>{formatAmount(fixedTotal)}</span>
-              <span className="font-entry-amount text-2xl leading-none text-foreground">{formatAmount(flexibleTotal)}</span>
+            {/* Cada etiqueta pegada directo arriba de SU monto — antes vivían
+                separadas como una leyenda compartida y el único vínculo entre
+                cada número y su nombre era el color, había que ir y volver
+                con la vista para asociarlos. */}
+            <div className="flex gap-5 mt-3">
+              <div className="flex-1">
+                <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground mb-1">
+                  <span className="h-2 w-2 rounded-full shrink-0" style={{ background: FIXED_COLOR }} />
+                  Fixed
+                </span>
+                <p className="font-entry-amount text-2xl leading-none" style={{ color: FIXED_COLOR }}>{formatAmount(fixedTotal)}</p>
+              </div>
+              <div className="flex-1">
+                <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground mb-1">
+                  <span className="h-2 w-2 rounded-full shrink-0" style={{ background: FLEXIBLE_COLOR }} />
+                  Flexible
+                </span>
+                <p className="font-entry-amount text-2xl leading-none text-foreground">{formatAmount(flexibleTotal)}</p>
+              </div>
             </div>
             <p className="text-xs text-muted-foreground mt-2.5 leading-relaxed">{caption}</p>
           </div>
