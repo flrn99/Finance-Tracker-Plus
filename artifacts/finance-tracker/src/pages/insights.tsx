@@ -32,6 +32,14 @@ interface Anomaly {
   multiplier: number;
 }
 
+interface BiggestExpense {
+  categoryName: string;
+  categoryColor: string;
+  total: number;
+  percentage: number;
+  monthTotal: number;
+}
+
 interface LastAnalysis {
   date: string;
   score: string | null;
@@ -186,7 +194,7 @@ export default function Insights() {
       return saved ? JSON.parse(saved) : null;
     } catch { return null; }
   });
-  const [expandedLockedRow, setExpandedLockedRow] = useState<"mover" | "fixedflex" | "income" | "savings" | null>(null);
+  const [expandedLockedRow, setExpandedLockedRow] = useState<"mover" | "biggestexpense" | "fixedflex" | "income" | "savings" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeLens, setActiveLens] = useState<"expense" | "income">("expense");
 
@@ -242,13 +250,14 @@ export default function Insights() {
   // console.error no le sirve para nada en el teléfono real.
   const fixedVsFlexibleError = fixedVsFlexibleQueryError instanceof Error ? fixedVsFlexibleQueryError.message : null;
 
-  // "Biggest mover": antes eran hasta 8 fetches del lado del cliente (mes
-  // actual + 3 pasados, cada uno con un fallback interno porque
-  // /categories/spending nunca existió como endpoint real — siempre fallaba
-  // y siempre caía al fallback). Ahora es un solo round-trip al backend.
-  const { data: anomaly = null } = useQuery({
+  // "Category on the move" + "Biggest expense": antes eran hasta 8 fetches del
+  // lado del cliente (mes actual + 3 pasados, cada uno con un fallback interno
+  // porque /categories/spending nunca existió como endpoint real — siempre
+  // fallaba y siempre caía al fallback). Ahora es un solo round-trip al backend,
+  // que devuelve las dos señales juntas porque comparten la misma consulta base.
+  const { data: anomalyData } = useQuery({
     queryKey: ["insights-anomaly", thisMonth, session?.user?.id],
-    queryFn: async (): Promise<Anomaly | null> => {
+    queryFn: async (): Promise<{ mover: Anomaly | null; biggestExpense: BiggestExpense | null }> => {
       const r = await fetch(getApiUrl(`/api/insights/anomaly?month=${thisMonth}`), { headers: { Authorization: `Bearer ${token}` } });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       return r.json();
@@ -256,6 +265,8 @@ export default function Insights() {
     enabled: !!session,
     staleTime: STALE_TIME,
   });
+  const anomaly = anomalyData?.mover ?? null;
+  const biggestExpense = anomalyData?.biggestExpense ?? null;
 
   // Income consistency + savings rate — mismo patrón de un solo round-trip
   // que "biggest mover", para el lado de Income del lens toggle.
@@ -427,7 +438,7 @@ export default function Insights() {
         {/* Health score — numero grande + medidor segmentado */}
         <div className="mt-3">
           <p className="insights-hero-muted text-[10px] font-bold uppercase tracking-widest mb-1">
-            Financial health score
+            Overall financial health score
           </p>
           <div className="flex items-end gap-3">
             <p className="insights-hero-title font-number leading-none" style={{ fontSize: "2.2rem" }}>
@@ -531,7 +542,7 @@ export default function Insights() {
           altura + overflow-hidden que la cápsula del biometric lock) con una
           explicación más larga de qué es esa sección. El ícono usa el mismo rojo/
           verde que el toggle de arriba, para que quede claro de qué lente es. */}
-      {activeLens === "expense" && (!anomaly || (!fixedVsFlexible && !fixedVsFlexibleError)) && (
+      {activeLens === "expense" && (!anomaly || !biggestExpense || (!fixedVsFlexible && !fixedVsFlexibleError)) && (
         <div className="bg-card border border-card-border rounded-3xl px-5 py-4 text-center">
           <div className="w-10 h-10 rounded-xl flex items-center justify-center mx-auto mb-2.5" style={{ background: "rgba(255,77,77,0.13)" }}>
             <Target className="h-4 w-4" style={{ color: "#FF4D4D" }} />
@@ -544,10 +555,19 @@ export default function Insights() {
             {!anomaly && (
               <LockedRow
                 id="locked-mover"
-                title="Biggest spending mover this month"
+                title="Category on the move this month"
                 explain="Shows the category that changed the most vs. its own recent average — e.g. “Dining is running 2× higher than usual.” Updates on its own as you log expenses, no need to run an analysis."
                 expanded={expandedLockedRow === "mover"}
                 onToggle={() => setExpandedLockedRow(v => v === "mover" ? null : "mover")}
+              />
+            )}
+            {!biggestExpense && (
+              <LockedRow
+                id="locked-biggestexpense"
+                title="Biggest expense this month"
+                explain="Shows the category with the largest total this month, no matter if it changed or not — so a big fixed Flow (like rent) shows up even though it never “moves.”"
+                expanded={expandedLockedRow === "biggestexpense"}
+                onToggle={() => setExpandedLockedRow(v => v === "biggestexpense" ? null : "biggestexpense")}
               />
             )}
             {!fixedVsFlexible && !fixedVsFlexibleError && (
@@ -620,16 +640,17 @@ export default function Insights() {
             role={lastAnalysis?.fullText ? "button" : undefined}
             tabIndex={lastAnalysis?.fullText ? 0 : undefined}
           >
-            <p className="text-xs font-bold text-muted-foreground mb-2">Biggest spending mover this month</p>
+            <p className="text-xs font-bold text-muted-foreground mb-2">Category on the move this month</p>
 
             <div className="flex items-baseline gap-2">
               <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: anomaly.categoryColor }} />
               <span className="text-sm font-bold text-foreground">{anomaly.categoryName}</span>
               <span
-                className={cn("font-entry-amount leading-[0.8] ml-auto", !isNotable && "text-muted-foreground")}
+                className={cn("font-entry-amount leading-[0.8] ml-auto flex items-baseline gap-1", !isNotable && "text-muted-foreground")}
                 style={{ fontSize: "2.1rem", color: multColor }}
               >
                 {anomaly.multiplier.toFixed(1)}×
+                <span className="text-[10px] font-bold text-muted-foreground">usual</span>
               </span>
             </div>
 
@@ -638,13 +659,13 @@ export default function Insights() {
                 <div className="h-1 rounded-full bg-muted overflow-hidden">
                   <div className="h-full rounded-full bg-muted-foreground/40" style={{ width: `${Math.min(100, Math.round((anomaly.average / anomaly.thisMonth) * 100))}%` }} />
                 </div>
-                <span className="text-[10px] text-muted-foreground">avg {formatAmount(anomaly.average)}</span>
+                <span className="text-[10px] text-muted-foreground">your usual {formatAmount(anomaly.average)}</span>
               </div>
               <div className="flex-1">
                 <div className="h-1 rounded-full bg-muted overflow-hidden">
                   <div className="h-full rounded-full" style={{ width: "100%", background: isNotable ? "#B45309" : "hsl(var(--muted-foreground))" }} />
                 </div>
-                <span className="text-[10px] text-muted-foreground">now {formatAmount(anomaly.thisMonth)}</span>
+                <span className="text-[10px] text-muted-foreground">this month {formatAmount(anomaly.thisMonth)}</span>
               </div>
             </div>
 
@@ -669,6 +690,32 @@ export default function Insights() {
           </div>
         );
       })()}
+
+      {/* Biggest expense — monto absoluto, no cambio relativo. Un Flow fijo
+          grande (rent) casi nunca gana en "Category on the move" porque su
+          promedio ≈ el de este mes (nunca "se mueve"), pero acá sí aparece,
+          porque esto mide tamaño, no cambio. */}
+      {activeLens === "expense" && biggestExpense && (
+        <div className="bg-card border border-card-border rounded-3xl px-5 py-4">
+          <p className="text-xs font-bold text-muted-foreground mb-2">Biggest expense this month</p>
+          <div className="flex items-baseline gap-2">
+            <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: biggestExpense.categoryColor }} />
+            <span className="text-sm font-bold text-foreground">{biggestExpense.categoryName}</span>
+            <span className="font-entry-amount leading-[0.8] text-foreground ml-auto" style={{ fontSize: "2.1rem" }}>
+              {formatAmount(biggestExpense.total)}
+            </span>
+          </div>
+          <div className="h-1.5 rounded-full bg-muted overflow-hidden mt-2.5">
+            <div
+              className="h-full rounded-full"
+              style={{ width: `${Math.max(4, Math.round(biggestExpense.percentage))}%`, background: biggestExpense.categoryColor }}
+            />
+          </div>
+          <p className="text-xs text-muted-foreground mt-2.5 leading-relaxed">
+            {biggestExpense.percentage.toFixed(0)}% of your total spending this month ({formatAmount(biggestExpense.monthTotal)}).
+          </p>
+        </div>
+      )}
 
       {/* Fixed vs flexible — aritmética real (cruza transacciones con Flows ya
           pagados), siempre visible si hay data este mes, no depende de "Analyze". */}

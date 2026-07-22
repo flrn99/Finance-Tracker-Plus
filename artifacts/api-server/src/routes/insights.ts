@@ -118,27 +118,41 @@ router.get("/insights/anomaly", async (req, res) => {
       }
     }
 
-    let best: { categoryName: string; categoryColor: string; thisMonth: number; average: number; multiplier: number } | null = null;
+    let mover: { categoryName: string; categoryColor: string; thisMonth: number; average: number; multiplier: number } | null = null;
     for (const [name, v] of Object.entries(current)) {
       const hist = history[name];
       if (!hist || hist.count === 0) continue;
       const average = hist.sum / hist.count;
       if (average < 5) continue;
       const multiplier = v.total / average;
-      if (!best || multiplier > best.multiplier) {
-        best = { categoryName: name, categoryColor: v.color, thisMonth: v.total, average, multiplier };
+      if (!mover || multiplier > mover.multiplier) {
+        mover = { categoryName: name, categoryColor: v.color, thisMonth: v.total, average, multiplier };
       }
     }
-    // Fallback: sin historial comparable todavía (cuenta nueva), mostrar la
-    // categoría más grande de este mes tal cual, sin multiplicador inventado.
-    if (!best) {
-      const entries = Object.entries(current);
-      if (entries.length > 0) {
-        const [name, v] = entries.sort((a, b) => b[1].total - a[1].total)[0]!;
-        best = { categoryName: name, categoryColor: v.color, thisMonth: v.total, average: v.total, multiplier: 1 };
-      }
+    // Ya no hay fallback acá a "categoría más grande como si fuera mover 1.0x"
+    // — eso confundía tamaño con cambio. Para "sin historial todavía, cuál es
+    // mi gasto más grande" está biggestExpense abajo, que no depende de tener
+    // meses previos para comparar.
+
+    // Biggest expense: la categoría con el monto más grande este mes en
+    // dólares — independiente de si cambió o no. Un Flow fijo grande (rent)
+    // nunca "se mueve" (su promedio ≈ el de este mes), así que mover casi
+    // nunca lo elige aunque sea el gasto más grande del mes.
+    const currentEntries = Object.entries(current);
+    const monthTotal = currentEntries.reduce((sum, [, v]) => sum + v.total, 0);
+    let biggestExpense: { categoryName: string; categoryColor: string; total: number; percentage: number; monthTotal: number } | null = null;
+    if (currentEntries.length > 0) {
+      const [name, v] = currentEntries.sort((a, b) => b[1].total - a[1].total)[0]!;
+      biggestExpense = {
+        categoryName: name,
+        categoryColor: v.color,
+        total: v.total,
+        percentage: monthTotal > 0 ? (v.total / monthTotal) * 100 : 0,
+        monthTotal,
+      };
     }
-    return res.json(best);
+
+    return res.json({ mover, biggestExpense });
   } catch {
     return res.status(500).json({ error: "Failed to compute anomaly." });
   }
