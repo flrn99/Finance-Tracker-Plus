@@ -114,7 +114,14 @@ export default function Categories() {
           <h2 className="font-title text-3xl pr-14 min-h-10 flex items-center">Categories</h2>
         </div>
 
-        <Button className="gap-2 w-full sm:w-auto bg-[#CAFA01] text-black hover:bg-[#9bfe32] border-0 font-bold" onClick={() => setIsCreateOpen(true)}>
+        <Button
+          className="gap-2 w-full sm:w-auto text-black border-0 font-bold"
+          style={{
+            background: "linear-gradient(135deg, #CAFA01 0%, #7CB518 100%)",
+            boxShadow: "inset 0 1px 1px rgba(255,255,255,0.55), 0 4px 10px -2px rgba(124,181,24,0.45)",
+          }}
+          onClick={() => setIsCreateOpen(true)}
+        >
           <Plus className="h-4 w-4" />
           New Category
         </Button>

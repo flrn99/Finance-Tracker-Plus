@@ -82,7 +82,11 @@ export default function ResetPassword({ onDone }: { onDone: () => void }) {
         <button
           onClick={handleReset}
           disabled={isLoading}
-          className="w-full py-3 rounded-2xl bg-[#CAFA01] text-black text-sm font-bold hover:bg-[#9bfe32] transition-all disabled:opacity-60 shadow-sm border-0"
+          className="w-full py-3 rounded-2xl text-black text-sm font-bold transition-all disabled:opacity-60 border-0"
+          style={{
+            background: "linear-gradient(135deg, #CAFA01 0%, #7CB518 100%)",
+            boxShadow: "inset 0 1px 1px rgba(255,255,255,0.55), 0 4px 10px -2px rgba(124,181,24,0.45)",
+          }}
         >
           {isLoading ? "Updating..." : "Update Password"}
         </button>

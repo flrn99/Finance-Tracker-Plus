@@ -107,7 +107,11 @@ export function ExportPanel({ onDone }: { onDone?: () => void }) {
         <Button
           onClick={() => doExport(true)}
           disabled={isExportingAll || isExporting}
-          className="gap-2 flex-1 bg-[#CAFA01] text-black hover:bg-[#9bfe32] border-0 font-bold"
+          className="gap-2 flex-1 text-black border-0 font-bold"
+          style={{
+            background: "linear-gradient(135deg, #CAFA01 0%, #7CB518 100%)",
+            boxShadow: "inset 0 1px 1px rgba(255,255,255,0.55), 0 4px 10px -2px rgba(124,181,24,0.45)",
+          }}
           data-testid="button-download-excel"
         >
           <DatabaseZap className="h-4 w-4" />

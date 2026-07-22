@@ -559,7 +559,11 @@ export default function Transactions() {
 
       <Button
         onClick={() => setCreating(true)}
-        className="w-full gap-2 bg-[#CAFA01] text-black border-0 font-bold transition-transform active:scale-95"
+        className="w-full gap-2 text-black border-0 font-bold transition-transform active:scale-95"
+        style={{
+          background: "linear-gradient(135deg, #CAFA01 0%, #7CB518 100%)",
+          boxShadow: "inset 0 1px 1px rgba(255,255,255,0.55), 0 4px 10px -2px rgba(124,181,24,0.45)",
+        }}
         data-testid="button-add-transaction"
       >
         <Plus className="h-4 w-4" />

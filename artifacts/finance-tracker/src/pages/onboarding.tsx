@@ -112,7 +112,11 @@ export default function Onboarding({ onDone }: { onDone: () => void }) {
 
         <button
           onClick={onDone}
-          className="w-full py-3.5 rounded-2xl bg-[#CAFA01] text-black text-sm font-bold transition-transform active:scale-[0.98] mt-10"
+          className="w-full py-3.5 rounded-2xl text-black text-sm font-bold transition-transform active:scale-[0.98] mt-10"
+          style={{
+            background: "linear-gradient(135deg, #CAFA01 0%, #7CB518 100%)",
+            boxShadow: "inset 0 1px 1px rgba(255,255,255,0.55), 0 4px 10px -2px rgba(124,181,24,0.45)",
+          }}
         >
           Get Started
         </button>
