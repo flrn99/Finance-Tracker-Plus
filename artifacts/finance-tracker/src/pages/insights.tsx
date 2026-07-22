@@ -527,12 +527,12 @@ export default function Insights() {
       {/* Lens toggle — mismo look que el Expense/Income de EntrySheet (mismos
           colores #FF4D4D/#00A870), para que se sienta como el mismo control,
           no uno nuevo. Cada lente tiene su propio "getting started" abajo. */}
-      <div className="relative flex items-center rounded-full bg-muted p-1">
+      <div className="relative flex items-center rounded-full bg-muted p-0.5">
         <div
-          className="absolute top-1 left-1 rounded-full transition-transform duration-300 ease-out"
+          className="absolute top-0.5 left-0.5 rounded-full transition-transform duration-300 ease-out"
           style={{
-            bottom: "4px",
-            width: "calc(50% - 4px)",
+            bottom: "2px",
+            width: "calc(50% - 2px)",
             transform: activeLens === "expense" ? "translateX(0%)" : "translateX(100%)",
             background: activeLens === "expense" ? "#FF4D4D" : "#00A870",
           }}
@@ -542,7 +542,7 @@ export default function Insights() {
           onClick={() => setActiveLens("expense")}
           aria-pressed={activeLens === "expense"}
           className={cn(
-            "relative z-10 flex-1 min-h-11 flex items-center justify-center gap-1.5 rounded-full px-4 py-2 text-sm font-bold transition-colors duration-300",
+            "relative z-10 flex-1 min-h-9 flex items-center justify-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-bold transition-colors duration-300",
             activeLens === "expense" ? "text-white" : "text-foreground/50"
           )}
         >
@@ -554,7 +554,7 @@ export default function Insights() {
           onClick={() => setActiveLens("income")}
           aria-pressed={activeLens === "income"}
           className={cn(
-            "relative z-10 flex-1 min-h-11 flex items-center justify-center gap-1.5 rounded-full px-4 py-2 text-sm font-bold transition-colors duration-300",
+            "relative z-10 flex-1 min-h-9 flex items-center justify-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-bold transition-colors duration-300",
             activeLens === "income" ? "text-white" : "text-foreground/50"
           )}
         >
@@ -778,7 +778,7 @@ export default function Insights() {
                   <span className="h-2 w-2 rounded-full shrink-0" style={{ background: FLEXIBLE_COLOR }} />
                   Flexible
                 </span>
-                <p className="font-entry-amount text-xl leading-none text-foreground">{formatAmount(flexibleTotal)}</p>
+                <p className="font-entry-amount text-xl leading-none" style={{ color: FLEXIBLE_COLOR }}>{formatAmount(flexibleTotal)}</p>
               </div>
             </div>
             <p className="text-xs text-muted-foreground mt-2 leading-relaxed">{caption}</p>
