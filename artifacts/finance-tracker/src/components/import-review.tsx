@@ -81,6 +81,7 @@ export default function ImportReview({ transactions: initial, categories, onDone
       toast({
         title: `${success} transaction${success !== 1 ? "s" : ""} imported`,
         description: success < toImport.length ? `${toImport.length - success} failed.` : "All saved successfully.",
+        variant: "celebration",
       });
       onDone();
     } catch (e: any) {

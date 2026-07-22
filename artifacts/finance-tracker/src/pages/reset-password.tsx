@@ -29,7 +29,7 @@ export default function ResetPassword({ onDone }: { onDone: () => void }) {
     try {
       const { error } = await supabase.auth.updateUser({ password });
       if (error) throw error;
-      toast({ title: "Password updated!", description: "You're now logged in." });
+      toast({ title: "Password updated!", description: "You're now logged in.", variant: "celebration" });
       onDone();
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });

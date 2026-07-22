@@ -2083,7 +2083,7 @@ export default function Goals() {
           onSuccess: (tx: any) => {
             invalidateTransactions();
             toggleBillLog.mutate({ id: b.id, month, amountPaid: amount, transactionId: tx?.id });
-            toast({ title: `${b.name} marked as paid`, description: `${symbol} ${fmtMoney(amount)} · auto-save` });
+            toast({ title: `${b.name} marked as paid`, description: `${symbol} ${fmtMoney(amount)} · auto-save`, variant: "celebration" });
           },
           onError: () => { autoFiredRef.current.delete(b.id); },
         }

@@ -58,7 +58,7 @@ export function ExportPanel({ onDone }: { onDone?: () => void }) {
             data: base64,
             directory: Directory.Documents,
           });
-          toast({ title: "Export saved", description: `Saved to Documents/${fileName}` });
+          toast({ title: "Export saved", description: `Saved to Documents/${fileName}`, variant: "celebration" });
           onDone?.();
         };
       } else {
@@ -70,7 +70,7 @@ export function ExportPanel({ onDone }: { onDone?: () => void }) {
         a.click();
         document.body.removeChild(a);
         window.URL.revokeObjectURL(url);
-        toast({ title: "Export successful", description: "Your file is downloading." });
+        toast({ title: "Export successful", description: "Your file is downloading.", variant: "celebration" });
         onDone?.();
       }
     } catch {

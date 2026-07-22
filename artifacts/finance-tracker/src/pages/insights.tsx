@@ -419,7 +419,7 @@ export default function Insights() {
           categories={categories}
           onDone={() => {
             setEditableTxs(null);
-            toast({ title: "Transactions imported successfully!" });
+            toast({ title: "Transactions imported successfully!", variant: "celebration" });
             // El import de PDF crea transacciones con fetch crudo, no con las
             // mutations de react-query — nada se invalidaba antes, así que ni
             // Insights ni el dashboard ni Transactions veían lo importado

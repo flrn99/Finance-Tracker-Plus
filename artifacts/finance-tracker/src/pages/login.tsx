@@ -113,7 +113,7 @@ export default function Login() {
       } else {
         const { error } = await supabase.auth.signUp({ email, password, options: { data: { first_name: firstName, name: firstName } } });
         if (error) throw error;
-        toast({ title: "Account created!", description: "Check your email to verify your account." });
+        toast({ title: "Account created!", description: "Check your email to verify your account.", variant: "celebration" });
       }
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -153,7 +153,7 @@ export default function Login() {
     const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: "com.florian.financetracker://login-callback?type=recovery" });
     setIsLoading(false);
     if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return; }
-    toast({ title: "Email sent!", description: "Check your inbox for the reset link." });
+    toast({ title: "Email sent!", description: "Check your inbox for the reset link.", variant: "celebration" });
     setMode("login");
   };
 
