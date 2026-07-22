@@ -1513,6 +1513,14 @@ export default function Goals() {
   const [goalDetailId, setGoalDetailId] = useState<number | null>(null);
   const [addMoneyGoal, setAddMoneyGoal] = useState<Goal | null>(null);
   const [addAmount, setAddAmount] = useState("");
+  // Colapso real al borrar (mismo patrón que transactions.tsx/CategoryRow): la
+  // fila se achica (grid-rows a 0fr + fade) antes de que la mutation la saque
+  // de la lista de golpe. El delete acá se dispara desde el modal de detalle,
+  // no desde la fila — por eso el id "saliendo" vive en el padre en vez de un
+  // estado local por fila.
+  const [exitingGoalIds, setExitingGoalIds] = useState<Set<number>>(new Set());
+  const [exitingHabitIds, setExitingHabitIds] = useState<Set<number>>(new Set());
+  const [exitingBillIds, setExitingBillIds] = useState<Set<number>>(new Set());
   const [activeTab, setActiveTab] = useState<"savings" | "habits" | "bills">(() => {
     const t = new URLSearchParams(window.location.search).get("tab");
     return t === "savings" || t === "habits" ? t : "bills";
@@ -1769,7 +1777,9 @@ export default function Goals() {
         autoSave: data.autoSave ?? false,
         createdAt: new Date().toISOString(),
         logs: [],
+        monthsWithTransaction: [],
         paidThisMonth: false,
+        dismissedThisMonth: false,
         linkedTransactionCount: 0,
       };
       queryClient.setQueryData<Bill[]>(["bills"], (old) => [temp, ...(old ?? [])]);
@@ -2138,7 +2148,7 @@ export default function Goals() {
         <>
           {/* ------------------ SAVINGS ------------------ */}
           {activeTab === "savings" && (
-          <div>
+          <div className="animate-in fade-in duration-200">
             <div className="flex items-center justify-between mb-1.5 px-1">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-[#CAFA01]" />
@@ -2152,7 +2162,7 @@ export default function Goals() {
             </div>
 
             {goals.length === 0 ? (
-              <div className="bg-card rounded-2xl shadow-sm flex flex-col items-center justify-center py-8 text-muted-foreground gap-1.5">
+              <div className="bg-card rounded-2xl shadow-sm flex flex-col items-center justify-center py-8 text-muted-foreground gap-1.5 animate-in fade-in slide-in-from-bottom-2 duration-500">
                 <PiggyBank className="h-7 w-7 opacity-30" />
                 <p className="text-sm">No savings goals yet.</p>
               </div>
@@ -2162,39 +2172,51 @@ export default function Goals() {
                   const color = g.color ?? "#CAFA01";
                   const pct = g.targetAmount > 0 ? Math.min(100, (g.currentAmount / g.targetAmount) * 100) : 0;
                   const isPending = g.id < 0;
+                  const isExiting = exitingGoalIds.has(g.id);
                   return (
-                    <div key={g.id} className={cn("rounded-2xl px-3.5 py-3 transition-opacity", isPending && "opacity-50")} style={{ background: `${color}14` }}>
-                      <div className="flex items-center justify-between gap-2">
-                        <button onClick={() => setGoalDetailId(g.id)} className="flex items-center gap-2.5 min-w-0 flex-1 text-left">
-                          <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${color}25` }}>
-                            <HabitIcon icon={g.icon} className="h-4 w-4" style={{ color: chipTextColor(color, theme) }} />
-                          </div>
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-1.5">
-                              <p className="text-sm font-bold leading-tight truncate">{g.name}</p>
-                              {isPending && <span className="text-[10px] font-semibold text-muted-foreground shrink-0">Saving…</span>}
-                            </div>
-                            <p className="text-[11px] text-muted-foreground leading-tight">
-                              {symbol} {fmtMoney(g.currentAmount)} <span className="opacity-60">/ {symbol} {fmtMoney(g.targetAmount)}</span>
-                            </p>
-                          </div>
-                        </button>
-                        <button
-                          onClick={() => { if (isPending) return; setAddMoneyGoal(g); setAddAmount(""); }}
-                          disabled={isPending}
-                          aria-label={`Add money to ${g.name}`}
-                          className="h-9 px-3 flex items-center gap-1 rounded-lg text-black text-xs font-bold active:scale-90 transition-transform shrink-0"
-                          style={{ backgroundColor: color }}
+                    <div
+                      key={g.id}
+                      className="grid transition-[grid-template-rows] duration-[240ms] ease-[cubic-bezier(0.4,0,0.2,1)]"
+                      style={{ gridTemplateRows: isExiting ? "0fr" : "1fr" }}
+                    >
+                      <div className="overflow-hidden">
+                        <div
+                          className={cn("rounded-2xl px-3.5 py-3 transition-opacity", isPending && "opacity-50")}
+                          style={{ background: `${color}14`, opacity: isExiting ? 0 : undefined }}
                         >
-                          <Plus className="h-3.5 w-3.5" strokeWidth={3} />
-                          {symbol}
-                        </button>
-                      </div>
-                      <button onClick={() => setGoalDetailId(g.id)} className="w-full mt-2" disabled={isPending}>
-                        <div className="h-2 rounded-full overflow-hidden" style={{ background: `${color}22` }}>
-                          <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: color }} />
+                          <div className="flex items-center justify-between gap-2">
+                            <button onClick={() => setGoalDetailId(g.id)} className="flex items-center gap-2.5 min-w-0 flex-1 text-left">
+                              <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${color}25` }}>
+                                <HabitIcon icon={g.icon} className="h-4 w-4" style={{ color: chipTextColor(color, theme) }} />
+                              </div>
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-1.5">
+                                  <p className="text-sm font-bold leading-tight truncate">{g.name}</p>
+                                  {isPending && <span className="text-[10px] font-semibold text-muted-foreground shrink-0">Saving…</span>}
+                                </div>
+                                <p className="text-[11px] text-muted-foreground leading-tight">
+                                  {symbol} {fmtMoney(g.currentAmount)} <span className="opacity-60">/ {symbol} {fmtMoney(g.targetAmount)}</span>
+                                </p>
+                              </div>
+                            </button>
+                            <button
+                              onClick={() => { if (isPending) return; setAddMoneyGoal(g); setAddAmount(""); }}
+                              disabled={isPending}
+                              aria-label={`Add money to ${g.name}`}
+                              className="h-9 px-3 flex items-center gap-1 rounded-lg text-black text-xs font-bold active:scale-90 transition-transform shrink-0"
+                              style={{ backgroundColor: color }}
+                            >
+                              <Plus className="h-3.5 w-3.5" strokeWidth={3} />
+                              {symbol}
+                            </button>
+                          </div>
+                          <button onClick={() => setGoalDetailId(g.id)} className="w-full mt-2" disabled={isPending}>
+                            <div className="h-2 rounded-full overflow-hidden" style={{ background: `${color}22` }}>
+                              <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: color }} />
+                            </div>
+                          </button>
                         </div>
-                      </button>
+                      </div>
                     </div>
                   );
                 })}
@@ -2205,7 +2227,7 @@ export default function Goals() {
 
           {/* ------------------ HABITS ------------------ */}
           {activeTab === "habits" && (
-          <div>
+          <div className="animate-in fade-in duration-200">
             <div className="flex items-center justify-between mb-1.5 px-1">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-[#CAFA01]" />
@@ -2219,7 +2241,7 @@ export default function Goals() {
             </div>
 
             {habits.length === 0 ? (
-              <div className="bg-card rounded-2xl shadow-sm flex flex-col items-center justify-center py-8 text-muted-foreground gap-1.5">
+              <div className="bg-card rounded-2xl shadow-sm flex flex-col items-center justify-center py-8 text-muted-foreground gap-1.5 animate-in fade-in slide-in-from-bottom-2 duration-500">
                 <Target className="h-7 w-7 opacity-30" />
                 <p className="text-sm">No habits yet. Create one to start a streak.</p>
               </div>
@@ -2229,36 +2251,48 @@ export default function Goals() {
                   const color = h.color ?? "#CAFA01";
                   const logged = new Set(h.logs);
                   const doneToday = logged.has(today);
+                  const isExiting = exitingHabitIds.has(h.id);
                   return (
-                    <div key={h.id} className="rounded-2xl px-3.5 py-3 space-y-2" style={{ background: `${color}10` }}>
-                      <div className="flex items-center justify-between gap-2">
-                        <button onClick={() => setDetailId(h.id)} className="flex items-center gap-2.5 min-w-0 flex-1 text-left">
-                          <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${color}25` }}>
-                            <HabitIcon icon={h.icon} className="h-4 w-4" style={{ color: chipTextColor(color, theme) }} />
-                          </div>
-                          <div className="min-w-0 flex items-center gap-2">
-                            <p className="text-xs font-bold uppercase tracking-wide leading-tight truncate">{h.name}</p>
-                            {h.streak > 0 && (
-                              <span className="flex items-center gap-0.5 shrink-0">
-                                <Flame className="h-3 w-3" style={{ color }} />
-                                <span className="text-[11px] text-muted-foreground font-semibold">{h.streak}</span>
-                              </span>
-                            )}
-                          </div>
-                        </button>
-                        <button
-                          onClick={() => { if (h.id < 0) return; toggleLog.mutate({ id: h.id, date: today }); }}
-                          aria-label={doneToday ? `Mark ${h.name} as not done today` : `Mark ${h.name} as done today`}
-                          aria-pressed={doneToday}
-                          className="relative w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-all active:scale-90 before:absolute before:-inset-1 before:content-['']"
-                          style={{ backgroundColor: doneToday ? color : `${color}30` }}
+                    <div
+                      key={h.id}
+                      className="grid transition-[grid-template-rows] duration-[240ms] ease-[cubic-bezier(0.4,0,0.2,1)]"
+                      style={{ gridTemplateRows: isExiting ? "0fr" : "1fr" }}
+                    >
+                      <div className="overflow-hidden">
+                        <div
+                          className="rounded-2xl px-3.5 py-3 space-y-2 transition-opacity duration-200"
+                          style={{ background: `${color}10`, opacity: isExiting ? 0 : 1 }}
                         >
-                          <Check className="h-4 w-4" style={{ color: doneToday ? "#000" : color }} strokeWidth={3} />
-                        </button>
+                          <div className="flex items-center justify-between gap-2">
+                            <button onClick={() => setDetailId(h.id)} className="flex items-center gap-2.5 min-w-0 flex-1 text-left">
+                              <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${color}25` }}>
+                                <HabitIcon icon={h.icon} className="h-4 w-4" style={{ color: chipTextColor(color, theme) }} />
+                              </div>
+                              <div className="min-w-0 flex items-center gap-2">
+                                <p className="text-xs font-bold uppercase tracking-wide leading-tight truncate">{h.name}</p>
+                                {h.streak > 0 && (
+                                  <span className="flex items-center gap-0.5 shrink-0">
+                                    <Flame className="h-3 w-3" style={{ color }} />
+                                    <span className="text-[11px] text-muted-foreground font-semibold">{h.streak}</span>
+                                  </span>
+                                )}
+                              </div>
+                            </button>
+                            <button
+                              onClick={() => { if (h.id < 0) return; toggleLog.mutate({ id: h.id, date: today }); }}
+                              aria-label={doneToday ? `Mark ${h.name} as not done today` : `Mark ${h.name} as done today`}
+                              aria-pressed={doneToday}
+                              className="relative w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-all active:scale-90 before:absolute before:-inset-1 before:content-['']"
+                              style={{ backgroundColor: doneToday ? color : `${color}30` }}
+                            >
+                              <Check className="h-4 w-4" style={{ color: doneToday ? "#000" : color }} strokeWidth={3} />
+                            </button>
+                          </div>
+                          <button onClick={() => setDetailId(h.id)} className="w-full">
+                            <Heatmap weeks={heatmapWeeks} logged={logged} color={color} compact />
+                          </button>
+                        </div>
                       </div>
-                      <button onClick={() => setDetailId(h.id)} className="w-full">
-                        <Heatmap weeks={heatmapWeeks} logged={logged} color={color} compact />
-                      </button>
                     </div>
                   );
                 })}
@@ -2269,7 +2303,7 @@ export default function Goals() {
 
           {/* ------------------ FLOWS ------------------ */}
           {activeTab === "bills" && (
-          <div>
+          <div className="animate-in fade-in duration-200">
             <div className="flex items-center justify-between mb-1.5 px-1">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-[#CAFA01]" />
@@ -2283,7 +2317,7 @@ export default function Goals() {
             </div>
 
             {bills.length === 0 ? (
-              <div className="bg-card rounded-2xl shadow-sm flex flex-col items-center justify-center py-8 text-muted-foreground gap-1.5">
+              <div className="bg-card rounded-2xl shadow-sm flex flex-col items-center justify-center py-8 text-muted-foreground gap-1.5 animate-in fade-in slide-in-from-bottom-2 duration-500">
                 <CreditCard className="h-7 w-7 opacity-30" />
                 <p className="text-sm">No recurring flows yet.</p>
               </div>
@@ -2311,38 +2345,50 @@ export default function Goals() {
                           const logged = new Set(b.logs);
                           const category = categoryList.find((c: any) => c.id === b.categoryId);
                           const isPending = b.id < 0;
+                          const isExiting = exitingBillIds.has(b.id);
                           return (
-                            <div key={b.id} className={cn("rounded-2xl px-3.5 py-3 space-y-2 transition-opacity", isPending && "opacity-50")} style={{ background: `${color}10` }}>
-                              <div className="flex items-center justify-between gap-2">
-                                <button onClick={() => setBillDetailId(b.id)} className="flex items-center gap-2.5 min-w-0 flex-1 text-left">
-                                  <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${color}25` }}>
-                                    <span className="text-[13px] font-black leading-none" style={{ color: chipTextColor(color, theme) }}>{b.day}</span>
-                                  </div>
-                                  <div className="min-w-0">
-                                    <div className="flex items-center gap-1.5">
-                                      <p className="text-xs font-bold uppercase tracking-wide leading-tight truncate">{b.name}</p>
-                                      {isPending && <span className="text-[10px] font-semibold text-muted-foreground shrink-0">Saving…</span>}
-                                    </div>
-                                    <p className="text-[11px] text-muted-foreground leading-tight truncate">
-                                      {b.amount ? `${symbol} ${fmtMoney(b.amount)}` : category?.name ?? "No category"}
-                                      {b.autoSave && " · Auto-save"}
-                                    </p>
-                                  </div>
-                                </button>
-                                <button
-                                  onClick={() => handleToggleBillMonth(b, currentMonthKey())}
-                                  disabled={isPending}
-                                  aria-label={b.paidThisMonth ? `Mark ${b.name} as unpaid this month` : `Mark ${b.name} as paid this month`}
-                                  aria-pressed={b.paidThisMonth}
-                                  className="relative w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-all active:scale-90 before:absolute before:-inset-1 before:content-['']"
-                                  style={{ backgroundColor: b.paidThisMonth ? color : `${color}30` }}
+                            <div
+                              key={b.id}
+                              className="grid transition-[grid-template-rows] duration-[240ms] ease-[cubic-bezier(0.4,0,0.2,1)]"
+                              style={{ gridTemplateRows: isExiting ? "0fr" : "1fr" }}
+                            >
+                              <div className="overflow-hidden">
+                                <div
+                                  className={cn("rounded-2xl px-3.5 py-3 space-y-2 transition-opacity", isPending && "opacity-50")}
+                                  style={{ background: `${color}10`, opacity: isExiting ? 0 : undefined }}
                                 >
-                                  <Check className="h-4 w-4" style={{ color: b.paidThisMonth ? "#000" : color }} strokeWidth={3} />
-                                </button>
+                                  <div className="flex items-center justify-between gap-2">
+                                    <button onClick={() => setBillDetailId(b.id)} className="flex items-center gap-2.5 min-w-0 flex-1 text-left">
+                                      <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${color}25` }}>
+                                        <span className="text-[13px] font-black leading-none" style={{ color: chipTextColor(color, theme) }}>{b.day}</span>
+                                      </div>
+                                      <div className="min-w-0">
+                                        <div className="flex items-center gap-1.5">
+                                          <p className="text-xs font-bold uppercase tracking-wide leading-tight truncate">{b.name}</p>
+                                          {isPending && <span className="text-[10px] font-semibold text-muted-foreground shrink-0">Saving…</span>}
+                                        </div>
+                                        <p className="text-[11px] text-muted-foreground leading-tight truncate">
+                                          {b.amount ? `${symbol} ${fmtMoney(b.amount)}` : category?.name ?? "No category"}
+                                          {b.autoSave && " · Auto-save"}
+                                        </p>
+                                      </div>
+                                    </button>
+                                    <button
+                                      onClick={() => handleToggleBillMonth(b, currentMonthKey())}
+                                      disabled={isPending}
+                                      aria-label={b.paidThisMonth ? `Mark ${b.name} as unpaid this month` : `Mark ${b.name} as paid this month`}
+                                      aria-pressed={b.paidThisMonth}
+                                      className="relative w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-all active:scale-90 before:absolute before:-inset-1 before:content-['']"
+                                      style={{ backgroundColor: b.paidThisMonth ? color : `${color}30` }}
+                                    >
+                                      <Check className="h-4 w-4" style={{ color: b.paidThisMonth ? "#000" : color }} strokeWidth={3} />
+                                    </button>
+                                  </div>
+                                  <button onClick={() => setBillDetailId(b.id)} className="w-full" disabled={isPending}>
+                                    <MonthHeatmap months={billMonths} logged={logged} color={color} />
+                                  </button>
+                                </div>
                               </div>
-                              <button onClick={() => setBillDetailId(b.id)} className="w-full" disabled={isPending}>
-                                <MonthHeatmap months={billMonths} logged={logged} color={color} />
-                              </button>
                             </div>
                           );
                         })}
@@ -2498,7 +2544,12 @@ export default function Goals() {
           onClose={() => setDetailId(null)}
           onToggleDay={(date) => { if (detailHabit.id < 0) return; toggleLog.mutate({ id: detailHabit.id, date }); }}
           onEdit={() => { setDetailId(null); openEditHabit(detailHabit); }}
-          onDelete={() => deleteHabit.mutate(detailHabit.id)}
+          onDelete={() => {
+            const id = detailHabit.id;
+            setDetailId(null);
+            setExitingHabitIds((prev) => new Set(prev).add(id));
+            setTimeout(() => deleteHabit.mutate(id), 240);
+          }}
         />
       )}
 
@@ -2510,7 +2561,12 @@ export default function Goals() {
           onClose={() => setBillDetailId(null)}
           onToggleMonth={(month) => handleToggleBillMonth(detailBill, month)}
           onEdit={() => { setBillDetailId(null); openEditBill(detailBill); }}
-          onDelete={(deleteTransactions) => { setBillDetailId(null); deleteBill.mutate({ id: detailBill.id, deleteTransactions }); }}
+          onDelete={(deleteTransactions) => {
+            const id = detailBill.id;
+            setBillDetailId(null);
+            setExitingBillIds((prev) => new Set(prev).add(id));
+            setTimeout(() => deleteBill.mutate({ id, deleteTransactions }), 240);
+          }}
         />
       )}
 
@@ -2521,7 +2577,12 @@ export default function Goals() {
           onClose={() => setGoalDetailId(null)}
           onAddMoney={() => { setGoalDetailId(null); setAddMoneyGoal(detailGoal); setAddAmount(""); }}
           onEdit={() => { setGoalDetailId(null); openEditGoal(detailGoal); }}
-          onDelete={() => { setGoalDetailId(null); deleteGoal.mutate(detailGoal.id); }}
+          onDelete={() => {
+            const id = detailGoal.id;
+            setGoalDetailId(null);
+            setExitingGoalIds((prev) => new Set(prev).add(id));
+            setTimeout(() => deleteGoal.mutate(id), 240);
+          }}
         />
       )}
     </div>

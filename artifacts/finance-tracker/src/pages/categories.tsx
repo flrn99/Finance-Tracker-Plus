@@ -164,53 +164,83 @@ export default function Categories() {
                 </div>
 
                 <div className="space-y-1.5">
-                  {filtered.map((cat) => {
-                    const Icon = CATEGORY_ICONS[cat.icon ?? "tag"] ?? CATEGORY_ICONS.tag;
-                    return (
-                      <div
-                        key={cat.id}
-                        className="rounded-2xl px-3.5 py-3 flex items-center gap-2.5"
-                        style={{ background: `${cat.color}14` }}
-                      >
-                        <button
-                          onClick={() => openEdit(cat)}
-                          className="flex items-center gap-2.5 min-w-0 flex-1 text-left"
-                        >
-                          <div
-                            className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-                            style={{ backgroundColor: `${cat.color}25` }}
-                          >
-                            <Icon className="h-4.5 w-4.5" style={{ color: cat.color }} />
-                          </div>
-                          <p className="text-sm font-bold text-foreground truncate">{cat.name}</p>
-                        </button>
-                        <button
-                          onClick={() => openEdit(cat)}
-                          className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground/60 active:scale-90 transition-transform shrink-0"
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </button>
-                        <ConfirmDialog
-                          trigger={
-                            <button className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground/60 active:scale-90 transition-transform shrink-0">
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                          }
-                          icon={Trash2}
-                          title="Delete Category"
-                          description={`Delete "${cat.name}"? This cannot be undone, and will fail if any transactions use this category.`}
-                          confirmLabel="Delete"
-                          onConfirm={() => handleDelete(cat.id)}
-                        />
-                      </div>
-                    );
-                  })}
+                  {filtered.map((cat) => (
+                    <CategoryRow
+                      key={cat.id}
+                      cat={cat}
+                      onEdit={() => openEdit(cat)}
+                      onDelete={() => handleDelete(cat.id)}
+                    />
+                  ))}
                 </div>
               </div>
             );
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+// Colapso real al borrar (mismo patrón que transactions.tsx): en vez de que la
+// fila desaparezca de un salto cuando la mutation invalida la query, esto la
+// achica (grid-rows a 0fr + fade) apenas se confirma, y recién ahí dispara el
+// delete real.
+function CategoryRow({
+  cat, onEdit, onDelete,
+}: {
+  cat: { id: number; name: string; icon: string | null; color: string };
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  const [isExiting, setIsExiting] = useState(false);
+  const Icon = CATEGORY_ICONS[cat.icon ?? "tag"] ?? CATEGORY_ICONS.tag;
+
+  return (
+    <div
+      className="grid transition-[grid-template-rows] duration-[240ms] ease-[cubic-bezier(0.4,0,0.2,1)]"
+      style={{ gridTemplateRows: isExiting ? "0fr" : "1fr" }}
+    >
+      <div className="overflow-hidden">
+        <div
+          className="rounded-2xl px-3.5 py-3 flex items-center gap-2.5 transition-opacity duration-200"
+          style={{ background: `${cat.color}14`, opacity: isExiting ? 0 : 1 }}
+        >
+          <button
+            onClick={onEdit}
+            className="flex items-center gap-2.5 min-w-0 flex-1 text-left"
+          >
+            <div
+              className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+              style={{ backgroundColor: `${cat.color}25` }}
+            >
+              <Icon className="h-4.5 w-4.5" style={{ color: cat.color }} />
+            </div>
+            <p className="text-sm font-bold text-foreground truncate">{cat.name}</p>
+          </button>
+          <button
+            onClick={onEdit}
+            className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground/60 active:scale-90 transition-transform shrink-0"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </button>
+          <ConfirmDialog
+            trigger={
+              <button className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground/60 active:scale-90 transition-transform shrink-0">
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            }
+            icon={Trash2}
+            title="Delete Category"
+            description={`Delete "${cat.name}"? This cannot be undone, and will fail if any transactions use this category.`}
+            confirmLabel="Delete"
+            onConfirm={() => {
+              setIsExiting(true);
+              setTimeout(onDelete, 240);
+            }}
+          />
+        </div>
+      </div>
     </div>
   );
 }

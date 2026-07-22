@@ -314,7 +314,7 @@ function TransactionList({ filteredTransactions, isLoading, formatAmount, onSele
   );
 
   if (!filteredTransactions?.length) return (
-    <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+    <div className="flex flex-col items-center justify-center py-16 text-muted-foreground animate-in fade-in slide-in-from-bottom-2 duration-500">
       <Search className="h-10 w-10 mb-3 opacity-30" />
       <p className="font-semibold text-foreground">No transactions found</p>
       <p className="text-sm mt-1">Try adjusting your filters or adding a new one.</p>

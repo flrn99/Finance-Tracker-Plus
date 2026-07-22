@@ -441,6 +441,27 @@ export default function Insights() {
 
   const scoreNum = lastAnalysis?.score ? parseFloat(lastAnalysis.score) : null;
 
+  // Cuenta hacia arriba de 0 al score real, mismos 500ms que ya usa el medidor
+  // de 10 segmentos de al lado (línea del meter, duration-500) — antes el
+  // número aparecía de golpe mientras su propio medidor animaba, quedaba
+  // inconsistente entre los dos.
+  const [displayScore, setDisplayScore] = useState(0);
+  useEffect(() => {
+    if (!scoreNum) { setDisplayScore(0); return; }
+    const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    if (reduceMotion) { setDisplayScore(scoreNum); return; }
+    const duration = 500;
+    const start = performance.now();
+    let raf: number;
+    const tick = (now: number) => {
+      const t = Math.min((now - start) / duration, 1);
+      setDisplayScore(scoreNum * t);
+      if (t < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [scoreNum]);
+
   return (
     <div className="space-y-2.5 animate-in fade-in duration-500">
 
@@ -470,7 +491,7 @@ export default function Insights() {
           </p>
           <div className="flex items-end gap-3">
             <p className="insights-hero-title font-number leading-none" style={{ fontSize: "2.2rem" }}>
-              {scoreNum ? lastAnalysis?.score : "—"}
+              {scoreNum ? displayScore.toFixed(1) : "—"}
               <span className="insights-hero-muted text-sm font-bold ml-1">/10</span>
             </p>
           </div>
