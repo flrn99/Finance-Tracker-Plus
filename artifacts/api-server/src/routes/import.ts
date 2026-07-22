@@ -111,9 +111,9 @@ router.post("/import/pdf", upload.single("pdf"), async (req, res) => {
 
     const transactions = extractTransactions(pdfData, year, month);
 
-    res.json({ transactions });
+    return res.json({ transactions });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: error.message });
   }
 });
 

@@ -20,5 +20,5 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
   }
 
   (req as any).userId = user.id;
-  next();
+  return next();
 }

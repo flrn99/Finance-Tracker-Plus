@@ -309,7 +309,7 @@ ${txText}`;
       return res.status(502).json({ error: "AI service error. Please try again." });
     }
 
-    const geminiData = await geminiRes.json();
+    const geminiData = await geminiRes.json() as any;
     const raw = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text;
     if (!raw) {
       return res.status(502).json({ error: "No response from AI. Please try again." });

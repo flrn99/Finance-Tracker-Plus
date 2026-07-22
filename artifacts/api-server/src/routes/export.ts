@@ -144,7 +144,7 @@ router.get("/export/excel", async (req, res) => {
   res.setHeader("Content-Disposition", `attachment; filename="flowfinance-${new Date().toISOString().slice(0, 10)}.xlsx"`);
   res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
   await wb.xlsx.write(res);
-  res.end();
+  return res.end();
 });
 
 export default router;

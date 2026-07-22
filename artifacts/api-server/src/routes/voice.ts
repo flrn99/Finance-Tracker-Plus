@@ -62,7 +62,7 @@ Respond with the JSON object only.`;
 
     if (!geminiRes.ok) return res.status(502).json({ error: "AI service error. Please try again." });
 
-    const geminiData = await geminiRes.json();
+    const geminiData = await geminiRes.json() as any;
     let text = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text;
     if (!text) return res.status(502).json({ error: "Could not understand the audio. Please try again." });
 
