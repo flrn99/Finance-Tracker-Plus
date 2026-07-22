@@ -391,21 +391,31 @@ router.get("/bills", async (req, res) => {
 
   const billIds = bills.map((b) => b.id);
   const allLogs = await db
-    .select({ billId: billLogsTable.billId, month: billLogsTable.month, transactionId: billLogsTable.transactionId })
+    .select({
+      billId: billLogsTable.billId,
+      month: billLogsTable.month,
+      transactionId: billLogsTable.transactionId,
+      dismissed: billLogsTable.dismissed,
+    })
     .from(billLogsTable)
     .where(inArray(billLogsTable.billId, billIds));
 
   const thisMonth = currentMonthKey();
+  // "paid" en todo el resto de la app significa: hay una fila y NO fue descartada
+  // (dismissed) — un mes que el usuario desmarcó explícitamente se ve exactamente
+  // igual que uno que nunca se tocó, salvo para el auto-heal (ver dismissedThisMonth).
+  const paidLogs = allLogs.filter((l) => !l.dismissed);
 
   return res.json(
     bills.map((b) => ({
       ...b,
       amount: b.amount !== null ? parseFloat(b.amount) : null,
       createdAt: b.createdAt.toISOString(),
-      logs: allLogs.filter((l) => l.billId === b.id).map((l) => l.month),
-      monthsWithTransaction: allLogs.filter((l) => l.billId === b.id && l.transactionId !== null).map((l) => l.month),
-      paidThisMonth: allLogs.some((l) => l.billId === b.id && l.month === thisMonth),
-      linkedTransactionCount: allLogs.filter((l) => l.billId === b.id && l.transactionId !== null).length,
+      logs: paidLogs.filter((l) => l.billId === b.id).map((l) => l.month),
+      monthsWithTransaction: paidLogs.filter((l) => l.billId === b.id && l.transactionId !== null).map((l) => l.month),
+      paidThisMonth: paidLogs.some((l) => l.billId === b.id && l.month === thisMonth),
+      dismissedThisMonth: allLogs.some((l) => l.billId === b.id && l.month === thisMonth && l.dismissed),
+      linkedTransactionCount: paidLogs.filter((l) => l.billId === b.id && l.transactionId !== null).length,
     })),
   );
 });
@@ -440,6 +450,7 @@ router.post("/bills", async (req, res) => {
     logs: [],
     monthsWithTransaction: [],
     paidThisMonth: false,
+    dismissedThisMonth: false,
     linkedTransactionCount: 0,
   });
 });
@@ -539,10 +550,9 @@ router.get("/bills/:id/logs", async (req, res) => {
 
 // Marca/desmarca un mes como pagado. Al marcar, opcionalmente guarda el monto real
 // pagado y el id de la transacción creada (si el front la generó vía auto-save).
-// Al desmarcar, si ese mes tenía una transacción vinculada, se borra junto con el
-// registro de "pagado" — el front ya pidió confirmación explícita antes de llamar
-// a este endpoint (ver ConfirmDialog de unmark en goals.tsx), así que no es un
-// efecto secundario silencioso.
+// Al desmarcar, la fila NO se borra — se pone dismissed=true (ver comentario en
+// billLogsTable). Si tenía una transacción vinculada, esa sí se borra de verdad
+// (el front ya pidió confirmación explícita antes de llamar a este endpoint).
 router.put("/bills/:id/logs/:month", async (req, res) => {
   const id = Number(req.params.id);
   if (Number.isNaN(id)) return res.status(400).json({ error: "Invalid id" });
@@ -560,19 +570,22 @@ router.put("/bills/:id/logs/:month", async (req, res) => {
     .limit(1);
   if (!bill) return res.status(404).json({ error: "Not found" });
 
-  // DELETE...RETURNING es atómico en Postgres y borra TODAS las filas que matcheen
-  // (billId, month) de una — antes se hacía SELECT + DELETE por id, y si una carrera
-  // dejaba más de una fila duplicada para el mismo mes, solo se borraba una, dejando
-  // el mes "pagado" fantasma (el bug de "a veces no me lo quita").
-  const deleted = await db
-    .delete(billLogsTable)
-    .where(and(eq(billLogsTable.billId, id), eq(billLogsTable.month, month)))
+  // UPDATE...RETURNING con WHERE dismissed=false es atómico: solo una fila
+  // realmente "pagada" puede matchear (el constraint único garantiza a lo sumo
+  // una fila por billId+month), así que dos toggles concurrentes no pueden
+  // ambos creer que desmarcaron con éxito. Devuelve el transactionId ANTERIOR
+  // porque esta query no lo toca (solo flippea dismissed).
+  const [flipped] = await db
+    .update(billLogsTable)
+    .set({ dismissed: true })
+    .where(and(eq(billLogsTable.billId, id), eq(billLogsTable.month, month), eq(billLogsTable.dismissed, false)))
     .returning();
 
-  if (deleted.length > 0) {
-    const txIds = deleted.map((l) => l.transactionId).filter((t): t is number => t !== null);
-    if (txIds.length > 0) {
-      await db.delete(transactionsTable).where(inArray(transactionsTable.id, txIds));
+  if (flipped) {
+    if (flipped.transactionId != null) {
+      // billLogsTable.transactionId tiene onDelete:"set null", así que esta fila
+      // queda con transactionId null solo automáticamente al borrar la transacción.
+      await db.delete(transactionsTable).where(eq(transactionsTable.id, flipped.transactionId));
     }
     return res.json({ month, paid: false });
   }
@@ -580,9 +593,8 @@ router.put("/bills/:id/logs/:month", async (req, res) => {
   const bodyParsed = billLogBodySchema.safeParse(req.body ?? {});
   const { amountPaid, transactionId } = bodyParsed.success ? bodyParsed.data : {};
 
-  // onConflictDoNothing: si dos requests concurrentes intentan marcar el mismo mes
-  // como pagado a la vez, el constraint único (billId, month) hace que la segunda
-  // inserción sea un no-op en vez de crear una fila duplicada.
+  // Upsert atómico: cubre tanto "nunca hubo fila" como "había una fila dismissed
+  // de un desmarque anterior este mismo mes" en una sola sentencia.
   await db
     .insert(billLogsTable)
     .values({
@@ -590,8 +602,16 @@ router.put("/bills/:id/logs/:month", async (req, res) => {
       month,
       amountPaid: amountPaid != null ? String(amountPaid) : null,
       transactionId: transactionId ?? null,
+      dismissed: false,
     })
-    .onConflictDoNothing({ target: [billLogsTable.billId, billLogsTable.month] });
+    .onConflictDoUpdate({
+      target: [billLogsTable.billId, billLogsTable.month],
+      set: {
+        dismissed: false,
+        amountPaid: amountPaid != null ? String(amountPaid) : null,
+        transactionId: transactionId ?? null,
+      },
+    });
 
   return res.json({ month, paid: true });
 });

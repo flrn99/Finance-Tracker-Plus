@@ -66,8 +66,16 @@ export const billsTable = pgTable("bills", {
 
 // unique(billId, month): sin esto, una carrera (doble-tap, ghost click de WebView)
 // podía crear dos filas para el mismo mes — el toggle borraba solo una y el mes
-// quedaba "pagado" fantasma. Requiere deduplicar filas existentes en prod antes
-// de aplicar el push (ver script de migración).
+// quedaba "pagado" fantasma.
+//
+// dismissed: al desmarcar un mes que tenía transacción vinculada (auto-save), la
+// fila NO se borra — se convierte a dismissed=true. Sin esto, el efecto de
+// auto-heal (goals.tsx, "si ya pasó el día y no está pagado, se auto-marca") veía
+// "sin fila = nunca se pagó" y volvía a auto-crear la transacción al toque, antes
+// de que el usuario llegara a ver el desmarcado. dismissed=true significa "el
+// usuario dijo explícitamente que este mes puntual no está pagado" — el auto-heal
+// lo respeta, pero solo para ESE mes: el mes siguiente no tiene fila y vuelve a
+// auto-marcarse normal.
 export const billLogsTable = pgTable("bill_logs", {
   id: serial("id").primaryKey(),
   billId: integer("bill_id")
@@ -76,6 +84,7 @@ export const billLogsTable = pgTable("bill_logs", {
   month: text("month").notNull(), // "YYYY-MM"
   amountPaid: numeric("amount_paid", { precision: 12, scale: 6 }),
   transactionId: integer("transaction_id").references(() => transactionsTable.id, { onDelete: "set null" }),
+  dismissed: boolean("dismissed").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (t) => [
   unique("bill_logs_bill_month_unique").on(t.billId, t.month),

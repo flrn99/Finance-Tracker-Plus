@@ -130,6 +130,7 @@ export interface Bill {
   logs: string[]; // "YYYY-MM"
   monthsWithTransaction: string[]; // subset de logs con transactionId real vinculado
   paidThisMonth: boolean;
+  dismissedThisMonth: boolean; // el usuario desmarcó explícitamente este mes — el auto-heal no debe re-marcarlo
   linkedTransactionCount: number;
 }
 
@@ -2059,7 +2060,7 @@ export default function Goals() {
     const todayDate = new Date().getDate();
     for (const b of bills) {
       if (b.id < 0 || !b.autoSave || !b.categoryId || b.amount == null) continue;
-      if (b.paidThisMonth || b.day > todayDate) continue;
+      if (b.paidThisMonth || b.dismissedThisMonth || b.day > todayDate) continue;
       if (autoFiredRef.current.has(b.id)) continue;
       autoFiredRef.current.add(b.id);
       const month = currentMonthKey();
