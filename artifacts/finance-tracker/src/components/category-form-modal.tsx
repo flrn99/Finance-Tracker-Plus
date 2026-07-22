@@ -12,12 +12,13 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
 import {
-  X, TrendingDown, TrendingUp, Trash2, Tag, Utensils, Car, ShoppingBag, Film,
+  TrendingDown, TrendingUp, Trash2, Tag, Utensils, Car, ShoppingBag, Film,
   HeartPulse, Zap, BookOpen, Home, Plane, Coffee, Gift, Briefcase, Laptop,
   TrendingUp as TrendingUpIcon, Landmark, Wallet, CreditCard,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { FloatingModal } from "@/components/floating-modal";
 
 // Mismo set de íconos (mismo patrón) que ICONS en goals.tsx — categorías
 // tenían el campo icon en el schema desde siempre pero sin picker real, así
@@ -149,93 +150,6 @@ export const categorySchema = z.object({
 });
 
 export type CategoryFormValues = z.infer<typeof categorySchema>;
-
-export function FloatingModal({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: React.ReactNode }) {
-  // open controla la intención del padre; mounted/closing quedan un beat más
-  // para poder jugar la animación de salida antes de desmontar de un salto
-  // (antes "if (!open) return null" lo sacaba instantáneo, sin exit).
-  const [mounted, setMounted] = useState(open);
-  const [closing, setClosing] = useState(false);
-
-  useEffect(() => {
-    if (open) {
-      setMounted(true);
-      setClosing(false);
-      return;
-    }
-    if (!mounted) return;
-    setClosing(true);
-    // Fallback por si animationend no dispara (interrupción rara) — en el caso
-    // normal, onAnimationEnd del card de abajo desmonta antes de que esto corra.
-    const t = setTimeout(() => setMounted(false), 400);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
-
-  // Bloquea el swipe de página del nav mientras el modal está abierto o cerrándose
-  useEffect(() => {
-    if (!mounted) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = prev; };
-  }, [mounted]);
-
-  if (!mounted) return null;
-  return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label={title}
-      className="fixed z-50 flex items-center justify-center px-5"
-      style={{
-        top: 0, left: 0, right: 0, bottom: 0,
-        height: '100dvh',
-        width: '100vw',
-        paddingTop: 'calc(env(safe-area-inset-top) + 12px)',
-        paddingBottom: 'calc(env(safe-area-inset-bottom) + 12px)',
-      }}
-      onClick={onClose}
-    >
-      <div
-        className={cn("bg-black/80 duration-180", closing ? "animate-out fade-out" : "animate-in fade-in")}
-        style={{
-          position: 'fixed',
-          top: '-10vh', left: '-10vw', right: '-10vw', bottom: '-10vh',
-          width: '120vw', height: '120dvh',
-          // animate-out trae fill-mode:none — sin esto, apenas termina la
-          // animación CSS el fondo vuelve a opacity:1 (visible) por un frame
-          // antes de que React llegue a desmontarlo. "forwards" mantiene el
-          // estado final (invisible) sostenido hasta el desmontaje real.
-          animationFillMode: closing ? "forwards" : undefined,
-        }}
-      />
-      <div
-        className={cn(
-          "relative w-full max-w-xs bg-card rounded-[36px] shadow-2xl duration-180 max-h-full overflow-y-auto",
-          closing ? "animate-out fade-out slide-out-to-bottom-4" : "animate-in fade-in slide-in-from-bottom-4"
-        )}
-        style={{
-          willChange: 'transform, opacity',
-          transform: 'translate3d(0,0,0)',
-          animationFillMode: closing ? "forwards" : undefined,
-        }}
-        onClick={e => e.stopPropagation()}
-        // CSS el elemento vuelve a su estilo de reposo (opacity:1) antes de que
-        // React llegue a desmontarlo, y eso flashea. Desmontar en el evento real
-        // en vez de adivinar el timing con un timeout elimina esa ventana.
-        onAnimationEnd={() => { if (closing) setMounted(false); }}
-      >
-        <div className="flex items-center justify-between px-5 pt-4 pb-3">
-          <p className="font-bold text-base">{title}</p>
-          <button onClick={onClose} className="relative w-7 h-7 rounded-lg bg-muted flex items-center justify-center before:absolute before:-inset-2 before:content-['']">
-            <X className="h-3.5 w-3.5" />
-          </button>
-        </div>
-        <div className="px-5 pb-5">{children}</div>
-      </div>
-    </div>
-  );
-}
 
 // Mismo patrón visual que IconPicker en goals.tsx (fila con scroll horizontal,
 // pill tintada en el ícono activo, fade a la derecha).
@@ -606,7 +520,7 @@ export function CreateCategoryModal({
   };
 
   return (
-    <FloatingModal open={open} onClose={onClose} title="New Category">
+    <FloatingModal open={open} onClose={onClose} title="New Category" maxWidth="max-w-xs" headerPaddingTop="pt-4">
       <CategoryForm
         form={form}
         onSubmit={onSubmit}

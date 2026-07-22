@@ -15,10 +15,12 @@ import {
 } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn, categoryTextColor } from "@/lib/utils";
+import { cn, categoryTextColor, compositeHex, LIGHT_CARD_BG, DARK_CARD_BG } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { useCurrency, CURRENCY_INFO } from "@/lib/currency-context";
+import { useTheme, type Theme } from "@/lib/theme-context";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { FloatingModal } from "@/components/floating-modal";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,7 +33,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
-  Plus, X, Check, Pencil, Trash2, Flame, ChevronLeft, ChevronRight, ChevronDown,
+  Plus, Check, Pencil, Trash2, Flame, ChevronLeft, ChevronRight, ChevronDown,
   Target, PiggyBank, Wallet, Ban, Coffee, ShoppingBag, Utensils, Candy,
   Dumbbell, Cigarette, Beer, Car, Gamepad2, Shirt, Smartphone, Plane,
   Home, Gift, BookOpen, Music, CreditCard, Zap, Wifi, Landmark, Tv, Droplet,
@@ -356,96 +358,29 @@ function clientStreak(dates: Set<string>): number {
   return streak;
 }
 
+// Alpha real de los chips "${color}25" que se usan como fondo del ícono/día en
+// las filas y en el header de cada modal de detalle.
+const CHIP_ALPHA = 0x25 / 0xff;
+
+function resolveIsDark(theme: Theme): boolean {
+  return theme === "dark" || (theme === "system" && typeof window !== "undefined" && window.matchMedia?.("(prefers-color-scheme: dark)").matches);
+}
+
+/** Color de ícono/texto legible para un chip `${color}25` — antes se usaba el
+ * mismo `color` a opacidad completa encima de su propio tinte, que con tonos
+ * muy claros y saturados (Flow Green #CAFA01, Flow! Green #00FF9C — los
+ * primeros de la paleta, los más obvios de elegir) quedaba en ~1.16:1 de
+ * contraste contra su propio chip, prácticamente invisible. Ajusta la
+ * luminosidad del mismo hue hasta pasar 4.5:1 contra el chip real. */
+function chipTextColor(color: string, theme: Theme): string {
+  const cardBg = resolveIsDark(theme) ? DARK_CARD_BG : LIGHT_CARD_BG;
+  const chipBg = compositeHex(color, cardBg, CHIP_ALPHA);
+  return categoryTextColor(color, chipBg);
+}
+
 function HabitIcon({ icon, className, style }: { icon: string | null; className?: string; style?: React.CSSProperties }) {
   const Comp = (icon && ICONS[icon]) || Target;
   return <Comp className={className} style={style} />;
-}
-
-/* ------------------------------------------------------------------ */
-/* Modal flotante                                                      */
-/* ------------------------------------------------------------------ */
-
-function FloatingModal({
-  open, onClose, title, children,
-}: {
-  open: boolean; onClose: () => void; title: string; children: React.ReactNode;
-}) {
-  // mounted/closing: deja jugar la animación de salida antes de desmontar de
-  // un salto (antes "if (!open) return null" lo sacaba instantáneo, sin exit).
-  // Mismo fix que category-form-modal.tsx — este FloatingModal es una copia
-  // separada que no lo tenía.
-  const [mounted, setMounted] = useState(open);
-  const [closing, setClosing] = useState(false);
-
-  useEffect(() => {
-    if (open) {
-      setMounted(true);
-      setClosing(false);
-      return;
-    }
-    if (!mounted) return;
-    setClosing(true);
-    // Fallback por si animationend no dispara (interrupción rara) — en el caso
-    // normal, onAnimationEnd del card de abajo desmonta antes de que esto corra.
-    const t = setTimeout(() => setMounted(false), 400);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
-
-  // Bloquea el swipe de página del nav mientras el modal está abierto o cerrándose
-  useEffect(() => {
-    if (!mounted) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = prev; };
-  }, [mounted]);
-
-  if (!mounted) return null;
-  return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label={title || undefined}
-      className="fixed inset-0 z-50 flex items-center justify-center px-5"
-      style={{
-        // respeta status bar y nav — el modal nunca los invade
-        paddingTop: "calc(env(safe-area-inset-top) + 12px)",
-        paddingBottom: "calc(env(safe-area-inset-bottom) + 12px)",
-      }}
-      onClick={onClose}
-    >
-      <div
-        className={cn("bg-black/80 duration-180", closing ? "animate-out fade-out" : "animate-in fade-in")}
-        style={{
-          position: "fixed",
-          top: "-10vh", left: "-10vw", right: "-10vw", bottom: "-10vh",
-          width: "120vw", height: "120dvh",
-          animationFillMode: closing ? "forwards" : undefined,
-        }}
-      />
-      <div
-        className={cn(
-          "relative w-full max-w-sm bg-card rounded-[36px] shadow-2xl duration-180 max-h-full overflow-y-auto",
-          closing ? "animate-out fade-out slide-out-to-bottom-4" : "animate-in fade-in slide-in-from-bottom-4"
-        )}
-        style={{
-          willChange: "transform, opacity",
-          transform: "translate3d(0,0,0)",
-          animationFillMode: closing ? "forwards" : undefined,
-        }}
-        onClick={(e) => e.stopPropagation()}
-        onAnimationEnd={() => { if (closing) setMounted(false); }}
-      >
-        <div className="flex items-center justify-between px-5 pt-5 pb-3">
-          <p className="font-bold text-base">{title}</p>
-          <button onClick={onClose} className="relative w-7 h-7 rounded-lg bg-muted flex items-center justify-center before:absolute before:-inset-2 before:content-['']">
-            <X className="h-3.5 w-3.5" />
-          </button>
-        </div>
-        <div className="px-5 pb-5">{children}</div>
-      </div>
-    </div>
-  );
 }
 
 /* ------------------------------------------------------------------ */
@@ -628,6 +563,53 @@ const billSchema = z.object({
 });
 type BillFormValues = z.infer<typeof billSchema>;
 
+/** Nombre escrito directo sobre el color elegido — antes era ~15 líneas
+ * copiadas casi al calco en GoalForm/HabitForm/BillForm (solo cambiaba el
+ * aria-label/placeholder, y Bill sumaba la línea de categoría). `subtitle` es
+ * lo único que varía la altura del bloque (Bill la usa, Goal/Habit no). */
+function ColoredNameField({
+  form, color, ariaLabel, placeholder, subtitle,
+}: {
+  form: { control: any };
+  color: string;
+  ariaLabel: string;
+  placeholder: string;
+  subtitle?: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-2xl overflow-hidden relative" style={{ background: color }}>
+      <div className="absolute -top-6 -right-4 w-16 h-16 rounded-full pointer-events-none" style={{ background: "rgba(255,255,255,0.28)" }} />
+      <div className={cn("relative px-3.5", subtitle ? "pt-3 pb-3" : "py-3.5")}>
+        <FormField
+          control={form.control}
+          name="name"
+          render={({ field }) => {
+            const whiteReadable = categoryTextColor("#ffffff", color).toLowerCase() === "#ffffff";
+            return (
+              <FormItem>
+                <FormControl>
+                  <input
+                    aria-label={ariaLabel}
+                    placeholder={placeholder}
+                    autoComplete="off"
+                    className="w-full bg-transparent border-0 outline-none font-title text-lg leading-tight text-white placeholder:[color:var(--ph)]"
+                    style={{
+                      textShadow: "0 1px 3px rgba(0,0,0,0.25)",
+                      "--ph": whiteReadable ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.4)",
+                    } as React.CSSProperties}
+                    {...field}
+                  />
+                </FormControl>
+              </FormItem>
+            );
+          }}
+        />
+        {subtitle}
+      </div>
+    </div>
+  );
+}
+
 function GoalForm({
   form, onSubmit, isPending, submitLabel, symbol,
 }: {
@@ -641,36 +623,7 @@ function GoalForm({
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
-        {/* Nombre escrito directo sobre el color elegido — misma línea que Bill */}
-        <div className="rounded-2xl overflow-hidden relative" style={{ background: color }}>
-          <div className="absolute -top-6 -right-4 w-16 h-16 rounded-full pointer-events-none" style={{ background: "rgba(255,255,255,0.28)" }} />
-          <div className="relative px-3.5 py-3.5">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => {
-                const whiteReadable = categoryTextColor("#ffffff", color).toLowerCase() === "#ffffff";
-                return (
-                  <FormItem>
-                    <FormControl>
-                      <input
-                        aria-label="Goal name"
-                        placeholder="e.g. Vacation fund"
-                        autoComplete="off"
-                        className="w-full bg-transparent border-0 outline-none font-title text-lg leading-tight text-white placeholder:[color:var(--ph)]"
-                        style={{
-                          textShadow: "0 1px 3px rgba(0,0,0,0.25)",
-                          "--ph": whiteReadable ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.4)",
-                        } as React.CSSProperties}
-                        {...field}
-                      />
-                    </FormControl>
-                  </FormItem>
-                );
-              }}
-            />
-          </div>
-        </div>
+        <ColoredNameField form={form} color={color} ariaLabel="Goal name" placeholder="e.g. Vacation fund" />
 
         <FormField
           control={form.control}
@@ -738,36 +691,7 @@ function HabitForm({
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
-        {/* Nombre escrito directo sobre el color elegido — misma línea que Bill/Goal */}
-        <div className="rounded-2xl overflow-hidden relative" style={{ background: color }}>
-          <div className="absolute -top-6 -right-4 w-16 h-16 rounded-full pointer-events-none" style={{ background: "rgba(255,255,255,0.28)" }} />
-          <div className="relative px-3.5 py-3.5">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => {
-                const whiteReadable = categoryTextColor("#ffffff", color).toLowerCase() === "#ffffff";
-                return (
-                  <FormItem>
-                    <FormControl>
-                      <input
-                        aria-label="Habit name"
-                        placeholder="e.g. No delivery"
-                        autoComplete="off"
-                        className="w-full bg-transparent border-0 outline-none font-title text-lg leading-tight text-white placeholder:[color:var(--ph)]"
-                        style={{
-                          textShadow: "0 1px 3px rgba(0,0,0,0.25)",
-                          "--ph": whiteReadable ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.4)",
-                        } as React.CSSProperties}
-                        {...field}
-                      />
-                    </FormControl>
-                  </FormItem>
-                );
-              }}
-            />
-          </div>
-        </div>
+        <ColoredNameField form={form} color={color} ariaLabel="Habit name" placeholder="e.g. No delivery" />
 
         <FormField
           control={form.control}
@@ -839,42 +763,20 @@ function BillForm({
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
-        {/* Nombre escrito directo sobre el color elegido — no input genérico.
-            El texto ya escrito siempre es blanco (a propósito), pero el placeholder
+        {/* El texto ya escrito siempre es blanco (a propósito), pero el placeholder
             en blanco tenue se vuelve ilegible contra colores claros como Flow Green —
-            ahí, y solo ahí, el hint pasa a un tinte oscuro. */}
-        <div className="rounded-2xl overflow-hidden relative" style={{ background: color }}>
-          <div className="absolute -top-6 -right-4 w-16 h-16 rounded-full pointer-events-none" style={{ background: "rgba(255,255,255,0.28)" }} />
-          <div className="relative px-3.5 pt-3 pb-3">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => {
-                const whiteReadable = categoryTextColor("#ffffff", color).toLowerCase() === "#ffffff";
-                return (
-                  <FormItem>
-                    <FormControl>
-                      <input
-                        aria-label="Flow name"
-                        placeholder="e.g. Insurance"
-                        autoComplete="off"
-                        className="w-full bg-transparent border-0 outline-none font-title text-lg leading-tight text-white placeholder:[color:var(--ph)]"
-                        style={{
-                          textShadow: "0 1px 3px rgba(0,0,0,0.25)",
-                          "--ph": whiteReadable ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.4)",
-                        } as React.CSSProperties}
-                        {...field}
-                      />
-                    </FormControl>
-                  </FormItem>
-                );
-              }}
-            />
+            ahí, y solo ahí, el hint pasa a un tinte oscuro (lógica de ColoredNameField). */}
+        <ColoredNameField
+          form={form}
+          color={color}
+          ariaLabel="Flow name"
+          placeholder="e.g. Insurance"
+          subtitle={
             <p className="text-[11px] font-bold uppercase tracking-wide text-white/85 mt-0.5" style={{ textShadow: "0 1px 3px rgba(0,0,0,0.25)" }}>
               {selectedCategory ? selectedCategory.name : "Pick a category below"}
             </p>
-          </div>
-        </div>
+          }
+        />
 
         {/* Type — mismo toggle segmentado que usa la creación de categorías */}
         <FormField
@@ -898,9 +800,12 @@ function BillForm({
                     bottom: "4px",
                     width: "calc(50% - 4px)",
                     transform: isIncome ? "translateX(100%)" : "translateX(0%)",
+                    // Mismo rojo/verde que "Flow! Red"/"Flow! Green" en COLOR_OPTIONS y
+                    // que el color default que se asigna al elegir el type — antes este
+                    // toggle usaba un tercer par (#FF3B3B/#1DB954) sin relación con esos.
                     background: isIncome
-                      ? "linear-gradient(135deg, rgba(29,185,84,0.95), rgba(29,185,84,0.75))"
-                      : "linear-gradient(135deg, rgba(255,59,59,0.95), rgba(255,59,59,0.75))",
+                      ? "linear-gradient(135deg, rgba(0,255,156,0.95), rgba(0,255,156,0.75))"
+                      : "linear-gradient(135deg, rgba(255,77,77,0.95), rgba(255,77,77,0.75))",
                     boxShadow: "inset 0 1px 1px rgba(255,255,255,0.4), 0 2px 6px rgba(0,0,0,0.18)",
                   }}
                 />
@@ -960,7 +865,8 @@ function BillForm({
                 <button
                   type="button"
                   onClick={() => field.onChange(field.value <= 1 ? 31 : field.value - 1)}
-                  className="w-9 h-9 shrink-0 rounded-full bg-muted text-foreground text-base font-bold flex items-center justify-center active:scale-90 transition-transform"
+                  aria-label="Previous day"
+                  className="relative w-9 h-9 shrink-0 rounded-full bg-muted text-foreground text-base font-bold flex items-center justify-center active:scale-90 transition-transform before:absolute before:-inset-1.5 before:content-['']"
                 >
                   ‹
                 </button>
@@ -1017,7 +923,8 @@ function BillForm({
                 <button
                   type="button"
                   onClick={() => field.onChange(field.value >= 31 ? 1 : field.value + 1)}
-                  className="w-9 h-9 shrink-0 rounded-full bg-muted text-foreground text-base font-bold flex items-center justify-center active:scale-90 transition-transform"
+                  aria-label="Next day"
+                  className="relative w-9 h-9 shrink-0 rounded-full bg-muted text-foreground text-base font-bold flex items-center justify-center active:scale-90 transition-transform before:absolute before:-inset-1.5 before:content-['']"
                 >
                   ›
                 </button>
@@ -1225,6 +1132,7 @@ function HabitDetail({
   const now = new Date();
   const [month, setMonth] = useState({ y: now.getFullYear(), m: now.getMonth() });
   const color = habit.color ?? "#CAFA01";
+  const { theme } = useTheme();
   const logged = useMemo(() => new Set(habit.logs), [habit.logs]);
   const weeks = useMemo(() => buildWeeks(26), []);
   const today = todayKey();
@@ -1251,7 +1159,7 @@ function HabitDetail({
       <div className="-mt-8 space-y-3">
         <div className="flex items-center gap-2.5">
           <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${color}25` }}>
-            <HabitIcon icon={habit.icon} className="h-4 w-4" style={{ color }} />
+            <HabitIcon icon={habit.icon} className="h-4 w-4" style={{ color: chipTextColor(color, theme) }} />
           </div>
           <p className="font-bold text-base leading-tight uppercase tracking-wide truncate">{habit.name}</p>
         </div>
@@ -1265,12 +1173,12 @@ function HabitDetail({
             <span className="text-[11px] text-muted-foreground">streak</span>
           </div>
           <div className="flex items-center gap-1">
-            <button onClick={onEdit} className="relative h-8 w-8 flex items-center justify-center rounded-xl bg-muted text-muted-foreground hover:text-foreground transition-all before:absolute before:-inset-1.5 before:content-['']">
+            <button onClick={onEdit} aria-label="Edit habit" className="relative h-8 w-8 flex items-center justify-center rounded-xl bg-muted text-muted-foreground hover:text-foreground transition-all before:absolute before:-inset-1.5 before:content-['']">
               <Pencil className="h-3.5 w-3.5" />
             </button>
             <ConfirmDialog
               trigger={
-                <button className="relative h-8 w-8 flex items-center justify-center rounded-xl bg-muted text-muted-foreground hover:text-destructive transition-all before:absolute before:-inset-1.5 before:content-['']">
+                <button aria-label="Delete habit" className="relative h-8 w-8 flex items-center justify-center rounded-xl bg-muted text-muted-foreground hover:text-destructive transition-all before:absolute before:-inset-1.5 before:content-['']">
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
               }
@@ -1320,10 +1228,10 @@ function HabitDetail({
           <div className="flex items-center justify-between mt-2.5">
             <p className="text-sm font-bold">{MONTHS[month.m]} {month.y}</p>
             <div className="flex items-center gap-1.5">
-              <button onClick={prevMonth} className="relative h-7 w-7 flex items-center justify-center rounded-xl bg-muted before:absolute before:-inset-2 before:content-['']">
+              <button onClick={prevMonth} aria-label="Previous month" className="relative h-7 w-7 flex items-center justify-center rounded-xl bg-muted before:absolute before:-inset-2 before:content-['']">
                 <ChevronLeft className="h-4 w-4" />
               </button>
-              <button onClick={nextMonth} className="relative h-7 w-7 flex items-center justify-center rounded-xl bg-muted before:absolute before:-inset-2 before:content-['']">
+              <button onClick={nextMonth} aria-label="Next month" className="relative h-7 w-7 flex items-center justify-center rounded-xl bg-muted before:absolute before:-inset-2 before:content-['']">
                 <ChevronRight className="h-4 w-4" />
               </button>
             </div>
@@ -1421,6 +1329,7 @@ function BillDetail({
 }) {
   const [year, setYear] = useState(new Date().getFullYear());
   const color = bill.color ?? "#CAFA01";
+  const { theme } = useTheme();
   const logged = useMemo(() => new Set(bill.logs), [bill.logs]);
   const months = useMemo(() => monthsOfYear(year), [year]);
   const overviewMonths = useMemo(() => monthsOfYear(new Date().getFullYear()), []);
@@ -1435,7 +1344,7 @@ function BillDetail({
       <div className="-mt-8 space-y-3">
         <div className="flex items-center gap-2.5">
           <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${color}25` }}>
-            <span className="text-sm font-black leading-none" style={{ color }}>{bill.day}</span>
+            <span className="text-sm font-black leading-none" style={{ color: chipTextColor(color, theme) }}>{bill.day}</span>
           </div>
           <div className="min-w-0">
             <p className="font-bold text-base leading-tight uppercase tracking-wide truncate">{bill.name}</p>
@@ -1454,12 +1363,12 @@ function BillDetail({
             <span className="text-[11px] text-muted-foreground">/12 paid in {year}</span>
           </div>
           <div className="flex items-center gap-1">
-            <button onClick={onEdit} className="relative h-8 w-8 flex items-center justify-center rounded-xl bg-muted text-muted-foreground hover:text-foreground transition-all before:absolute before:-inset-1.5 before:content-['']">
+            <button onClick={onEdit} aria-label="Edit flow" className="relative h-8 w-8 flex items-center justify-center rounded-xl bg-muted text-muted-foreground hover:text-foreground transition-all before:absolute before:-inset-1.5 before:content-['']">
               <Pencil className="h-3.5 w-3.5" />
             </button>
             <DeleteBillDialog
               trigger={
-                <button className="relative h-8 w-8 flex items-center justify-center rounded-xl bg-muted text-muted-foreground hover:text-destructive transition-all before:absolute before:-inset-1.5 before:content-['']">
+                <button aria-label="Delete flow" className="relative h-8 w-8 flex items-center justify-center rounded-xl bg-muted text-muted-foreground hover:text-destructive transition-all before:absolute before:-inset-1.5 before:content-['']">
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
               }
@@ -1500,10 +1409,10 @@ function BillDetail({
           <div className="flex items-center justify-between mt-2.5">
             <p className="text-sm font-bold">{year}</p>
             <div className="flex items-center gap-1.5">
-              <button onClick={prevYear} className="relative h-7 w-7 flex items-center justify-center rounded-xl bg-muted before:absolute before:-inset-2 before:content-['']">
+              <button onClick={prevYear} aria-label="Previous year" className="relative h-7 w-7 flex items-center justify-center rounded-xl bg-muted before:absolute before:-inset-2 before:content-['']">
                 <ChevronLeft className="h-4 w-4" />
               </button>
-              <button onClick={nextYear} className="relative h-7 w-7 flex items-center justify-center rounded-xl bg-muted before:absolute before:-inset-2 before:content-['']">
+              <button onClick={nextYear} aria-label="Next year" className="relative h-7 w-7 flex items-center justify-center rounded-xl bg-muted before:absolute before:-inset-2 before:content-['']">
                 <ChevronRight className="h-4 w-4" />
               </button>
             </div>
@@ -1531,6 +1440,7 @@ function GoalDetail({
   symbol: string;
 }) {
   const color = goal.color ?? "#CAFA01";
+  const { theme } = useTheme();
   const pct = goal.targetAmount > 0 ? Math.min(100, (goal.currentAmount / goal.targetAmount) * 100) : 0;
   const remaining = Math.max(0, goal.targetAmount - goal.currentAmount);
 
@@ -1539,7 +1449,7 @@ function GoalDetail({
       <div className="-mt-8 space-y-3">
         <div className="flex items-center gap-2.5">
           <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${color}25` }}>
-            <HabitIcon icon={goal.icon} className="h-4 w-4" style={{ color }} />
+            <HabitIcon icon={goal.icon} className="h-4 w-4" style={{ color: chipTextColor(color, theme) }} />
           </div>
           <p className="font-bold text-base leading-tight uppercase tracking-wide truncate">{goal.name}</p>
         </div>
@@ -1562,13 +1472,13 @@ function GoalDetail({
         </Button>
 
         <div className="flex items-center gap-2">
-          <button onClick={onEdit} className="flex-1 h-10 flex items-center justify-center gap-1.5 rounded-xl bg-muted text-sm font-semibold text-muted-foreground hover:text-foreground transition-all">
+          <button onClick={onEdit} className="flex-1 h-11 flex items-center justify-center gap-1.5 rounded-xl bg-muted text-sm font-semibold text-muted-foreground hover:text-foreground transition-all">
             <Pencil className="h-3.5 w-3.5" />
             Edit
           </button>
           <ConfirmDialog
             trigger={
-              <button className="flex-1 h-10 w-full flex items-center justify-center gap-1.5 rounded-xl bg-muted text-sm font-semibold text-muted-foreground hover:text-destructive transition-all">
+              <button className="flex-1 h-11 w-full flex items-center justify-center gap-1.5 rounded-xl bg-muted text-sm font-semibold text-muted-foreground hover:text-destructive transition-all">
                 <Trash2 className="h-3.5 w-3.5" />
                 Delete
               </button>
@@ -1612,6 +1522,7 @@ export default function Goals() {
   // Símbolo de la moneda elegida en settings (Q, $, €, ...)
   const { currency } = useCurrency();
   const symbol = ((CURRENCY_INFO as Record<string, any>)[currency]?.symbol as string | undefined) ?? currency;
+  const { theme } = useTheme();
 
   const goalsQuery = useQuery(goalsQueryOptions);
   const habitsQuery = useQuery(habitsQueryOptions);
@@ -2097,8 +2008,6 @@ export default function Goals() {
   const detailGoal = goalDetailId !== null ? goals.find((g) => g.id === goalDetailId) ?? null : null;
   const isLoading = goalsQuery.isLoading || habitsQuery.isLoading || billsQuery.isLoading;
 
-  const billsPaidThisMonth = bills.filter((b) => b.paidThisMonth).length;
-
   // Auto-save real: si el Flow tiene auto-save + monto cargado y el día elegido ya
   // llegó (o pasó) este mes sin marcarse, se marca solo — crea la transacción sin
   // pedir confirmación (por eso "Salario" con auto-save cae solo en Transactions
@@ -2207,7 +2116,7 @@ export default function Goals() {
                       <div className="flex items-center justify-between gap-2">
                         <button onClick={() => setGoalDetailId(g.id)} className="flex items-center gap-2.5 min-w-0 flex-1 text-left">
                           <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${color}25` }}>
-                            <HabitIcon icon={g.icon} className="h-4 w-4" style={{ color }} />
+                            <HabitIcon icon={g.icon} className="h-4 w-4" style={{ color: chipTextColor(color, theme) }} />
                           </div>
                           <div className="min-w-0">
                             <div className="flex items-center gap-1.5">
@@ -2222,6 +2131,7 @@ export default function Goals() {
                         <button
                           onClick={() => { if (isPending) return; setAddMoneyGoal(g); setAddAmount(""); }}
                           disabled={isPending}
+                          aria-label={`Add money to ${g.name}`}
                           className="h-9 px-3 flex items-center gap-1 rounded-lg text-black text-xs font-bold active:scale-90 transition-transform shrink-0"
                           style={{ backgroundColor: color }}
                         >
@@ -2273,7 +2183,7 @@ export default function Goals() {
                       <div className="flex items-center justify-between gap-2">
                         <button onClick={() => setDetailId(h.id)} className="flex items-center gap-2.5 min-w-0 flex-1 text-left">
                           <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${color}25` }}>
-                            <HabitIcon icon={h.icon} className="h-4 w-4" style={{ color }} />
+                            <HabitIcon icon={h.icon} className="h-4 w-4" style={{ color: chipTextColor(color, theme) }} />
                           </div>
                           <div className="min-w-0 flex items-center gap-2">
                             <p className="text-xs font-bold uppercase tracking-wide leading-tight truncate">{h.name}</p>
@@ -2329,8 +2239,8 @@ export default function Goals() {
             ) : (
               <div className="space-y-5">
                 {([
-                  ["expense", "Money Out", "#FF3B3B", expenseCategories],
-                  ["income", "Money In", "#1DB954", incomeCategories],
+                  ["expense", "Money Out", "#FF4D4D", expenseCategories],
+                  ["income", "Money In", "#00FF9C", incomeCategories],
                 ] as const).map(([sectionType, label, dotColor, categoryList]) => {
                   const sectionBills = bills
                     .filter((b) => b.type === sectionType)
@@ -2355,7 +2265,7 @@ export default function Goals() {
                               <div className="flex items-center justify-between gap-2">
                                 <button onClick={() => setBillDetailId(b.id)} className="flex items-center gap-2.5 min-w-0 flex-1 text-left">
                                   <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${color}25` }}>
-                                    <span className="text-[13px] font-black leading-none" style={{ color }}>{b.day}</span>
+                                    <span className="text-[13px] font-black leading-none" style={{ color: chipTextColor(color, theme) }}>{b.day}</span>
                                   </div>
                                   <div className="min-w-0">
                                     <div className="flex items-center gap-1.5">

@@ -21,11 +21,11 @@ import {
   nearestPaletteColor,
   categorySchema,
   type CategoryFormValues,
-  FloatingModal,
   CategoryForm,
   CreateCategoryModal,
   CATEGORY_ICONS,
 } from "@/components/category-form-modal";
+import { FloatingModal } from "@/components/floating-modal";
 
 export default function Categories() {
   const { toast } = useToast();
@@ -121,7 +121,7 @@ export default function Categories() {
       <CreateCategoryModal open={isCreateOpen} onClose={() => setIsCreateOpen(false)} defaultType="expense" />
 
       {/* Edit modal */}
-      <FloatingModal open={editingId !== null} onClose={() => setEditingId(null)} title="Edit Category">
+      <FloatingModal open={editingId !== null} onClose={() => setEditingId(null)} title="Edit Category" maxWidth="max-w-xs" headerPaddingTop="pt-4">
         <CategoryForm
           form={editForm}
           onSubmit={onEditSubmit}
