@@ -79,27 +79,59 @@ interface SavingsRate {
   saved: number;
 }
 
-function InsightsModal({ insights, onClose }: { insights: string; onClose: () => void }) {
+function InsightsModal({ open, insights, onClose }: { open: boolean; insights: string | null; onClose: () => void }) {
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [onClose]);
 
+  // Entraba con slide-in-from-bottom pero cerraba desmontando de golpe (el
+  // caller hacía `{insights && <InsightsModal/>}`) — ahora se monta siempre y
+  // decide sola cuándo desmontarse de verdad, para poder jugar la salida.
+  // lastInsights evita que el texto se vacíe a mitad del fade-out (insights
+  // ya es null en ese momento, pero el modal sigue visible un instante más).
+  const [mounted, setMounted] = useState(open);
+  const [closing, setClosing] = useState(false);
+  const [lastInsights, setLastInsights] = useState(insights);
+
+  useEffect(() => {
+    if (insights) setLastInsights(insights);
+  }, [insights]);
+
+  useEffect(() => {
+    if (open) {
+      setMounted(true);
+      setClosing(false);
+      return;
+    }
+    if (!mounted) return;
+    setClosing(true);
+    const t = setTimeout(() => setMounted(false), 300);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  if (!mounted) return null;
+
   return (
     <div
       role="dialog"
       aria-modal="true"
       aria-label="Your Financial Report"
-      className="fixed inset-0 flex flex-col justify-end"
-      style={{ zIndex: 9999, backgroundColor: "rgba(0,0,0,0.6)" }}
+      className={cn("fixed inset-0 flex flex-col justify-end duration-300", closing ? "animate-out fade-out" : "animate-in fade-in")}
+      style={{ zIndex: 9999, backgroundColor: "rgba(0,0,0,0.6)", animationFillMode: closing ? "forwards" : undefined }}
       onClick={onClose}
     >
 
       <div
-        className="bg-background rounded-t-2xl flex flex-col animate-in slide-in-from-bottom duration-300"
-        style={{ maxHeight: "calc(100vh - env(safe-area-inset-top) - 40px)" }}
+        className={cn(
+          "bg-background rounded-t-2xl flex flex-col duration-300",
+          closing ? "animate-out fade-out slide-out-to-bottom" : "animate-in slide-in-from-bottom"
+        )}
+        style={{ maxHeight: "calc(100vh - env(safe-area-inset-top) - 40px)", animationFillMode: closing ? "forwards" : undefined }}
         onClick={e => e.stopPropagation()}
+        onAnimationEnd={() => { if (closing) setMounted(false); }}
       >
 
         <div className="px-5 py-3 border-b border-border flex items-center gap-3 shrink-0">
@@ -121,7 +153,7 @@ function InsightsModal({ insights, onClose }: { insights: string; onClose: () =>
             prose-strong:text-foreground prose-strong:font-semibold
             prose-li:text-muted-foreground prose-li:text-sm prose-li:my-0
             prose-ul:my-1 prose-ol:my-1">
-            <ReactMarkdown>{insights}</ReactMarkdown>
+            <ReactMarkdown>{lastInsights ?? ""}</ReactMarkdown>
           </div>
         </div>
       </div>
@@ -874,7 +906,7 @@ export default function Insights() {
         </div>
       )}
 
-      {insights && <InsightsModal insights={insights} onClose={() => setInsights(null)} />}
+      <InsightsModal open={insights !== null} insights={insights} onClose={() => setInsights(null)} />
     </div>
   );
 }

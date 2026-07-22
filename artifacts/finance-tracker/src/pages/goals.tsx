@@ -393,6 +393,25 @@ function ColorSelect({ value, onChange }: { value: string; onChange: (c: string)
   const [open, setOpen] = useState(false);
   const current = COLOR_OPTIONS.find((c) => c.hex === value);
 
+  // Antes {open && (...)} aparecía/desaparecía de golpe, sin ninguna animación —
+  // el único popover de la app sin nada de motion. mounted/closing le dan la
+  // misma entrada+salida simétrica que ya usa FloatingModal, ancladas al botón
+  // que lo abre (origin-top) en vez de crecer desde el centro de la pantalla.
+  const [mounted, setMounted] = useState(false);
+  const [closing, setClosing] = useState(false);
+  useEffect(() => {
+    if (open) {
+      setMounted(true);
+      setClosing(false);
+      return;
+    }
+    if (!mounted) return;
+    setClosing(true);
+    const t = setTimeout(() => setMounted(false), 150);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
   return (
     <div className="relative">
       <button
@@ -405,11 +424,18 @@ function ColorSelect({ value, onChange }: { value: string; onChange: (c: string)
         <ChevronDown className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform", open && "rotate-180")} />
       </button>
 
-      {open && (
+      {mounted && (
         <>
           {/* Cierra el popover al tocar afuera */}
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute top-[calc(100%+0.5rem)] left-0 right-0 z-20 rounded-2xl bg-card border border-border shadow-xl p-3.5">
+          <div
+            className={cn(
+              "absolute top-[calc(100%+0.5rem)] left-0 right-0 z-20 origin-top rounded-2xl bg-card border border-border shadow-xl p-3.5 duration-150",
+              closing ? "animate-out fade-out zoom-out-95" : "animate-in fade-in zoom-in-95"
+            )}
+            style={{ animationFillMode: closing ? "forwards" : undefined }}
+            onAnimationEnd={() => { if (closing) setMounted(false); }}
+          >
             <div className="grid grid-cols-5 gap-2.5">
               {COLOR_OPTIONS.map((c) => {
                 const active = c.hex === value;

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Sun, Moon, Monitor, Trash2, LogOut, UserX, Download, ChevronRight, ChevronLeft, DollarSign, User, Plus, Fingerprint, ShieldCheck, AlertTriangle } from "lucide-react";
 import { useLocation } from "wouter";
 import { useTheme, type Theme } from "@/lib/theme-context";
@@ -122,6 +122,23 @@ export default function Settings() {
     try { return localStorage.getItem("ff-avatar") as "male" | "female" | null; } catch { return null; }
   });
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
+  // Entraba/salía de golpe, sin ninguna animación — mismo fix que el resto de
+  // los modales de esta sesión: mounted/closing dan la entrada+salida
+  // simétrica que ya usa FloatingModal en el resto de la app.
+  const [avatarPickerMounted, setAvatarPickerMounted] = useState(false);
+  const [avatarPickerClosing, setAvatarPickerClosing] = useState(false);
+  useEffect(() => {
+    if (showAvatarPicker) {
+      setAvatarPickerMounted(true);
+      setAvatarPickerClosing(false);
+      return;
+    }
+    if (!avatarPickerMounted) return;
+    setAvatarPickerClosing(true);
+    const t = setTimeout(() => setAvatarPickerMounted(false), 200);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showAvatarPicker]);
 
   const selectAvatar = (a: "male" | "female") => {
     setAvatar(a);
@@ -212,15 +229,27 @@ export default function Settings() {
             </div>
           </div>
 
-          {showAvatarPicker && (
+          {avatarPickerMounted && (
             <div
-              className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 pointer-events-auto"
+              className={cn(
+                "fixed inset-0 z-50 flex items-end justify-center bg-black/40 pointer-events-auto duration-200",
+                avatarPickerClosing ? "animate-out fade-out" : "animate-in fade-in"
+              )}
+              style={{ animationFillMode: avatarPickerClosing ? "forwards" : undefined }}
               onClick={() => setShowAvatarPicker(false)}
               role="dialog"
               aria-modal="true"
               aria-label="Choose avatar"
             >
-              <div className="bg-background rounded-t-2xl p-6 w-full max-w-sm space-y-4" onClick={(e) => e.stopPropagation()}>
+              <div
+                className={cn(
+                  "bg-background rounded-t-2xl p-6 w-full max-w-sm space-y-4 duration-200",
+                  avatarPickerClosing ? "animate-out fade-out slide-out-to-bottom-4" : "animate-in fade-in slide-in-from-bottom-4"
+                )}
+                style={{ animationFillMode: avatarPickerClosing ? "forwards" : undefined }}
+                onClick={(e) => e.stopPropagation()}
+                onAnimationEnd={() => { if (avatarPickerClosing) setAvatarPickerMounted(false); }}
+              >
                 <p className="font-bold text-center text-foreground uppercase tracking-widest text-xs">Choose Avatar</p>
                 <div className="flex gap-4 justify-center">
                   <button onClick={() => selectAvatar("male")} className={cn("rounded-2xl overflow-hidden border-4 transition-all", avatar === "male" ? "border-[#CAFA01]" : "border-transparent")}>

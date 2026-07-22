@@ -4,6 +4,7 @@ import { Mic, X, Check } from "lucide-react";
 import { getApiUrl } from "@/lib/api-config";
 import { supabase } from "@/lib/supabase";
 import { useCurrency } from "@/lib/currency-context";
+import { cn } from "@/lib/utils";
 
 const FLOW = "#CAFA01";
 // Antes fijo en paper claro siempre — ahora sigue el theme real de la app,
@@ -432,7 +433,19 @@ export default function VoiceCapture({
     setRunId((n) => n + 1);
   };
 
-  const close = () => { closedRef.current = true; stopEverything(); onClose(); };
+  // Entraba con fade-in pero el overlay entero desaparecía de golpe al cerrar
+  // (el mount/unmount lo maneja el padre vía voiceOpen). En vez de restructurar
+  // todo el ciclo de vida del mic, closing solo retrasa el onClose real —el
+  // mic se corta al toque (stopEverything), pero el overlay visual se queda
+  // un beat más jugando la salida antes de que el padre lo desmonte.
+  const [closing, setClosing] = useState(false);
+  const close = () => {
+    if (closedRef.current) return;
+    closedRef.current = true;
+    stopEverything();
+    setClosing(true);
+    setTimeout(onClose, 300);
+  };
 
   const liveMessage =
     phase === "listening" ? "Listening for your transaction."
@@ -443,8 +456,11 @@ export default function VoiceCapture({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[999] flex flex-col items-center justify-center px-6 animate-in fade-in duration-300"
-      style={{ background: PAPER }}
+      className={cn(
+        "fixed inset-0 z-[999] flex flex-col items-center justify-center px-6 duration-300",
+        closing ? "animate-out fade-out" : "animate-in fade-in"
+      )}
+      style={{ background: PAPER, animationFillMode: closing ? "forwards" : undefined }}
     >
       <span className="sr-only" aria-live="polite" aria-atomic="true">{liveMessage}</span>
       {/* Cerrar */}

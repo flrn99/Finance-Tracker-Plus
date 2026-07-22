@@ -1,7 +1,8 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Trash2, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useBiometric } from "@/lib/biometric-context";
+import { cn } from "@/lib/utils";
 
 type PinStep = "enter" | "confirm" | "disable";
 
@@ -163,7 +164,25 @@ export function BiometricPinModal({ flow }: { flow: BiometricPinFlow }) {
   const { showPinSetup, pinStep, pinValue, pinConfirm, pinError, biometricLoading, firedByPointer,
     closePinModal, handlePinDigit, handlePinDelete } = flow;
 
-  if (!showPinSetup) return null;
+  // Entraba con fade+zoom-in-95 pero cerraba con un `if (!showPinSetup) return
+  // null` seco — mismo fix que EntrySheet/FloatingModal: un beat para jugar la
+  // salida antes de desmontar de verdad.
+  const [mounted, setMounted] = useState(showPinSetup);
+  const [closing, setClosing] = useState(false);
+  useEffect(() => {
+    if (showPinSetup) {
+      setMounted(true);
+      setClosing(false);
+      return;
+    }
+    if (!mounted) return;
+    setClosing(true);
+    const t = setTimeout(() => setMounted(false), 200);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showPinSetup]);
+
+  if (!mounted) return null;
   const currentPin = pinStep === "confirm" ? pinConfirm : pinValue;
 
   return (
@@ -174,11 +193,21 @@ export function BiometricPinModal({ flow }: { flow: BiometricPinFlow }) {
       aria-label={pinStep === "disable" ? "Enter PIN" : pinStep === "enter" ? "Create PIN" : "Confirm PIN"}
       onClick={(e) => { e.stopPropagation(); e.preventDefault(); closePinModal(); }}
     >
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[150vw] h-[150vh] bg-black/80 z-0 animate-in fade-in duration-200 pointer-events-none" />
       <div
-        className="relative z-10 w-full max-w-[310px] bg-white/85 dark:bg-[#242427]/85 border border-black/5 dark:border-white/10 shadow-2xl rounded-[36px] overflow-hidden animate-in fade-in zoom-in-95 duration-200"
-        style={{ backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)" }}
+        className={cn(
+          "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[150vw] h-[150vh] bg-black/80 z-0 duration-200 pointer-events-none",
+          closing ? "animate-out fade-out" : "animate-in fade-in"
+        )}
+        style={{ animationFillMode: closing ? "forwards" : undefined }}
+      />
+      <div
+        className={cn(
+          "relative z-10 w-full max-w-[310px] bg-white/85 dark:bg-[#242427]/85 border border-black/5 dark:border-white/10 shadow-2xl rounded-[36px] overflow-hidden duration-200",
+          closing ? "animate-out fade-out zoom-out-95" : "animate-in fade-in zoom-in-95"
+        )}
+        style={{ backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)", animationFillMode: closing ? "forwards" : undefined }}
         onClick={(e) => e.stopPropagation()}
+        onAnimationEnd={() => { if (closing) setMounted(false); }}
       >
         <div className="relative p-6 flex flex-col items-center">
           <div className="flex items-start justify-between w-full mb-3 gap-2">

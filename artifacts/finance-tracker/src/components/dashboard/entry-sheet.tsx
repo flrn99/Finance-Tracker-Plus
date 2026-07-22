@@ -74,6 +74,25 @@ export function EntrySheet({
   const [pressedKey, setPressedKey] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
+  // Mismo patrón que FloatingModal: entraba con slide-in-from-bottom-8 pero
+  // cerraba con un `if (!open) return null` seco — desaparecía de un salto en
+  // vez de salir por donde entró. mounted/closing le dan un beat para jugar
+  // la salida antes de desmontar de verdad.
+  const [mounted, setMounted] = useState(open);
+  const [closing, setClosing] = useState(false);
+  useEffect(() => {
+    if (open) {
+      setMounted(true);
+      setClosing(false);
+      return;
+    }
+    if (!mounted) return;
+    setClosing(true);
+    const t = setTimeout(() => setMounted(false), 300);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
   const isExpense = type === "expense";
 
   const touchStart = useRef<{ x: number; y: number } | null>(null);
@@ -313,7 +332,7 @@ export function EntrySheet({
     );
   }
 
-  if (!open) return null;
+  if (!mounted) return null;
 
   const accentTextClass = isExpense ? "text-[#E11D48] dark:text-[#FFA3A3]" : "text-[#00593C] dark:text-[#6EE7B7]";
   const accentBgClass = isExpense ? "bg-[#E11D48] dark:bg-[#FFA3A3]" : "bg-[#00593C] dark:bg-[#6EE7B7]";
@@ -326,12 +345,21 @@ export function EntrySheet({
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-center" style={{ background: "rgba(2,2,3,0.3)", backdropFilter: "blur(4px)" }} role="dialog" aria-modal="true">
+    <div
+      className={cn("fixed inset-0 z-50 flex justify-center duration-300", closing ? "animate-out fade-out" : "animate-in fade-in")}
+      style={{ background: "rgba(2,2,3,0.3)", backdropFilter: "blur(4px)", animationFillMode: closing ? "forwards" : undefined }}
+      role="dialog"
+      aria-modal="true"
+    >
       <div
-        className="relative flex h-full w-full max-w-md flex-col overflow-hidden bg-background duration-300 animate-in slide-in-from-bottom-8"
-        style={{ paddingTop: "env(safe-area-inset-top)" }}
+        className={cn(
+          "relative flex h-full w-full max-w-md flex-col overflow-hidden bg-background duration-300",
+          closing ? "animate-out fade-out slide-out-to-bottom-8" : "animate-in slide-in-from-bottom-8"
+        )}
+        style={{ paddingTop: "env(safe-area-inset-top)", animationFillMode: closing ? "forwards" : undefined }}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
+        onAnimationEnd={() => { if (closing) setMounted(false); }}
       >
         {/* Header */}
         <header className="flex items-center justify-between px-5 pb-2 pt-5">

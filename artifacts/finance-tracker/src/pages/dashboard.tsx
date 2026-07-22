@@ -191,7 +191,7 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="pb-4">
+    <div className="pb-4 animate-in fade-in duration-500">
       <h2 className="font-title flex min-h-10 items-center pr-14 text-3xl text-foreground">Dashboard</h2>
 
       {/* New entry launcher */}
