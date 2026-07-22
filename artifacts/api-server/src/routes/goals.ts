@@ -403,6 +403,7 @@ router.get("/bills", async (req, res) => {
       amount: b.amount !== null ? parseFloat(b.amount) : null,
       createdAt: b.createdAt.toISOString(),
       logs: allLogs.filter((l) => l.billId === b.id).map((l) => l.month),
+      monthsWithTransaction: allLogs.filter((l) => l.billId === b.id && l.transactionId !== null).map((l) => l.month),
       paidThisMonth: allLogs.some((l) => l.billId === b.id && l.month === thisMonth),
       linkedTransactionCount: allLogs.filter((l) => l.billId === b.id && l.transactionId !== null).length,
     })),
@@ -437,6 +438,7 @@ router.post("/bills", async (req, res) => {
     amount: row.amount !== null ? parseFloat(row.amount) : null,
     createdAt: row.createdAt.toISOString(),
     logs: [],
+    monthsWithTransaction: [],
     paidThisMonth: false,
     linkedTransactionCount: 0,
   });
@@ -537,9 +539,10 @@ router.get("/bills/:id/logs", async (req, res) => {
 
 // Marca/desmarca un mes como pagado. Al marcar, opcionalmente guarda el monto real
 // pagado y el id de la transacción creada (si el front la generó vía auto-save).
-// Al desmarcar, solo se borra el registro de "pagado" — la transacción real, si
-// existe, no se toca: es un movimiento de plata de verdad, no algo que desaparece
-// porque se destildó un checkbox.
+// Al desmarcar, si ese mes tenía una transacción vinculada, se borra junto con el
+// registro de "pagado" — el front ya pidió confirmación explícita antes de llamar
+// a este endpoint (ver ConfirmDialog de unmark en goals.tsx), así que no es un
+// efecto secundario silencioso.
 router.put("/bills/:id/logs/:month", async (req, res) => {
   const id = Number(req.params.id);
   if (Number.isNaN(id)) return res.status(400).json({ error: "Invalid id" });
@@ -557,26 +560,39 @@ router.put("/bills/:id/logs/:month", async (req, res) => {
     .limit(1);
   if (!bill) return res.status(404).json({ error: "Not found" });
 
-  const [existing] = await db
-    .select()
-    .from(billLogsTable)
+  // DELETE...RETURNING es atómico en Postgres y borra TODAS las filas que matcheen
+  // (billId, month) de una — antes se hacía SELECT + DELETE por id, y si una carrera
+  // dejaba más de una fila duplicada para el mismo mes, solo se borraba una, dejando
+  // el mes "pagado" fantasma (el bug de "a veces no me lo quita").
+  const deleted = await db
+    .delete(billLogsTable)
     .where(and(eq(billLogsTable.billId, id), eq(billLogsTable.month, month)))
-    .limit(1);
+    .returning();
 
-  if (existing) {
-    await db.delete(billLogsTable).where(eq(billLogsTable.id, existing.id));
+  if (deleted.length > 0) {
+    const txIds = deleted.map((l) => l.transactionId).filter((t): t is number => t !== null);
+    if (txIds.length > 0) {
+      await db.delete(transactionsTable).where(inArray(transactionsTable.id, txIds));
+    }
     return res.json({ month, paid: false });
   }
 
   const bodyParsed = billLogBodySchema.safeParse(req.body ?? {});
   const { amountPaid, transactionId } = bodyParsed.success ? bodyParsed.data : {};
 
-  await db.insert(billLogsTable).values({
-    billId: id,
-    month,
-    amountPaid: amountPaid != null ? String(amountPaid) : null,
-    transactionId: transactionId ?? null,
-  });
+  // onConflictDoNothing: si dos requests concurrentes intentan marcar el mismo mes
+  // como pagado a la vez, el constraint único (billId, month) hace que la segunda
+  // inserción sea un no-op en vez de crear una fila duplicada.
+  await db
+    .insert(billLogsTable)
+    .values({
+      billId: id,
+      month,
+      amountPaid: amountPaid != null ? String(amountPaid) : null,
+      transactionId: transactionId ?? null,
+    })
+    .onConflictDoNothing({ target: [billLogsTable.billId, billLogsTable.month] });
+
   return res.json({ month, paid: true });
 });
 

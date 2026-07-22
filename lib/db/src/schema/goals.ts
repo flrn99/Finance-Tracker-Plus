@@ -1,4 +1,4 @@
-import { pgTable, serial, text, numeric, integer, timestamp, boolean } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, numeric, integer, timestamp, boolean, unique } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { categoriesTable } from "./categories";
@@ -64,6 +64,10 @@ export const billsTable = pgTable("bills", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// unique(billId, month): sin esto, una carrera (doble-tap, ghost click de WebView)
+// podía crear dos filas para el mismo mes — el toggle borraba solo una y el mes
+// quedaba "pagado" fantasma. Requiere deduplicar filas existentes en prod antes
+// de aplicar el push (ver script de migración).
 export const billLogsTable = pgTable("bill_logs", {
   id: serial("id").primaryKey(),
   billId: integer("bill_id")
@@ -73,7 +77,9 @@ export const billLogsTable = pgTable("bill_logs", {
   amountPaid: numeric("amount_paid", { precision: 12, scale: 6 }),
   transactionId: integer("transaction_id").references(() => transactionsTable.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (t) => [
+  unique("bill_logs_bill_month_unique").on(t.billId, t.month),
+]);
 
 export const insertGoalSchema = createInsertSchema(goalsTable).omit({
   id: true,

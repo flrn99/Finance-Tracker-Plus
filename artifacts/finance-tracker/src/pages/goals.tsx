@@ -128,6 +128,7 @@ export interface Bill {
   autoSave: boolean;
   createdAt: string;
   logs: string[]; // "YYYY-MM"
+  monthsWithTransaction: string[]; // subset de logs con transactionId real vinculado
   paidThisMonth: boolean;
   linkedTransactionCount: number;
 }
@@ -1518,6 +1519,7 @@ export default function Goals() {
   const [payBill, setPayBill] = useState<Bill | null>(null);
   const [payMonth, setPayMonth] = useState<string | null>(null);
   const [payAmount, setPayAmount] = useState("");
+  const [unmarkConfirm, setUnmarkConfirm] = useState<{ bill: Bill; month: string } | null>(null);
 
   // Símbolo de la moneda elegida en settings (Q, $, €, ...)
   const { currency } = useCurrency();
@@ -1917,10 +1919,13 @@ export default function Goals() {
     else if (typeof billModal === "number") updateBill.mutate({ id: billModal, data });
   };
 
-  // Al desmarcar no hace falta preguntar nada — solo se borra el "pagado" de ese mes.
-  // Al marcar (cualquier mes del heatmap, no solo el actual): si el bill tiene auto-save,
-  // se pide el monto real y se crea la transacción antes de loguear el mes como pagado
-  // (para poder linkear transactionId). Sin auto-save, solo se loguea el mes.
+  // Al desmarcar un mes que tiene una transacción real vinculada (se marcó con
+  // auto-save), se pide confirmación primero: esa transacción se borra junto con
+  // el "pagado" (ver confirmUnmarkBill). Sin transacción vinculada, desmarcar es
+  // instantáneo. Al marcar (cualquier mes del heatmap, no solo el actual): si el
+  // bill tiene auto-save, se pide el monto real y se crea la transacción antes de
+  // loguear el mes como pagado (para poder linkear transactionId). Sin auto-save,
+  // solo se loguea el mes.
   //
   // pendingToggles: sin esto, un doble-toque (o un click fantasma del WebView,
   // ya nos pasó antes con el biometric lock) dispara DOS mutations para el
@@ -1937,6 +1942,10 @@ export default function Goals() {
     if (pendingToggles.current.has(key)) return;
     const isPaid = new Set(b.logs).has(month);
     if (isPaid) {
+      if (b.monthsWithTransaction.includes(month)) {
+        setUnmarkConfirm({ bill: b, month });
+        return;
+      }
       pendingToggles.current.add(key);
       toggleBillLog.mutate({ id: b.id, month }, { onSettled: () => pendingToggles.current.delete(key) });
       return;
@@ -1950,6 +1959,21 @@ export default function Goals() {
     }
     pendingToggles.current.add(key);
     toggleBillLog.mutate({ id: b.id, month }, { onSettled: () => pendingToggles.current.delete(key) });
+  };
+
+  const confirmUnmarkBill = () => {
+    if (!unmarkConfirm) return;
+    const { bill: b, month } = unmarkConfirm;
+    const key = `${b.id}:${month}`;
+    setUnmarkConfirm(null);
+    pendingToggles.current.add(key);
+    toggleBillLog.mutate(
+      { id: b.id, month },
+      {
+        onSuccess: () => invalidateTransactions(),
+        onSettled: () => pendingToggles.current.delete(key),
+      }
+    );
   };
 
   const handlePaySubmit = () => {
@@ -2424,6 +2448,36 @@ export default function Goals() {
           </div>
         )}
       </FloatingModal>
+
+      {/* Desmarcar un mes con transacción vinculada: pide confirmación porque
+          esa transacción se borra junto con el "pagado" — un movimiento de
+          plata real no debería desaparecer por un toque accidental. */}
+      <AlertDialog open={unmarkConfirm !== null} onOpenChange={(open) => { if (!open) setUnmarkConfirm(null); }}>
+        <AlertDialogContent className="max-w-xs rounded-3xl border-0 p-6 gap-0">
+          <div className="flex flex-col items-center text-center gap-3 mb-1">
+            <div className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0" style={{ background: "rgba(239,68,68,0.12)" }}>
+              <Trash2 className="h-5 w-5" style={{ color: "hsl(var(--destructive))" }} />
+            </div>
+            <AlertDialogHeader className="items-center text-center space-y-1.5">
+              <AlertDialogTitle className="text-base font-bold">Unmark as paid</AlertDialogTitle>
+              <AlertDialogDescription className="text-sm text-center leading-relaxed">
+                {unmarkConfirm && `This will also delete the transaction it created for ${fmtMonthLabel(unmarkConfirm.month)}. This cannot be undone.`}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+          </div>
+          <AlertDialogFooter className="flex-col-reverse gap-2 pt-2 sm:flex-col-reverse">
+            <AlertDialogCancel className="w-full rounded-2xl border-0 bg-muted font-semibold hover:bg-muted/80">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmUnmarkBill}
+              className="w-full rounded-2xl font-bold border-0 bg-destructive text-white hover:bg-destructive/90"
+            >
+              Unmark & delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {detailHabit && (
         <HabitDetail
