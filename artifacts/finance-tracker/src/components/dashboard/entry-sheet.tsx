@@ -257,6 +257,12 @@ export function EntrySheet({
     queryClient.invalidateQueries({ queryKey: getGetSpendingByCategoryQueryKey({}) });
     queryClient.invalidateQueries({ queryKey: getGetMonthlyTrendQueryKey() });
     queryClient.invalidateQueries({ queryKey: getGetTopExpensesQueryKey({ limit: 5 }) });
+    // Insights (Category on the move, Biggest expense, Fixed vs flexible,
+    // Income) usan queryKeys propias fuera de Orval — antes no se invalidaban
+    // acá, así que se quedaban con la data vieja hasta cerrar y reabrir la app.
+    queryClient.invalidateQueries({ queryKey: ["insights-anomaly"] });
+    queryClient.invalidateQueries({ queryKey: ["insights-fixed-vs-flexible"] });
+    queryClient.invalidateQueries({ queryKey: ["insights-income-summary"] });
   };
 
   function submit() {

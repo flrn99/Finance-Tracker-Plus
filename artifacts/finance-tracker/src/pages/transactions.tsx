@@ -406,6 +406,9 @@ export default function Transactions() {
         queryClient.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey({}) });
         queryClient.invalidateQueries({ queryKey: getGetSpendingByCategoryQueryKey({}) });
         queryClient.invalidateQueries({ queryKey: getGetTopExpensesQueryKey({ limit: 3 }) });
+        queryClient.invalidateQueries({ queryKey: ["insights-anomaly"] });
+        queryClient.invalidateQueries({ queryKey: ["insights-fixed-vs-flexible"] });
+        queryClient.invalidateQueries({ queryKey: ["insights-income-summary"] });
       },
       onError: () => toast({ title: "Failed to delete", variant: "destructive" }),
     });

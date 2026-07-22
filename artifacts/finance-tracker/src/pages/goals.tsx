@@ -1643,6 +1643,12 @@ export default function Goals() {
     queryClient.invalidateQueries({ queryKey: getGetSpendingByCategoryQueryKey({}) });
     queryClient.invalidateQueries({ queryKey: getGetMonthlyTrendQueryKey() });
     queryClient.invalidateQueries({ queryKey: getGetTopExpensesQueryKey({ limit: 5 }) });
+    // Un Flow pagado (manual o auto-save) crea una transacción real — sin esto,
+    // Insights se quedaba con la data vieja de Fixed vs flexible/Category on
+    // the move hasta cerrar y reabrir la app.
+    queryClient.invalidateQueries({ queryKey: ["insights-anomaly"] });
+    queryClient.invalidateQueries({ queryKey: ["insights-fixed-vs-flexible"] });
+    queryClient.invalidateQueries({ queryKey: ["insights-income-summary"] });
   };
 
   /* ---------- mutations: goals ---------- */

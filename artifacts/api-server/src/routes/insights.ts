@@ -85,7 +85,11 @@ router.get("/insights/anomaly", async (req, res) => {
 
   try {
     const [baseYear, baseMonthNum] = month.split("-").map(Number);
-    const monthKeys = [0, -1, -2, -3].map((offset) => {
+    // Antes solo miraba 3 meses atrás — si el usuario no carga todos los meses
+    // seguido (uso real, no diario), el historial comparable podía estar más
+    // lejos y la categoría nunca aparecía como "en movimiento" aunque hubiera
+    // data real para compararla. 6 meses atrás tolera huecos de uso.
+    const monthKeys = [0, -1, -2, -3, -4, -5, -6].map((offset) => {
       const d = new Date(baseYear, baseMonthNum - 1 + offset, 1);
       return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
     });
@@ -170,7 +174,9 @@ router.get("/insights/income-summary", async (req, res) => {
 
   try {
     const [baseYear, baseMonthNum] = month.split("-").map(Number);
-    const monthKeys = [0, -1, -2, -3].map((offset) => {
+    // Mismo criterio que /insights/anomaly: 6 meses atrás en vez de 3, para
+    // tolerar huecos de uso real en vez de exigir carga mes a mes.
+    const monthKeys = [0, -1, -2, -3, -4, -5, -6].map((offset) => {
       const d = new Date(baseYear, baseMonthNum - 1 + offset, 1);
       return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
     });

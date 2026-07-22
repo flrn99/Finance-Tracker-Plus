@@ -1,5 +1,12 @@
 import { useState, useEffect, useRef } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  getListTransactionsQueryKey,
+  getGetDashboardSummaryQueryKey,
+  getGetSpendingByCategoryQueryKey,
+  getGetMonthlyTrendQueryKey,
+  getGetTopExpensesQueryKey,
+} from "@workspace/api-client-react";
 import { Capacitor } from "@capacitor/core";
 import { FilePicker } from "@capawesome/capacitor-file-picker";
 import { Sparkles, Upload, Loader2, AlertCircle, X, ChevronRight, ChevronDown, Lock, Target, TrendingDown, TrendingUp } from "lucide-react";
@@ -176,6 +183,7 @@ function LockedRow({
 
 export default function Insights() {
   const { session } = useAuth();
+  const queryClient = useQueryClient();
   const { currency, formatAmount } = useCurrency();
   const { toast } = useToast();
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -235,7 +243,7 @@ export default function Insights() {
     staleTime: STALE_TIME,
   });
 
-  const { data: fixedVsFlexible, error: fixedVsFlexibleQueryError } = useQuery({
+  const { data: fixedVsFlexible, error: fixedVsFlexibleQueryError, isLoading: fixedVsFlexibleLoading } = useQuery({
     queryKey: ["insights-fixed-vs-flexible", thisMonth, session?.user?.id],
     queryFn: async (): Promise<FixedVsFlexible | null> => {
       const r = await fetch(getApiUrl(`/api/insights/fixed-vs-flexible?month=${thisMonth}`), { headers: { Authorization: `Bearer ${token}` } });
@@ -255,7 +263,7 @@ export default function Insights() {
   // porque /categories/spending nunca existió como endpoint real — siempre
   // fallaba y siempre caía al fallback). Ahora es un solo round-trip al backend,
   // que devuelve las dos señales juntas porque comparten la misma consulta base.
-  const { data: anomalyData } = useQuery({
+  const { data: anomalyData, isLoading: anomalyLoading } = useQuery({
     queryKey: ["insights-anomaly", thisMonth, session?.user?.id],
     queryFn: async (): Promise<{ mover: Anomaly | null; biggestExpense: BiggestExpense | null }> => {
       const r = await fetch(getApiUrl(`/api/insights/anomaly?month=${thisMonth}`), { headers: { Authorization: `Bearer ${token}` } });
@@ -270,7 +278,7 @@ export default function Insights() {
 
   // Income consistency + savings rate — mismo patrón de un solo round-trip
   // que "biggest mover", para el lado de Income del lens toggle.
-  const { data: incomeSummary } = useQuery({
+  const { data: incomeSummary, isLoading: incomeSummaryLoading } = useQuery({
     queryKey: ["insights-income-summary", thisMonth, session?.user?.id],
     queryFn: async (): Promise<{ income: IncomeConsistency | null; savingsRate: SavingsRate | null }> => {
       const r = await fetch(getApiUrl(`/api/insights/income-summary?month=${thisMonth}`), { headers: { Authorization: `Bearer ${token}` } });
@@ -282,6 +290,13 @@ export default function Insights() {
   });
   const incomeConsistency = incomeSummary?.income ?? null;
   const savingsRate = incomeSummary?.savingsRate ?? null;
+
+  // Distingue "todavía está cargando" de "ya cargó y no hay nada" — antes se
+  // mostraba directo el empty-state ("Nothing to show yet") mientras las
+  // queries todavía estaban en vuelo, y se sentía como que la app no tenía
+  // data en vez de que estaba esperando la respuesta del backend.
+  const expenseLoading = anomalyLoading || fixedVsFlexibleLoading;
+  const incomeLoading = incomeSummaryLoading;
 
   const analyzeFinances = async () => {
     setIsAnalyzing(true);
@@ -404,7 +419,22 @@ export default function Insights() {
         <ImportReview
           transactions={editableTxs}
           categories={categories}
-          onDone={() => { setEditableTxs(null); toast({ title: "Transactions imported successfully!" }); }}
+          onDone={() => {
+            setEditableTxs(null);
+            toast({ title: "Transactions imported successfully!" });
+            // El import de PDF crea transacciones con fetch crudo, no con las
+            // mutations de react-query — nada se invalidaba antes, así que ni
+            // Insights ni el dashboard ni Transactions veían lo importado
+            // hasta cerrar y reabrir la app.
+            queryClient.invalidateQueries({ queryKey: getListTransactionsQueryKey() });
+            queryClient.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey({}) });
+            queryClient.invalidateQueries({ queryKey: getGetSpendingByCategoryQueryKey({}) });
+            queryClient.invalidateQueries({ queryKey: getGetMonthlyTrendQueryKey() });
+            queryClient.invalidateQueries({ queryKey: getGetTopExpensesQueryKey({ limit: 5 }) });
+            queryClient.invalidateQueries({ queryKey: ["insights-anomaly"] });
+            queryClient.invalidateQueries({ queryKey: ["insights-fixed-vs-flexible"] });
+            queryClient.invalidateQueries({ queryKey: ["insights-income-summary"] });
+          }}
           onCancel={() => setEditableTxs(null)}
         />
       </div>
@@ -535,6 +565,24 @@ export default function Insights() {
         </button>
       </div>
 
+      {/* Skeleton — antes se mostraba directo "Nothing to show yet" mientras
+          las queries todavía estaban en vuelo (cold start o justo después de
+          invalidar por una transacción nueva), y se leía como que no había
+          data en vez de que estaba cargando. */}
+      {((activeLens === "expense" && expenseLoading) || (activeLens === "income" && incomeLoading)) && (
+        <>
+          <div className="bg-card border border-card-border rounded-3xl px-5 py-4 animate-pulse">
+            <div className="h-3 w-32 rounded-full bg-muted mb-3" />
+            <div className="h-7 w-40 rounded-full bg-muted mb-3" />
+            <div className="h-1 w-full rounded-full bg-muted" />
+          </div>
+          <div className="bg-card border border-card-border rounded-3xl px-5 py-4 animate-pulse">
+            <div className="h-3 w-32 rounded-full bg-muted mb-3" />
+            <div className="h-9 w-full rounded-xl bg-muted" />
+          </div>
+        </>
+      )}
+
       {/* Getting started — cuando no hay nada de qué partir todavía (cuenta nueva
           o mes sin datos de este lente cargados), en vez de dejar el espacio en
           blanco sin explicación se ve un candado por sección con una frase de qué
@@ -542,7 +590,7 @@ export default function Insights() {
           altura + overflow-hidden que la cápsula del biometric lock) con una
           explicación más larga de qué es esa sección. El ícono usa el mismo rojo/
           verde que el toggle de arriba, para que quede claro de qué lente es. */}
-      {activeLens === "expense" && (!anomaly || !biggestExpense || (!fixedVsFlexible && !fixedVsFlexibleError)) && (
+      {activeLens === "expense" && !expenseLoading && (!anomaly || !biggestExpense || (!fixedVsFlexible && !fixedVsFlexibleError)) && (
         <div className="bg-card border border-card-border rounded-3xl px-5 py-4 text-center">
           <div className="w-10 h-10 rounded-xl flex items-center justify-center mx-auto mb-2.5" style={{ background: "rgba(255,77,77,0.13)" }}>
             <Target className="h-4 w-4" style={{ color: "#FF4D4D" }} />
@@ -583,7 +631,7 @@ export default function Insights() {
         </div>
       )}
 
-      {activeLens === "income" && (!incomeConsistency || !savingsRate) && (
+      {activeLens === "income" && !incomeLoading && (!incomeConsistency || !savingsRate) && (
         <div className="bg-card border border-card-border rounded-3xl px-5 py-4 text-center">
           <div className="w-10 h-10 rounded-xl flex items-center justify-center mx-auto mb-2.5" style={{ background: "rgba(0,168,112,0.13)" }}>
             <Target className="h-4 w-4" style={{ color: "#00A870" }} />
