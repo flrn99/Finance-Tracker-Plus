@@ -662,7 +662,11 @@ export default function Insights() {
           "Refresh analysis" en el hero sigue siendo el único que re-analiza. */}
       {activeLens === "expense" && anomaly && (() => {
         const isNotable = anomaly.multiplier >= 1.5;
-        const multColor = isNotable ? "#B45309" : undefined;
+        // Mismo terracota que Fixed vs flexible — antes era un ámbar (#B45309)
+        // sin relación con ningún otro color del lente Expense, un tercer tono
+        // cálido más compitiendo con el punto de la categoría y con Fixed vs
+        // flexible. Ahora es un solo acento cálido consistente en todo el lente.
+        const multColor = isNotable ? FIXED_COLOR : undefined;
         return (
           <div
             className={cn(
@@ -700,7 +704,7 @@ export default function Insights() {
               </div>
               <div className="flex-1">
                 <div className="h-1 rounded-full bg-muted overflow-hidden">
-                  <div className="h-full rounded-full" style={{ width: "100%", background: isNotable ? "#B45309" : "hsl(var(--muted-foreground))" }} />
+                  <div className="h-full rounded-full" style={{ width: "100%", background: isNotable ? FIXED_COLOR : "hsl(var(--muted-foreground))" }} />
                 </div>
                 <span className="text-[10px] text-muted-foreground">this month {formatAmount(anomaly.thisMonth)}</span>
               </div>
