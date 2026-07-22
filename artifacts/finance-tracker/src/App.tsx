@@ -88,19 +88,18 @@ function ProtectedRouter() {
   // justo ahí, pasa de largo. useLayoutEffect corre antes del paint, así que el
   // escudo ya está puesto en el primer frame que el usuario llega a ver.
   useLayoutEffect(() => {
-    if (isLocked) wasLocked.current = true;
-    else if (wasLocked.current) {
-      wasLocked.current = false;
-      navigate("/", { replace: true });
-      // El último tap del PIN puede generar un click sintético demorado (ghost
-      // click, típico de WebView) que cae sobre lo que sea que quede montado en
-      // esa misma posición de pantalla una vez que el lock desaparece — con mala
-      // suerte, el botón "All transactions" del Dashboard. Este escudo invisible
-      // se come cualquier tap residual en la ventana en la que eso puede pasar.
-      setJustUnlocked(true);
-      const t = setTimeout(() => setJustUnlocked(false), 400);
-      return () => clearTimeout(t);
-    }
+    if (isLocked) { wasLocked.current = true; return; }
+    if (!wasLocked.current) return;
+    wasLocked.current = false;
+    navigate("/", { replace: true });
+    // El último tap del PIN puede generar un click sintético demorado (ghost
+    // click, típico de WebView) que cae sobre lo que sea que quede montado en
+    // esa misma posición de pantalla una vez que el lock desaparece — con mala
+    // suerte, el botón "All transactions" del Dashboard. Este escudo invisible
+    // se come cualquier tap residual en la ventana en la que eso puede pasar.
+    setJustUnlocked(true);
+    const t = setTimeout(() => setJustUnlocked(false), 400);
+    return () => clearTimeout(t);
   }, [isLocked, navigate]);
 
   if (isResetting && user) return <ResetPassword onDone={() => setIsResetting(false)} />;

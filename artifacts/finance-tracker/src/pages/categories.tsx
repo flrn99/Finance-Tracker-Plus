@@ -74,7 +74,10 @@ export default function Categories() {
   const openEdit = (cat: { id: number; name: string; type: string; color: string; icon: string | null }) => {
     editForm.reset({
       name: cat.name,
-      type: cat.type as "income" | "expense" | "both",
+      // El form no tiene forma de representar "both" (no existe esa opción en
+      // el picker) — si la categoría es "both", precargamos "expense" como
+      // default razonable en vez de romper el tipo del form.
+      type: cat.type === "both" ? "expense" : (cat.type as "income" | "expense"),
       color: cat.color,
       icon: cat.icon ?? "tag",
     });

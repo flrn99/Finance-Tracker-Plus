@@ -106,7 +106,7 @@ export function SpendingBreakdown({
   data: SpendingEntry[] | undefined;
   isLoading: boolean;
   chartInView: boolean;
-  chartRef: RefObject<HTMLDivElement>;
+  chartRef: RefObject<HTMLDivElement | null>;
 }) {
   const { formatAmount } = useCurrency();
   const isExpense = type === "expense";
