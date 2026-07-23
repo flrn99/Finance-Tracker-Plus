@@ -2227,8 +2227,8 @@ export default function Goals() {
         <>
           {/* ------------------ SAVINGS ------------------ */}
           {activeTab === "savings" && (
-          <div className="animate-in fade-in duration-200">
-            <div className="flex items-center justify-between mb-1.5 px-1">
+          <div className="animate-in fade-in duration-200 mt-2">
+            <div className="flex items-center justify-between mb-3 px-1">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-[#CAFA01]" />
                 <p className="text-xs font-bold uppercase tracking-widest text-foreground">Savings</p>
@@ -2306,8 +2306,8 @@ export default function Goals() {
 
           {/* ------------------ HABITS ------------------ */}
           {activeTab === "habits" && (
-          <div className="animate-in fade-in duration-200">
-            <div className="flex items-center justify-between mb-1.5 px-1">
+          <div className="animate-in fade-in duration-200 mt-2">
+            <div className="flex items-center justify-between mb-3 px-1">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-[#CAFA01]" />
                 <p className="text-xs font-bold uppercase tracking-widest text-foreground">Habits</p>
@@ -2382,8 +2382,8 @@ export default function Goals() {
 
           {/* ------------------ FLOWS ------------------ */}
           {activeTab === "bills" && (
-          <div className="animate-in fade-in duration-200">
-            <div className="flex items-center justify-between mb-1.5 px-1">
+          <div className="animate-in fade-in duration-200 mt-2">
+            <div className="flex items-center justify-between mb-3 px-1">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-[#CAFA01]" />
                 <p className="text-xs font-bold uppercase tracking-widest text-foreground">Flows</p>
