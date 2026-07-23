@@ -173,6 +173,8 @@ function TransactionRow({
         description={
           tx.linkedBillName
             ? `This will permanently delete "${tx.description}" and unmark "${tx.linkedBillName}" as paid (${tx.type === "income" ? "Money In" : "Money Out"}). This can't be undone.`
+            : tx.linkedGoalName
+            ? `This will permanently delete "${tx.description}" and remove this contribution from "${tx.linkedGoalName}". This can't be undone.`
             : `This will permanently delete "${tx.description}". This can't be undone.`
         }
         confirmLabel="Delete"
@@ -414,6 +416,9 @@ export default function Transactions() {
         // (dismissed) — sin esto, Goals seguía mostrando ese Flow como pagado
         // hasta la próxima vez que se abriera esa página por otro motivo.
         queryClient.invalidateQueries({ queryKey: ["bills"] });
+        // Idem si estaba atada a un aporte de meta — el backend ya restó el
+        // monto de currentAmount y borró el aporte, esto solo refresca la UI.
+        queryClient.invalidateQueries({ queryKey: ["goals"] });
         queryClient.invalidateQueries({ queryKey: ["insights-anomaly"] });
         queryClient.invalidateQueries({ queryKey: ["insights-fixed-vs-flexible"] });
         queryClient.invalidateQueries({ queryKey: ["insights-income-summary"] });

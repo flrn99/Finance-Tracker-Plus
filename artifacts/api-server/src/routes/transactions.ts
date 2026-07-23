@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { transactionsTable, categoriesTable, billLogsTable, billsTable } from "@workspace/db";
+import { transactionsTable, categoriesTable, billLogsTable, billsTable, goalContributionsTable, goalsTable } from "@workspace/db";
 import { eq, and, gte, lte, sql, inArray } from "drizzle-orm";
 import {
   CreateTransactionBody,
@@ -41,15 +41,18 @@ router.get("/transactions", async (req, res) => {
       categoryColor: categoriesTable.color,
       notes: transactionsTable.notes,
       createdAt: transactionsTable.createdAt,
-      // Nombre del Flow si esta transacción nació de un auto-save — para poder
-      // avisar antes de borrarla que también va a desmarcar el Flow (ver
-      // DELETE /transactions/:id más abajo).
+      // Nombre del Flow/meta si esta transacción nació de un auto-save o de un
+      // aporte — para poder avisar antes de borrarla que también va a
+      // desmarcar el Flow / restar el aporte (ver DELETE /transactions/:id).
       linkedBillName: billsTable.name,
+      linkedGoalName: goalsTable.name,
     })
     .from(transactionsTable)
     .innerJoin(categoriesTable, eq(transactionsTable.categoryId, categoriesTable.id))
     .leftJoin(billLogsTable, eq(billLogsTable.transactionId, transactionsTable.id))
     .leftJoin(billsTable, eq(billsTable.id, billLogsTable.billId))
+    .leftJoin(goalContributionsTable, eq(goalContributionsTable.transactionId, transactionsTable.id))
+    .leftJoin(goalsTable, eq(goalsTable.id, goalContributionsTable.goalId))
     .where(and(...conditions))
     .orderBy(sql`${transactionsTable.date} desc, ${transactionsTable.createdAt} desc`);
 
@@ -58,6 +61,7 @@ router.get("/transactions", async (req, res) => {
     amount: parseFloat(r.amount),
     createdAt: r.createdAt.toISOString(),
     linkedBillName: r.linkedBillName ?? null,
+    linkedGoalName: r.linkedGoalName ?? null,
   })));
 });
 
@@ -173,6 +177,15 @@ router.delete("/transactions/:id", async (req, res) => {
     .from(billLogsTable)
     .where(eq(billLogsTable.transactionId, parsed.data.id));
 
+  // Mismo problema del otro lado: si nació de un "Add money" a una meta, hay
+  // que deshacer el aporte — acá no hay concepto de "dismissed" (un aporte no
+  // es un estado mensual con auto-heal, es un evento puntual), así que se
+  // borra el registro entero y se resta lo que había sumado a currentAmount.
+  const linkedContributions = await db
+    .select({ id: goalContributionsTable.id, goalId: goalContributionsTable.goalId, amount: goalContributionsTable.amount })
+    .from(goalContributionsTable)
+    .where(eq(goalContributionsTable.transactionId, parsed.data.id));
+
   const [deleted] = await db.delete(transactionsTable)
     .where(and(eq(transactionsTable.id, parsed.data.id), eq(transactionsTable.userId, userId)))
     .returning();
@@ -183,6 +196,16 @@ router.delete("/transactions/:id", async (req, res) => {
     await db.update(billLogsTable)
       .set({ dismissed: true })
       .where(inArray(billLogsTable.id, linkedLogs.map((l) => l.id)));
+  }
+
+  for (const c of linkedContributions) {
+    await db.update(goalsTable)
+      .set({ currentAmount: sql`${goalsTable.currentAmount} - ${c.amount}` })
+      .where(eq(goalsTable.id, c.goalId));
+  }
+  if (linkedContributions.length > 0) {
+    await db.delete(goalContributionsTable)
+      .where(inArray(goalContributionsTable.id, linkedContributions.map((c) => c.id)));
   }
 
   return res.status(204).send();

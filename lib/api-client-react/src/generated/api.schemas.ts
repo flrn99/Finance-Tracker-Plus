@@ -34,6 +34,11 @@ export interface Transaction {
      * @nullable
      */
   linkedBillName?: string | null;
+  /**
+     * Nombre de la meta a la que esta transacción quedó atada como aporte (goal contribution), si corresponde. Null si es una transacción suelta.
+     * @nullable
+     */
+  linkedGoalName?: string | null;
 }
 
 export type TransactionInputType = typeof TransactionInputType[keyof typeof TransactionInputType];

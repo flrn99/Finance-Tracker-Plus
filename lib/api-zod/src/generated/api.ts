@@ -37,7 +37,8 @@ export const ListTransactionsResponseItem = zod.object({
   "categoryColor": zod.string(),
   "notes": zod.string().nullish(),
   "createdAt": zod.string(),
-  "linkedBillName": zod.string().nullish().describe('Nombre del Flow (bill) al que esta transacción quedó atada vía auto-save, si corresponde. Null si es una transacción suelta.')
+  "linkedBillName": zod.string().nullish().describe('Nombre del Flow (bill) al que esta transacción quedó atada vía auto-save, si corresponde. Null si es una transacción suelta.'),
+  "linkedGoalName": zod.string().nullish().describe('Nombre de la meta a la que esta transacción quedó atada como aporte (goal contribution), si corresponde. Null si es una transacción suelta.')
 })
 export const ListTransactionsResponse = zod.array(ListTransactionsResponseItem)
 
@@ -73,7 +74,8 @@ export const GetTransactionResponse = zod.object({
   "categoryColor": zod.string(),
   "notes": zod.string().nullish(),
   "createdAt": zod.string(),
-  "linkedBillName": zod.string().nullish().describe('Nombre del Flow (bill) al que esta transacción quedó atada vía auto-save, si corresponde. Null si es una transacción suelta.')
+  "linkedBillName": zod.string().nullish().describe('Nombre del Flow (bill) al que esta transacción quedó atada vía auto-save, si corresponde. Null si es una transacción suelta.'),
+  "linkedGoalName": zod.string().nullish().describe('Nombre de la meta a la que esta transacción quedó atada como aporte (goal contribution), si corresponde. Null si es una transacción suelta.')
 })
 
 
@@ -104,7 +106,8 @@ export const UpdateTransactionResponse = zod.object({
   "categoryColor": zod.string(),
   "notes": zod.string().nullish(),
   "createdAt": zod.string(),
-  "linkedBillName": zod.string().nullish().describe('Nombre del Flow (bill) al que esta transacción quedó atada vía auto-save, si corresponde. Null si es una transacción suelta.')
+  "linkedBillName": zod.string().nullish().describe('Nombre del Flow (bill) al que esta transacción quedó atada vía auto-save, si corresponde. Null si es una transacción suelta.'),
+  "linkedGoalName": zod.string().nullish().describe('Nombre de la meta a la que esta transacción quedó atada como aporte (goal contribution), si corresponde. Null si es una transacción suelta.')
 })
 
 
@@ -248,7 +251,8 @@ export const GetTopExpensesResponseItem = zod.object({
   "categoryColor": zod.string(),
   "notes": zod.string().nullish(),
   "createdAt": zod.string(),
-  "linkedBillName": zod.string().nullish().describe('Nombre del Flow (bill) al que esta transacción quedó atada vía auto-save, si corresponde. Null si es una transacción suelta.')
+  "linkedBillName": zod.string().nullish().describe('Nombre del Flow (bill) al que esta transacción quedó atada vía auto-save, si corresponde. Null si es una transacción suelta.'),
+  "linkedGoalName": zod.string().nullish().describe('Nombre de la meta a la que esta transacción quedó atada como aporte (goal contribution), si corresponde. Null si es una transacción suelta.')
 })
 export const GetTopExpensesResponse = zod.array(GetTopExpensesResponseItem)
 
