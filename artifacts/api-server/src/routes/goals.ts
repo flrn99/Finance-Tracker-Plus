@@ -361,18 +361,27 @@ router.put("/habits/:id/logs/:date", async (req, res) => {
     .limit(1);
   if (!habit) return res.status(404).json({ error: "Not found" });
 
-  const [existing] = await db
-    .select()
-    .from(habitLogsTable)
+  // DELETE...RETURNING es atómico en Postgres y borra TODAS las filas que
+  // matcheen (habitId, date) de una — mismo fix que bill_logs: antes se hacía
+  // SELECT + DELETE por id, y si una carrera dejaba más de una fila duplicada
+  // para el mismo día, solo se borraba una, dejando el día "hecho" fantasma.
+  const deleted = await db
+    .delete(habitLogsTable)
     .where(and(eq(habitLogsTable.habitId, id), eq(habitLogsTable.date, date)))
-    .limit(1);
+    .returning();
 
-  if (existing) {
-    await db.delete(habitLogsTable).where(eq(habitLogsTable.id, existing.id));
+  if (deleted.length > 0) {
     return res.json({ date, completed: false });
   }
 
-  await db.insert(habitLogsTable).values({ habitId: id, date });
+  // onConflictDoNothing: si dos requests concurrentes intentan marcar el mismo
+  // día a la vez, el constraint único (habitId, date) hace que la segunda
+  // inserción sea un no-op en vez de crear una fila duplicada.
+  await db
+    .insert(habitLogsTable)
+    .values({ habitId: id, date })
+    .onConflictDoNothing({ target: [habitLogsTable.habitId, habitLogsTable.date] });
+
   return res.json({ date, completed: true });
 });
 

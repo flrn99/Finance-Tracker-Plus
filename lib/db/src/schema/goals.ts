@@ -38,6 +38,10 @@ export const habitsTable = pgTable("habits", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// unique(habitId, date): mismo bug que tenía bill_logs antes de arreglarlo —
+// sin esto, una carrera (doble-tap, ghost click de WebView) podía crear dos
+// filas para el mismo día y el toggle borraba solo una, dejando el día
+// "hecho" fantasma.
 export const habitLogsTable = pgTable("habit_logs", {
   id: serial("id").primaryKey(),
   habitId: integer("habit_id")
@@ -45,7 +49,9 @@ export const habitLogsTable = pgTable("habit_logs", {
     .references(() => habitsTable.id, { onDelete: "cascade" }),
   date: text("date").notNull(), // "YYYY-MM-DD", igual que transactions
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (t) => [
+  unique("habit_logs_habit_date_unique").on(t.habitId, t.date),
+]);
 
 // Pago recurrente mensual (ej. "Seguro", "Internet") — mismo patrón que habits/habitLogs,
 // pero el log es por MES ("YYYY-MM") en vez de por día, y opcionalmente crea una

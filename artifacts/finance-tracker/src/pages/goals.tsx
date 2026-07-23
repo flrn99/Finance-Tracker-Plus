@@ -1788,6 +1788,20 @@ export default function Goals() {
     onSettled: () => invalidateHabits(),
   });
 
+  // Mismo guard que pendingToggles de Flows: sin esto, un doble-toque (o un
+  // click fantasma del WebView) dispara DOS mutations para el mismo hábito+día
+  // antes de que la primera vuelva del servidor, y el toggle optimista termina
+  // marcando dos veces seguidas (queda igual que empezó) o desmarcando el
+  // toque real de un fantasma posterior.
+  const pendingHabitToggles = useRef<Set<string>>(new Set());
+  const handleToggleHabitDay = (habitId: number, date: string) => {
+    if (habitId < 0) return;
+    const key = `${habitId}:${date}`;
+    if (pendingHabitToggles.current.has(key)) return;
+    pendingHabitToggles.current.add(key);
+    toggleLog.mutate({ id: habitId, date }, { onSettled: () => pendingHabitToggles.current.delete(key) });
+  };
+
   /* ---------- mutations: bills ---------- */
 
   const billPayload = (data: BillFormValues) => JSON.stringify({
@@ -2342,7 +2356,7 @@ export default function Goals() {
                               </div>
                             </button>
                             <button
-                              onClick={() => { if (h.id < 0) return; toggleLog.mutate({ id: h.id, date: today }); }}
+                              onClick={() => handleToggleHabitDay(h.id, today)}
                               aria-label={doneToday ? `Mark ${h.name} as not done today` : `Mark ${h.name} as done today`}
                               aria-pressed={doneToday}
                               className="relative w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-all active:scale-90 before:absolute before:-inset-1 before:content-['']"
@@ -2605,7 +2619,7 @@ export default function Goals() {
         <HabitDetail
           habit={detailHabit}
           onClose={() => setDetailId(null)}
-          onToggleDay={(date) => { if (detailHabit.id < 0) return; toggleLog.mutate({ id: detailHabit.id, date }); }}
+          onToggleDay={(date) => handleToggleHabitDay(detailHabit.id, date)}
           onEdit={() => { setDetailId(null); openEditHabit(detailHabit); }}
           onDelete={() => {
             const id = detailHabit.id;
