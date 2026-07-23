@@ -491,38 +491,38 @@ export default function Insights() {
   return (
     <div className="space-y-2.5 animate-in fade-in duration-500">
 
-      {/* Hero — "Paper": ya no tiene superficie/color propio (antes era sky
-          pastel celeste), se funde con el fondo de la página. Todo el color
-          de la sección ahora vive únicamente en las 4 cards de datos de abajo
-          (rojo/verde) — el hero quedó neutro a propósito para no competir. */}
+      {/* Hero — mismo texto/color de siempre (badge, título y medidor celeste),
+          solo se le sacó el fondo sky pastel propio: ya no es una card de
+          color, se funde con el fondo de la página. El celeste sigue vivo en
+          el texto, no desapareció — nada más dejó de vivir en la superficie. */}
       <div className="relative overflow-hidden px-1 pt-1 pb-2">
         <Sparkles className="absolute -right-4 -top-2 h-28 w-28 text-foreground/[0.05] pointer-events-none" strokeWidth={1.5} />
         <div className="relative">
           {/* Badge */}
-          <div className="inline-flex items-center gap-1.5 mb-2.5 px-2.5 py-1 rounded-lg bg-muted">
-            <Sparkles className="h-3 w-3 text-muted-foreground" />
-            <span className="text-[10px] font-bold tracking-widest uppercase text-muted-foreground">
+          <div className="insights-hero-badge inline-flex items-center gap-1.5 mb-2.5 px-2.5 py-1 rounded-lg">
+            <Sparkles className="h-3 w-3" style={{ color: ACCENT }} />
+            <span className="text-[10px] font-bold tracking-widest uppercase">
               AI Powered
             </span>
           </div>
 
           {/* Titulo — "Financial" sobraba, ya estás en la sección de Insights */}
-          <h2 className="font-title text-xl leading-tight text-foreground">
+          <h2 className="insights-hero-title-accent font-title text-xl leading-tight">
             Insights
           </h2>
-          <p className="text-xs mt-1 text-muted-foreground">
+          <p className="insights-hero-muted text-xs mt-1">
             Understand your money. Make smarter decisions.
           </p>
 
           {/* Health score — numero grande + medidor segmentado */}
           <div className="mt-3">
-            <p className="text-[10px] font-bold uppercase tracking-widest mb-1 text-muted-foreground">
+            <p className="insights-hero-muted text-[10px] font-bold uppercase tracking-widest mb-1">
               Overall financial health score
             </p>
             <div className="flex items-end gap-3">
-              <p className="font-number leading-none text-foreground" style={{ fontSize: "2.2rem" }}>
+              <p className="insights-hero-title font-number leading-none" style={{ fontSize: "2.2rem" }}>
                 {scoreNum ? displayScore.toFixed(1) : "—"}
-                <span className="text-sm font-bold ml-1 text-muted-foreground">/10</span>
+                <span className="insights-hero-muted text-sm font-bold ml-1">/10</span>
               </p>
             </div>
             {/* Medidor de 10 segmentos — ADN heatmap de Flow */}
@@ -530,12 +530,15 @@ export default function Insights() {
               {Array.from({ length: 10 }).map((_, i) => (
                 <div
                   key={i}
-                  className={cn("flex-1 h-2 rounded-full transition-all duration-500", !(scoreNum && i < Math.round(scoreNum)) ? "bg-muted" : "bg-foreground")}
-                  style={{ transitionDelay: `${i * 40}ms` }}
+                  className={cn("flex-1 h-2 rounded-full transition-all duration-500", !(scoreNum && i < Math.round(scoreNum)) && "insights-hero-meter-off")}
+                  style={{
+                    background: scoreNum && i < Math.round(scoreNum) ? ACCENT : undefined,
+                    transitionDelay: `${i * 40}ms`,
+                  }}
                 />
               ))}
             </div>
-            <p className="text-[11px] mt-1.5 text-muted-foreground">
+            <p className="insights-hero-muted text-[11px] mt-1.5">
               {lastAnalysis ? `Last analysis · ${lastAnalysis.date} · Gemini` : "Run your first analysis to get your score"}
             </p>
           </div>
@@ -545,7 +548,7 @@ export default function Insights() {
             <button
               onClick={analyzeFinances}
               disabled={isAnalyzing}
-              className="bg-foreground text-background flex-[1.4] min-h-11 rounded-2xl py-2.5 px-3 flex items-center justify-center gap-1.5 text-[13px] font-bold active:scale-[0.97] transition-transform disabled:opacity-70 border-0 min-w-0 whitespace-nowrap"
+              className="insights-hero-btn-primary flex-[1.4] min-h-11 rounded-2xl py-2.5 px-3 flex items-center justify-center gap-1.5 text-[13px] font-bold active:scale-[0.97] transition-transform disabled:opacity-70 border-0 min-w-0 whitespace-nowrap"
             >
               {isAnalyzing ? (
                 <><Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" /><span className="truncate text-xs">{analyzePhase}</span></>
@@ -556,7 +559,7 @@ export default function Insights() {
             <button
               onClick={handleUpload}
               disabled={isImporting}
-              className="bg-muted text-foreground flex-1 min-h-11 rounded-2xl py-2.5 px-3 flex items-center justify-center gap-1.5 text-[13px] font-bold active:scale-[0.97] transition-transform disabled:opacity-70 relative overflow-hidden min-w-0 whitespace-nowrap"
+              className="insights-hero-btn-secondary flex-1 min-h-11 rounded-2xl py-2.5 px-3 flex items-center justify-center gap-1.5 text-[13px] font-bold active:scale-[0.97] transition-transform disabled:opacity-70 relative overflow-hidden min-w-0 whitespace-nowrap"
             >
               {isImporting ? (
                 <><Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" /><span className="text-xs">{importProgress}%</span></>
@@ -564,8 +567,8 @@ export default function Insights() {
                 <><Upload className="h-3.5 w-3.5 shrink-0" /><span>Import PDF</span></>
               )}
               {isImporting && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-foreground/10">
-                  <div className="h-full bg-foreground transition-all duration-300" style={{ width: `${importProgress}%` }} />
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-black/10">
+                  <div className="h-full transition-all duration-300" style={{ width: `${importProgress}%`, background: ACCENT }} />
                 </div>
               )}
             </button>
