@@ -53,18 +53,22 @@ const navItems = [
  * el de Settings del nav). Ahora vive únicamente acá: reemplaza al ícono
  * genérico del item "Settings" en el nav, así el nav muestra la foto/inicial
  * real en vez de un gear sin identidad. */
-function AvatarGlyph({ avatar, initial, size }: { avatar: string | null; initial: string; size: number }) {
+function AvatarGlyph({ avatar, initial, size, active }: { avatar: string | null; initial: string; size: number; active?: boolean }) {
+  // El anillo de "activo" reemplaza al pill de fondo que usan los demás
+  // íconos — un fondo detrás de una foto/inicial redonda se veía como una
+  // mancha, no como selección.
+  const ring = active ? "0 0 0 2px hsl(var(--foreground) / 0.55)" : "none";
   if (avatar === "male" || avatar === "female") {
     return (
-      <span className="rounded-full overflow-hidden shrink-0 block" style={{ width: size, height: size }}>
+      <span className="rounded-full overflow-hidden shrink-0 block transition-all duration-300" style={{ width: size, height: size, boxShadow: ring }}>
         <img src={`/${avatar}.png`} alt="" className="w-full h-full object-cover" />
       </span>
     );
   }
   return (
     <span
-      className="rounded-full shrink-0 flex items-center justify-center font-bold text-[#00432C] dark:text-[#6EE7B7]"
-      style={{ width: size, height: size, background: "hsl(var(--foreground) / 0.08)", fontSize: size * 0.42 }}
+      className="rounded-full shrink-0 flex items-center justify-center font-bold text-[#00432C] dark:text-[#6EE7B7] transition-all duration-300"
+      style={{ width: size, height: size, background: "hsl(var(--foreground) / 0.08)", fontSize: size * 0.4, boxShadow: ring }}
     >
       {initial}
     </span>
@@ -298,6 +302,11 @@ export default function Layout({ children }: LayoutProps) {
                 className="flex flex-col items-center justify-center gap-1 w-full cursor-pointer"
                 style={{ transition: 'all 0.35s cubic-bezier(0.4,0,0.2,1)' }}
               >
+                {item.href === "/settings" ? (
+                  <span className="flex items-center justify-center" style={{ padding: scrolled ? '3px' : '4px' }}>
+                    <AvatarGlyph avatar={avatar} initial={avatarInitial} size={scrolled ? 28 : 34} active={isActive} />
+                  </span>
+                ) : (
                 <span
                   className="flex items-center justify-center rounded-full"
                   style={{
@@ -313,9 +322,6 @@ export default function Layout({ children }: LayoutProps) {
                     transition: 'all 0.4s cubic-bezier(0.25,0.46,0.45,0.94)',
                   }}
                 >
-                  {item.href === "/settings" ? (
-                    <AvatarGlyph avatar={avatar} initial={avatarInitial} size={scrolled ? 22 : 26} />
-                  ) : (
                     <Icon
                       style={{
                         width: scrolled ? '22px' : '26px',
@@ -329,8 +335,8 @@ export default function Layout({ children }: LayoutProps) {
                         transition: 'all 0.4s cubic-bezier(0.25,0.46,0.45,0.94)',
                       }}
                     />
-                  )}
                 </span>
+                )}
               </span>
             </Link>
           );
