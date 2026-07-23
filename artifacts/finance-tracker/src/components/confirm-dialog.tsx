@@ -1,4 +1,4 @@
-import type { ComponentType } from "react";
+import { useRef, useState, type ComponentType } from "react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -47,8 +47,27 @@ export function ConfirmDialog({
   const tint = variant === "destructive" ? "rgba(239,68,68,0.12)" : "hsl(var(--muted))";
   const iconColor = variant === "destructive" ? "hsl(var(--destructive))" : "hsl(var(--foreground))";
 
+  // Blindaje anti-ghost-click: varios triggers de este dialog (ej. el swipe-delete
+  // de Transactions) abren por onPointerUp en vez de click nativo — con toques
+  // rápidos, el navegador puede sintetizar un click fantasma demorado en las
+  // MISMAS coordenadas de pantalla. El dialog queda centrado ahí mismo, así que
+  // ese click residual a veces cae justo sobre "Confirmar" y borra sin que el
+  // usuario llegue a tocarlo de verdad. Se ignora cualquier tap en el botón de
+  // confirmar durante un instante después de abrirse (mismo patrón que el
+  // escudo del biometric lock).
+  const [shielded, setShielded] = useState(false);
+  const shieldTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleOpenChange = (next: boolean) => {
+    onOpenChange?.(next);
+    if (next) {
+      setShielded(true);
+      if (shieldTimeout.current) clearTimeout(shieldTimeout.current);
+      shieldTimeout.current = setTimeout(() => setShielded(false), 350);
+    }
+  };
+
   return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
+    <AlertDialog open={open} onOpenChange={handleOpenChange}>
       <AlertDialogTrigger asChild>{trigger}</AlertDialogTrigger>
       <AlertDialogContent className="max-w-xs rounded-3xl border-0 p-6 gap-0">
         <div className="flex flex-col items-center text-center gap-3 mb-1">
@@ -65,7 +84,10 @@ export function ConfirmDialog({
             Cancel
           </AlertDialogCancel>
           <AlertDialogAction
-            onClick={onConfirm}
+            onClick={(e) => {
+              if (shielded) { e.preventDefault(); return; }
+              onConfirm();
+            }}
             disabled={disabled}
             className={cn(
               "w-full rounded-2xl font-bold border-0",
