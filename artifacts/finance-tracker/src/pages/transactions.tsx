@@ -24,6 +24,17 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 
 // ─── TransactionRow — fila con swipe-to-delete, un solo gesto abierto a la vez ──
 const SWIPE_WIDTH = 84;
+// Umbral de velocidad para un "flick" — un gesto rápido y corto también debería
+// abrir/cerrar, no solo un arrastre lento hasta pasar la mitad del ancho.
+// ~0.15px/ms es el orden de magnitud típico de un flick real (no un drag lento).
+const FLICK_VELOCITY = 0.15;
+// Fórmula de rubber-band de UIScrollView (Apple): en vez de clavarse en seco al
+// pasar el límite, cede con resistencia creciente — más overdrag, menos avanza.
+const RUBBER_BAND_DIM = 60;
+function rubberBand(overflow: number) {
+  const c = 0.55;
+  return RUBBER_BAND_DIM * (1 - 1 / ((overflow * c) / RUBBER_BAND_DIM + 1));
+}
 
 // Mismo patrón que entry-sheet.tsx/settings.tsx: cachea el módulo tras el primer import.
 let hapticsModule: any = null;
@@ -57,6 +68,9 @@ function TransactionRow({
   const dragging = useRef(false);
   const firedByPointer = useRef(false);
   const deleteFiredByPointer = useRef(false);
+  // Últimas posiciones+tiempos del gesto (ventana chica, no todo el arrastre) —
+  // para poder calcular la velocidad real al soltar, no solo la distancia.
+  const velocitySamples = useRef<{ x: number; t: number }[]>([]);
   const [dragX, setDragX] = useState(isOpen ? -SWIPE_WIDTH : 0);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [isExiting, setIsExiting] = useState(false);
@@ -78,6 +92,7 @@ function TransactionRow({
   function onPointerDown(e: React.PointerEvent) {
     startPos.current = { x: e.clientX, y: e.clientY };
     dragging.current = false;
+    velocitySamples.current = [];
     // Sin esto, un swipe rápido puede "escaparse" del elemento a mitad de gesto
     // y el navegador deja de mandarle los pointermove — de ahí el "se traba a mitad de camino".
     e.currentTarget.setPointerCapture(e.pointerId);
@@ -95,7 +110,14 @@ function TransactionRow({
     }
     e.preventDefault(); // evita que el scroll nativo pelee con el drag mientras arrastramos
     const base = isOpen ? -SWIPE_WIDTH : 0;
-    setDragX(Math.min(0, Math.max(-SWIPE_WIDTH, base + dx)));
+    const raw = base + dx;
+    // 1:1 dentro del rango válido (como siempre) — recién pasado el límite entra
+    // la resistencia, para que se sienta "estirado" en vez de un tope de golpe.
+    const next = raw > 0 ? rubberBand(raw) : raw < -SWIPE_WIDTH ? -SWIPE_WIDTH - rubberBand(-SWIPE_WIDTH - raw) : raw;
+    setDragX(next);
+
+    velocitySamples.current.push({ x: e.clientX, t: performance.now() });
+    if (velocitySamples.current.length > 5) velocitySamples.current.shift();
   }
 
   function onPointerUp(e: React.PointerEvent) {
@@ -105,7 +127,24 @@ function TransactionRow({
     if (!start) return;
     if (dragging.current) {
       dragging.current = false;
-      const openNow = dragX < -SWIPE_WIDTH / 2;
+
+      // Velocidad real del tramo final del gesto (no todo el arrastre, solo las
+      // últimas muestras) — un flick corto pero rápido debe abrir/cerrar igual
+      // que un arrastre lento hasta pasar la mitad del ancho.
+      const samples = velocitySamples.current;
+      velocitySamples.current = [];
+      let velocity = 0;
+      if (samples.length >= 2) {
+        const first = samples[0]!;
+        const last = samples[samples.length - 1]!;
+        const dt = last.t - first.t;
+        if (dt > 0) velocity = (last.x - first.x) / dt;
+      }
+
+      const openNow = Math.abs(velocity) > FLICK_VELOCITY
+        ? velocity < 0
+        : dragX < -SWIPE_WIDTH / 2;
+
       setDragX(openNow ? -SWIPE_WIDTH : 0);
       onOpenChange(openNow);
       firedByPointer.current = true;
