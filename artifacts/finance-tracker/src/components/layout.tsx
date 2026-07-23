@@ -49,50 +49,25 @@ const navItems = [
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
-/** Avatar de perfil — vive en el flujo de la página, arriba a la derecha junto
- * al título, y navega directo a Settings. Ya no abre un dropdown propio: ese
- * menú duplicaba Currency/Theme/Export con una UI distinta a la de Settings
- * (mismo setting, dos implementaciones) — ahora hay un solo lugar real. */
-function ProfileAvatar() {
-  const { user } = useAuth();
-  const [location] = useLocation();
-  const [avatar, setAvatar] = useState<string | null>(() => {
-    try { return localStorage.getItem("ff-avatar"); } catch { return null; }
-  });
-
-  // Se actualiza al instante cuando cambias el avatar en settings
-  useEffect(() => {
-    const sync = () => {
-      try { setAvatar(localStorage.getItem("ff-avatar")); } catch {}
-    };
-    window.addEventListener("ff-avatar-changed", sync);
-    return () => window.removeEventListener("ff-avatar-changed", sync);
-  }, []);
-
-  const initial = (user?.email?.[0] ?? "?").toUpperCase();
-
-  // En settings no tiene sentido mostrar el avatar — ya estás ahí
-  if (location.startsWith("/settings")) return null;
-
-  return (
-    <Link
-      href="/settings"
-      aria-label="Open settings"
-      className="absolute z-30 top-0 right-0 w-10 h-10 rounded-full flex items-center justify-center active:scale-90 transition-transform overflow-hidden"
-      style={{
-        background: "hsl(var(--card))",
-        border: "1px solid hsl(var(--foreground) / 0.08)",
-        boxShadow: "0 2px 12px rgba(0,0,0,0.12), inset 0 1px 0 hsl(var(--foreground) / 0.06)",
-      }}
-    >
-      {avatar === "male" || avatar === "female" ? (
+/** Avatar de perfil — ya no flota arriba de cada página (ese ícono duplicaba
+ * el de Settings del nav). Ahora vive únicamente acá: reemplaza al ícono
+ * genérico del item "Settings" en el nav, así el nav muestra la foto/inicial
+ * real en vez de un gear sin identidad. */
+function AvatarGlyph({ avatar, initial, size }: { avatar: string | null; initial: string; size: number }) {
+  if (avatar === "male" || avatar === "female") {
+    return (
+      <span className="rounded-full overflow-hidden shrink-0 block" style={{ width: size, height: size }}>
         <img src={`/${avatar}.png`} alt="" className="w-full h-full object-cover" />
-      ) : (
-        // #9BBF00 sobre hsl(var(--card)) fallaba contraste en claro (~2:1) — este
-        // par ya está verificado en DESIGN.md como income-ink / income-ink-dark.
-        <span className="text-sm font-bold text-[#00432C] dark:text-[#6EE7B7]">{initial}</span>
-      )}
-    </Link>
+      </span>
+    );
+  }
+  return (
+    <span
+      className="rounded-full shrink-0 flex items-center justify-center font-bold text-[#00432C] dark:text-[#6EE7B7]"
+      style={{ width: size, height: size, background: "hsl(var(--foreground) / 0.08)", fontSize: size * 0.42 }}
+    >
+      {initial}
+    </span>
   );
 }
 
@@ -116,6 +91,20 @@ export default function Layout({ children }: LayoutProps) {
   const [scrolled, setScrolled] = useState(false);
   const lastScrollY = useRef(0);
   const scrollTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Avatar del perfil — vive acá porque ahora se pinta en el ícono de
+  // "Settings" del nav en vez de flotar arriba de cada página.
+  const [avatar, setAvatar] = useState<string | null>(() => {
+    try { return localStorage.getItem("ff-avatar"); } catch { return null; }
+  });
+  useEffect(() => {
+    const sync = () => {
+      try { setAvatar(localStorage.getItem("ff-avatar")); } catch {}
+    };
+    window.addEventListener("ff-avatar-changed", sync);
+    return () => window.removeEventListener("ff-avatar-changed", sync);
+  }, []);
+  const avatarInitial = (user?.email?.[0] ?? "?").toUpperCase();
 
   // Mide el nav real y expone su altura como CSS variable
   useEffect(() => {
@@ -221,7 +210,11 @@ export default function Layout({ children }: LayoutProps) {
                       : "text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-foreground"
                   )}
                 >
-                  <Icon className="h-4 w-4 shrink-0" />
+                  {item.href === "/settings" ? (
+                    <AvatarGlyph avatar={avatar} initial={avatarInitial} size={16} />
+                  ) : (
+                    <Icon className="h-4 w-4 shrink-0" />
+                  )}
                   {item.label}
                 </span>
               </Link>
@@ -261,7 +254,6 @@ export default function Layout({ children }: LayoutProps) {
           onTouchEnd={handlePageSwipeEnd}
         >
           <div className="max-w-6xl mx-auto min-h-full relative">
-            <ProfileAvatar />
             {children}
           </div>
         </div>
@@ -310,7 +302,9 @@ export default function Layout({ children }: LayoutProps) {
                   className="flex items-center justify-center rounded-full"
                   style={{
                     padding: isActive ? (scrolled ? '5px 14px' : '6px 16px') : (scrolled ? '5px' : '6px'),
-                    background: isActive
+                    background: isActive && item.href === "/insights"
+                      ? 'rgba(14,165,233,0.18)'
+                      : isActive
                       ? 'hsl(var(--foreground) / 0.1)'
                       : 'transparent',
                     boxShadow: isActive
@@ -319,17 +313,23 @@ export default function Layout({ children }: LayoutProps) {
                     transition: 'all 0.4s cubic-bezier(0.25,0.46,0.45,0.94)',
                   }}
                 >
-                  <Icon
-                    style={{
-                      width: scrolled ? '22px' : '26px',
-                      height: scrolled ? '22px' : '26px',
-                      strokeWidth: isActive ? 2.5 : 1.8,
-                      color: isActive
-                        ? 'hsl(var(--foreground))'
-                        : 'hsl(var(--muted-foreground) / 0.85)',
-                      transition: 'all 0.4s cubic-bezier(0.25,0.46,0.45,0.94)',
-                    }}
-                  />
+                  {item.href === "/settings" ? (
+                    <AvatarGlyph avatar={avatar} initial={avatarInitial} size={scrolled ? 22 : 26} />
+                  ) : (
+                    <Icon
+                      style={{
+                        width: scrolled ? '22px' : '26px',
+                        height: scrolled ? '22px' : '26px',
+                        strokeWidth: isActive ? 2.5 : 1.8,
+                        color: isActive && item.href === "/insights"
+                          ? '#0ea5e9'
+                          : isActive
+                          ? 'hsl(var(--foreground))'
+                          : 'hsl(var(--muted-foreground) / 0.85)',
+                        transition: 'all 0.4s cubic-bezier(0.25,0.46,0.45,0.94)',
+                      }}
+                    />
+                  )}
                 </span>
               </span>
             </Link>
