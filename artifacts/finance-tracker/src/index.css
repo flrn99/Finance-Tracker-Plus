@@ -75,11 +75,15 @@
    tenía ninguna: era hex fijo, se veía roto en dark mode). Todos los tonos de texto
    verificados contra el punto medio del gradiente: navy sólido en vez de rgba
    translúcido, que fallaba contraste (2.6-2.9:1). */
+/* "Whisper" — antes era un gradiente pastel de 3 tonos (bastante presente al
+   lado de las cards sólidas rojo/verde de Expense/Income); ahora es un
+   lavado plano, casi blanco, para que el celeste siga viviendo en el texto
+   sin que la superficie compita en volumen con esas cards. */
 .insights-hero {
-  background: linear-gradient(145deg, #E3F4FF 0%, #BFE7FD 55%, #A5DCFB 100%);
+  background: #EFF8FF;
 }
 .dark .insights-hero {
-  background: linear-gradient(145deg, #0B2236 0%, #0A3049 55%, #0C3B57 100%);
+  background: #0F1B24;
 }
 
 .insights-hero-badge {
