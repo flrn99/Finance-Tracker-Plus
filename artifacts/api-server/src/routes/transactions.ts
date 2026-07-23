@@ -129,6 +129,17 @@ router.patch("/transactions/:id", async (req, res) => {
 
   const userId = (req as any).userId;
   const { type, amount, description, date, categoryId, notes } = bodyParsed.data;
+
+  // Si el monto cambia y esta transacción está atada a un Flow o a un aporte de
+  // meta, hay que propagar el cambio (ver más abajo) — necesitamos el monto
+  // VIEJO de acá porque currentAmount de una meta es un acumulado compartido
+  // con otros aportes, no se puede simplemente pisar con el nuevo valor.
+  const [before] = amount !== undefined
+    ? await db.select({ amount: transactionsTable.amount }).from(transactionsTable)
+        .where(and(eq(transactionsTable.id, paramParsed.data.id), eq(transactionsTable.userId, userId)))
+        .limit(1)
+    : [undefined];
+
   const updates: Record<string, unknown> = {};
   if (type !== undefined) updates.type = type;
   if (amount !== undefined) updates.amount = String(amount);
@@ -143,6 +154,33 @@ router.patch("/transactions/:id", async (req, res) => {
     .returning();
 
   if (!row) return res.status(404).json({ error: "Not found" });
+
+  if (amount !== undefined && before) {
+    const delta = amount - parseFloat(before.amount);
+    if (delta !== 0) {
+      // Flow: amountPaid es solo "cuánto se pagó realmente" — no lo comparte
+      // nadie más, se pisa directo con el monto nuevo.
+      await db.update(billLogsTable)
+        .set({ amountPaid: String(amount) })
+        .where(eq(billLogsTable.transactionId, row.id));
+
+      // Meta: currentAmount SÍ es un acumulado compartido con otros aportes —
+      // hay que sumar/restar la diferencia, no pisarlo.
+      const [contribution] = await db
+        .select({ goalId: goalContributionsTable.goalId })
+        .from(goalContributionsTable)
+        .where(eq(goalContributionsTable.transactionId, row.id))
+        .limit(1);
+      if (contribution) {
+        await db.update(goalContributionsTable)
+          .set({ amount: String(amount) })
+          .where(eq(goalContributionsTable.transactionId, row.id));
+        await db.update(goalsTable)
+          .set({ currentAmount: sql`${goalsTable.currentAmount} + ${String(delta)}` })
+          .where(eq(goalsTable.id, contribution.goalId));
+      }
+    }
+  }
 
   const [category] = await db.select().from(categoriesTable)
     .where(eq(categoriesTable.id, row.categoryId)).limit(1);

@@ -1858,7 +1858,9 @@ export default function Goals() {
       if (ctx?.prev) queryClient.setQueryData(["bills"], ctx.prev);
       toast({ title: "Failed to update bill", description: String(e), variant: "destructive" });
     },
-    onSettled: () => invalidateBills(),
+    // invalidateTransactions también: si el mes actual ya estaba pagado con
+    // auto-save, el backend acaba de corregir el monto de esa transacción real.
+    onSettled: () => { invalidateBills(); invalidateTransactions(); },
   });
 
   // Migración transparente del verde viejo de Flows (#00FF9C, nunca coincidió con

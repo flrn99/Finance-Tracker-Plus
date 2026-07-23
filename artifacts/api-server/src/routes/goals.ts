@@ -492,6 +492,28 @@ router.patch("/bills/:id", async (req, res) => {
 
   if (!row) return res.status(404).json({ error: "Not found" });
 
+  // Si el monto de referencia cambia y el mes ACTUAL ya está pagado con una
+  // transacción real vinculada, se corrige también — no tocamos meses pasados
+  // (son registro histórico cerrado); los meses futuros van a usar el monto
+  // nuevo solos, cuando se paguen.
+  if (amount != null) {
+    const thisMonth = currentMonthKey();
+    const [currentLog] = await db
+      .select({ transactionId: billLogsTable.transactionId })
+      .from(billLogsTable)
+      .where(and(eq(billLogsTable.billId, id), eq(billLogsTable.month, thisMonth), eq(billLogsTable.dismissed, false)))
+      .limit(1);
+
+    if (currentLog?.transactionId != null) {
+      await db.update(billLogsTable)
+        .set({ amountPaid: String(amount) })
+        .where(and(eq(billLogsTable.billId, id), eq(billLogsTable.month, thisMonth)));
+      await db.update(transactionsTable)
+        .set({ amount: String(amount) })
+        .where(eq(transactionsTable.id, currentLog.transactionId));
+    }
+  }
+
   return res.json({
     ...row,
     amount: row.amount !== null ? parseFloat(row.amount) : null,

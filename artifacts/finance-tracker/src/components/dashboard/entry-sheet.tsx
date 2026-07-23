@@ -282,6 +282,10 @@ export function EntrySheet({
     queryClient.invalidateQueries({ queryKey: ["insights-anomaly"] });
     queryClient.invalidateQueries({ queryKey: ["insights-fixed-vs-flexible"] });
     queryClient.invalidateQueries({ queryKey: ["insights-income-summary"] });
+    // Si la transacción editada está atada a un Flow o a un aporte de meta, el
+    // backend ya sincronizó amountPaid/currentAmount — esto solo refresca la UI.
+    queryClient.invalidateQueries({ queryKey: ["bills"] });
+    queryClient.invalidateQueries({ queryKey: ["goals"] });
   };
 
   function submit() {
