@@ -51,7 +51,7 @@ npx esbuild ARCHIVO.tsx --loader:.tsx=tsx --jsx=automatic --outfile=/dev/null
   - Income: `#00A870` (usado en New Entry, treemap del dashboard, Insights, Settings, Onboarding, Voice Capture)
   - Expense: `#FF4D4D` (texto blanco encima)
   - New Entry launcher: `#FF66D9` (rosa)
-  - Insights (zona AI): celeste `#0EA5E9`, hero sky pastel
+  - Insights (zona AI): hero neutro (sin color propio, se funde con el fondo — antes celeste `#0EA5E9` sky pastel); las 4 cards de datos (Expense/Income lens) sí tienen color saturado real: rojo `#FF4D4D` / verde `#00A870` sólido, misma DNA que Goals/Savings (mesh + sheen + ghost icon). `#0EA5E9` sigue vivo solo en el header del modal "Your Financial Report" (sin tocar, fuera de este rediseño).
   - Brand Flow green: `#CAFA01` (lock screen, botones primarios, status/nav bar Android, ícono de iOS)
   - Toggle period: fondo `#020203`, texto `#f9f8f8`
   - Flows (ex-Bills): "Flow! Red" `#FF4D4D` / "Flow! Green" `#00A870` (mismo Income de arriba, unificado — antes era `#00FF9C`, un verde que no coincidía con ningún otro lugar de la app) como color default por type, sumados a la paleta de 10 colores compartida (`COLOR_OPTIONS` en `goals.tsx`)
@@ -99,12 +99,12 @@ Rediseño del dashboard recién portado desde un prototipo v0/Next.js a Vite:
 ## Páginas ya rediseñadas (no revertir sin pedir)
 
 - **Lock screen**: aurora mesh (4 blobs animados) + card flotante angosta + logo `/logo.png` abajo (fallback a texto).
-- **Insights**: hero sky pastel con score gauge segmentado, análisis server-side.
+- **Insights**: hero "Paper" neutro (sin superficie/color propio) con score gauge segmentado, análisis server-side. Cards del lens Expense/Income con fondo sólido rojo/verde + sheen + ghost icon (misma DNA que Goals/Savings) — antes eran `bg-card` plano sin identidad.
 - **Goals**: switcher de 3 pestañas, orden **Flows, Savings, Habits** (Flows es la default al abrir la página — no hay `?tab=` en la URL). Savings: strip resumen (Total saved verde + Active streaks ámbar), cards tintadas por color, heatmaps estilo HabitKit. Queries prefetcheadas desde `layout.tsx` (`goalsQueryOptions`/`habitsQueryOptions` exportadas de `goals.tsx`).
   - **Flows** (ex-"Bills", internamente el código sigue usando `bill`/`bills` — solo el label de UI cambió): pagos recurrentes con `type` (expense/income) y `day` (1-31, el mes se autodetecta). Lista dividida en secciones "Money Out"/"Money In", cada una ordenada por día, cards con tinte de color propio + heatmap mensual (el ícono de cada card se reemplazó por el número de día). Modal de creación: nombre escrito sobre el color → toggle Expense/Income → monto → día como **stepper** con flechas ‹ › + swipe horizontal (no una grilla de 31 casilleros, se sacó por ocupar mucho espacio) → categoría (filtrada por el type elegido) → auto-save → color (popup dropdown `ColorSelect`, paleta de 10 + "Flow! Red" `#FF4D4D` / "Flow! Green" `#00A870` como default según el type). Auto-save real: si el Flow tiene monto cargado y ya llegó/pasó el día elegido este mes sin marcarse pagado, se marca solo y crea la transacción al abrir la app (sin cron en el backend — se pone al día la próxima vez que la app esté abierta, no a medianoche exacta). El widget "Money Out" del dashboard (antes "Monthly bills") filtra solo Flows de type expense.
 - **Categories**: grid 2-col de swatches Pantone (bloque de color arriba h-9 con acciones glass encima, base solo nombre), modal con preview en vivo (nombre se escribe EN el preview) y picker de pills tintados. El modal de creación (`CreateCategoryModal` en `src/components/category-form-modal.tsx`) es compartido con el picker de categorías del EntrySheet — crear una categoría desde "New Entry" no navega afuera ni pierde el monto ya tipeado, y si el type de la categoría nueva no coincide con el type del entry abierto, el entry cambia de type solo.
 - **Transactions**: cards con swipe-to-delete (no un ícono de flecha direccional — cada fila tiene una barra de color de categoría a la izquierda, descripción bold, "Categoría · fecha", monto con prefijo +/− en verde/rojo), secciones por mes colapsables con chip de net. NO está en el nav — se entra por botón "All transactions" del dashboard.
-- **Nav**: 4 items (Dashboard, Insights, Goals, Categories). Avatar del perfil: top-0 right-0 en páginas normales, top-4 right-4 en Insights.
+- **Nav**: 5 items, orden **Dashboard, Goals, Insights, Categories, Settings** (Settings se sumó al nav — antes solo se entraba por el avatar). Avatar del perfil: top-0 right-0 en todas las páginas (antes Insights tenía un offset propio para calzar con el hero celeste con padding; ya no aplica con el hero neutro sin superficie).
 
 ## Seguridad (auditada — no romper)
 

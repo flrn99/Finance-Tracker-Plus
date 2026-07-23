@@ -491,83 +491,85 @@ export default function Insights() {
   return (
     <div className="space-y-2.5 animate-in fade-in duration-500">
 
-      {/* Hero — gradiente sky pastel (vuelta a la composición original), con su propia
-          variante oscura esta vez y contraste real verificado en los dos temas. */}
-      <div className="insights-hero relative overflow-hidden rounded-3xl px-4 pt-4 pb-4">
-        {/* Badge */}
-        <div className="insights-hero-badge inline-flex items-center gap-1.5 mb-2.5 px-2.5 py-1 rounded-lg">
-          <Sparkles className="h-3 w-3" style={{ color: ACCENT }} />
-          <span className="text-[10px] font-bold tracking-widest uppercase">
-            AI Powered
-          </span>
-        </div>
+      {/* Hero — "Paper": ya no tiene superficie/color propio (antes era sky
+          pastel celeste), se funde con el fondo de la página. Todo el color
+          de la sección ahora vive únicamente en las 4 cards de datos de abajo
+          (rojo/verde) — el hero quedó neutro a propósito para no competir. */}
+      <div className="relative overflow-hidden px-1 pt-1 pb-2">
+        <Sparkles className="absolute -right-4 -top-2 h-28 w-28 text-foreground/[0.05] pointer-events-none" strokeWidth={1.5} />
+        <div className="relative">
+          {/* Badge */}
+          <div className="inline-flex items-center gap-1.5 mb-2.5 px-2.5 py-1 rounded-lg bg-muted">
+            <Sparkles className="h-3 w-3 text-muted-foreground" />
+            <span className="text-[10px] font-bold tracking-widest uppercase text-muted-foreground">
+              AI Powered
+            </span>
+          </div>
 
-        {/* Titulo — "Financial" sobraba, ya estás en la sección de Insights */}
-        <h2 className="insights-hero-title-accent font-title text-xl leading-tight">
-          Insights
-        </h2>
-        <p className="insights-hero-muted text-xs mt-1">
-          Understand your money. Make smarter decisions.
-        </p>
-
-        {/* Health score — numero grande + medidor segmentado */}
-        <div className="mt-3">
-          <p className="insights-hero-muted text-[10px] font-bold uppercase tracking-widest mb-1">
-            Overall financial health score
+          {/* Titulo — "Financial" sobraba, ya estás en la sección de Insights */}
+          <h2 className="font-title text-xl leading-tight text-foreground">
+            Insights
+          </h2>
+          <p className="text-xs mt-1 text-muted-foreground">
+            Understand your money. Make smarter decisions.
           </p>
-          <div className="flex items-end gap-3">
-            <p className="insights-hero-title font-number leading-none" style={{ fontSize: "2.2rem" }}>
-              {scoreNum ? displayScore.toFixed(1) : "—"}
-              <span className="insights-hero-muted text-sm font-bold ml-1">/10</span>
+
+          {/* Health score — numero grande + medidor segmentado */}
+          <div className="mt-3">
+            <p className="text-[10px] font-bold uppercase tracking-widest mb-1 text-muted-foreground">
+              Overall financial health score
+            </p>
+            <div className="flex items-end gap-3">
+              <p className="font-number leading-none text-foreground" style={{ fontSize: "2.2rem" }}>
+                {scoreNum ? displayScore.toFixed(1) : "—"}
+                <span className="text-sm font-bold ml-1 text-muted-foreground">/10</span>
+              </p>
+            </div>
+            {/* Medidor de 10 segmentos — ADN heatmap de Flow */}
+            <div className="flex gap-1 mt-2">
+              {Array.from({ length: 10 }).map((_, i) => (
+                <div
+                  key={i}
+                  className={cn("flex-1 h-2 rounded-full transition-all duration-500", !(scoreNum && i < Math.round(scoreNum)) ? "bg-muted" : "bg-foreground")}
+                  style={{ transitionDelay: `${i * 40}ms` }}
+                />
+              ))}
+            </div>
+            <p className="text-[11px] mt-1.5 text-muted-foreground">
+              {lastAnalysis ? `Last analysis · ${lastAnalysis.date} · Gemini` : "Run your first analysis to get your score"}
             </p>
           </div>
-          {/* Medidor de 10 segmentos — ADN heatmap de Flow */}
-          <div className="flex gap-1 mt-2">
-            {Array.from({ length: 10 }).map((_, i) => (
-              <div
-                key={i}
-                className={cn("flex-1 h-2 rounded-full transition-all duration-500", !(scoreNum && i < Math.round(scoreNum)) && "insights-hero-meter-off")}
-                style={{
-                  background: scoreNum && i < Math.round(scoreNum) ? ACCENT : undefined,
-                  transitionDelay: `${i * 40}ms`,
-                }}
-              />
-            ))}
-          </div>
-          <p className="insights-hero-muted text-[11px] mt-1.5">
-            {lastAnalysis ? `Last analysis · ${lastAnalysis.date} · Gemini` : "Run your first analysis to get your score"}
-          </p>
-        </div>
 
-        {/* Acciones */}
-        <div className="flex gap-2 mt-3">
-          <button
-            onClick={analyzeFinances}
-            disabled={isAnalyzing}
-            className="insights-hero-btn-primary flex-[1.4] min-h-11 rounded-2xl py-2.5 px-3 flex items-center justify-center gap-1.5 text-[13px] font-bold active:scale-[0.97] transition-transform disabled:opacity-70 border-0 min-w-0 whitespace-nowrap"
-          >
-            {isAnalyzing ? (
-              <><Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" /><span className="truncate text-xs">{analyzePhase}</span></>
-            ) : (
-              <><Sparkles className="h-3.5 w-3.5 shrink-0" /><span>{lastAnalysis ? "Refresh analysis" : "Analyze"}</span></>
-            )}
-          </button>
-          <button
-            onClick={handleUpload}
-            disabled={isImporting}
-            className="insights-hero-btn-secondary flex-1 min-h-11 rounded-2xl py-2.5 px-3 flex items-center justify-center gap-1.5 text-[13px] font-bold active:scale-[0.97] transition-transform disabled:opacity-70 relative overflow-hidden min-w-0 whitespace-nowrap"
-          >
-            {isImporting ? (
-              <><Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" /><span className="text-xs">{importProgress}%</span></>
-            ) : (
-              <><Upload className="h-3.5 w-3.5 shrink-0" /><span>Import PDF</span></>
-            )}
-            {isImporting && (
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-black/10">
-                <div className="h-full transition-all duration-300" style={{ width: `${importProgress}%`, background: ACCENT }} />
-              </div>
-            )}
-          </button>
+          {/* Acciones */}
+          <div className="flex gap-2 mt-3">
+            <button
+              onClick={analyzeFinances}
+              disabled={isAnalyzing}
+              className="bg-foreground text-background flex-[1.4] min-h-11 rounded-2xl py-2.5 px-3 flex items-center justify-center gap-1.5 text-[13px] font-bold active:scale-[0.97] transition-transform disabled:opacity-70 border-0 min-w-0 whitespace-nowrap"
+            >
+              {isAnalyzing ? (
+                <><Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" /><span className="truncate text-xs">{analyzePhase}</span></>
+              ) : (
+                <><Sparkles className="h-3.5 w-3.5 shrink-0" /><span>{lastAnalysis ? "Refresh analysis" : "Analyze"}</span></>
+              )}
+            </button>
+            <button
+              onClick={handleUpload}
+              disabled={isImporting}
+              className="bg-muted text-foreground flex-1 min-h-11 rounded-2xl py-2.5 px-3 flex items-center justify-center gap-1.5 text-[13px] font-bold active:scale-[0.97] transition-transform disabled:opacity-70 relative overflow-hidden min-w-0 whitespace-nowrap"
+            >
+              {isImporting ? (
+                <><Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" /><span className="text-xs">{importProgress}%</span></>
+              ) : (
+                <><Upload className="h-3.5 w-3.5 shrink-0" /><span>Import PDF</span></>
+              )}
+              {isImporting && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-foreground/10">
+                  <div className="h-full bg-foreground transition-all duration-300" style={{ width: `${importProgress}%` }} />
+                </div>
+              )}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -733,7 +735,7 @@ export default function Insights() {
               <p className="text-[10px] font-black uppercase tracking-wide mb-2 text-white/80">Category on the move</p>
 
               <div className="flex items-baseline gap-2">
-                <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: anomaly.categoryColor }} />
+                <span className="h-2.5 w-2.5 rounded-full shrink-0 bg-white" />
                 <span className="text-sm font-bold">{anomaly.categoryName}</span>
                 <span
                   className={cn("font-entry-amount leading-none ml-auto flex items-baseline gap-1", !isNotable && "text-white/70")}

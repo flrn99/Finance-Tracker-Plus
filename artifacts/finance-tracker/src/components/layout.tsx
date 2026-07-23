@@ -6,6 +6,7 @@ import {
   Plus,
   DollarSign,
   Sparkles,
+  Settings,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -42,9 +43,10 @@ function TargetArrowIcon({ className, style }: { className?: string; style?: Rea
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/insights", label: "Insights", icon: Sparkles },
   { href: "/goals", label: "Goals", icon: TargetArrowIcon },
+  { href: "/insights", label: "Insights", icon: Sparkles },
   { href: "/categories", label: "Categories", icon: Tags },
+  { href: "/settings", label: "Settings", icon: Settings },
 ];
 
 /** Avatar de perfil — vive en el flujo de la página, arriba a la derecha junto
@@ -76,13 +78,7 @@ function ProfileAvatar() {
     <Link
       href="/settings"
       aria-label="Open settings"
-      className={cn(
-        "absolute z-30 w-10 h-10 rounded-full flex items-center justify-center active:scale-90 transition-transform overflow-hidden",
-        // En insights el hero ahora es compacto — pegado a la esquina del
-        // recuadro, no flotando a mitad del título. En las demás páginas,
-        // a ras del borde del contenido, alineado con las cards.
-        location.startsWith("/insights") ? "top-2 right-2" : "top-0 right-0"
-      )}
+      className="absolute z-30 top-0 right-0 w-10 h-10 rounded-full flex items-center justify-center active:scale-90 transition-transform overflow-hidden"
       style={{
         background: "hsl(var(--card))",
         border: "1px solid hsl(var(--foreground) / 0.08)",
@@ -105,11 +101,10 @@ export default function Layout({ children }: LayoutProps) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  // Transactions y Settings son páginas de "detalle" a las que se entra desde
-  // otra pestaña (All transactions / avatar), no destinos propios del nav —
-  // ningún ícono quedaría activo ahí, así que se oculta en vez de mostrar
-  // un nav sin selección.
-  const hideBottomNav = location.startsWith("/transactions") || location.startsWith("/settings");
+  // Transactions es la única página de "detalle" a la que se entra desde otra
+  // pestaña (All transactions) sin destino propio en el nav — Settings ahora
+  // sí tiene su propio ícono, así que ya puede quedar activo ahí.
+  const hideBottomNav = location.startsWith("/transactions");
 
   // Prefetch de Goals — cuando el usuario llegue a la pestaña, ya cargo
   useEffect(() => {
@@ -168,7 +163,7 @@ export default function Layout({ children }: LayoutProps) {
 
   const isIOS = Capacitor.getPlatform() === "ios";
 
-  // Swipe entre las páginas principales del nav — solo en las 4 pestañas de base,
+  // Swipe entre las páginas principales del nav — solo en las 5 pestañas de base,
   // se ignora si hay un modal abierto encima (mismo body-scroll-lock que ya usan EntrySheet/VoiceCapture)
   const pageSwipeStart = useRef<{ x: number; y: number } | null>(null);
 
@@ -315,9 +310,7 @@ export default function Layout({ children }: LayoutProps) {
                   className="flex items-center justify-center rounded-full"
                   style={{
                     padding: isActive ? (scrolled ? '5px 14px' : '6px 16px') : (scrolled ? '5px' : '6px'),
-                    background: isActive && item.href === "/insights"
-                      ? 'rgba(14,165,233,0.18)'
-                      : isActive
+                    background: isActive
                       ? 'hsl(var(--foreground) / 0.1)'
                       : 'transparent',
                     boxShadow: isActive
@@ -331,9 +324,7 @@ export default function Layout({ children }: LayoutProps) {
                       width: scrolled ? '22px' : '26px',
                       height: scrolled ? '22px' : '26px',
                       strokeWidth: isActive ? 2.5 : 1.8,
-                      color: isActive && item.href === "/insights"
-                        ? '#0ea5e9'
-                        : isActive
+                      color: isActive
                         ? 'hsl(var(--foreground))'
                         : 'hsl(var(--muted-foreground) / 0.85)',
                       transition: 'all 0.4s cubic-bezier(0.25,0.46,0.45,0.94)',
