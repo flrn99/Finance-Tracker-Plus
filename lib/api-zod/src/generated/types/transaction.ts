@@ -19,4 +19,9 @@ export interface Transaction {
   /** @nullable */
   notes?: string | null;
   createdAt: string;
+  /**
+     * Nombre del Flow (bill) al que esta transacción quedó atada vía auto-save, si corresponde. Null si es una transacción suelta.
+     * @nullable
+     */
+  linkedBillName?: string | null;
 }

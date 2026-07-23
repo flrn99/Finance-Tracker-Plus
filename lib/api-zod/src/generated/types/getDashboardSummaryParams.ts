@@ -12,4 +12,16 @@ export type GetDashboardSummaryParams = {
  * @nullable
  */
 month?: string | null;
+/**
+ * @nullable
+ */
+startDate?: string | null;
+/**
+ * @nullable
+ */
+endDate?: string | null;
+/**
+ * @nullable
+ */
+allTime?: boolean | null;
 };

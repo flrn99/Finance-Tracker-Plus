@@ -36,7 +36,8 @@ export const ListTransactionsResponseItem = zod.object({
   "categoryName": zod.string(),
   "categoryColor": zod.string(),
   "notes": zod.string().nullish(),
-  "createdAt": zod.string()
+  "createdAt": zod.string(),
+  "linkedBillName": zod.string().nullish().describe('Nombre del Flow (bill) al que esta transacción quedó atada vía auto-save, si corresponde. Null si es una transacción suelta.')
 })
 export const ListTransactionsResponse = zod.array(ListTransactionsResponseItem)
 
@@ -71,7 +72,8 @@ export const GetTransactionResponse = zod.object({
   "categoryName": zod.string(),
   "categoryColor": zod.string(),
   "notes": zod.string().nullish(),
-  "createdAt": zod.string()
+  "createdAt": zod.string(),
+  "linkedBillName": zod.string().nullish().describe('Nombre del Flow (bill) al que esta transacción quedó atada vía auto-save, si corresponde. Null si es una transacción suelta.')
 })
 
 
@@ -101,7 +103,8 @@ export const UpdateTransactionResponse = zod.object({
   "categoryName": zod.string(),
   "categoryColor": zod.string(),
   "notes": zod.string().nullish(),
-  "createdAt": zod.string()
+  "createdAt": zod.string(),
+  "linkedBillName": zod.string().nullish().describe('Nombre del Flow (bill) al que esta transacción quedó atada vía auto-save, si corresponde. Null si es una transacción suelta.')
 })
 
 
@@ -175,7 +178,7 @@ export const GetDashboardSummaryQueryParams = zod.object({
   "month": zod.coerce.string().nullish().describe('YYYY-MM format, defaults to current month'),
   "startDate": zod.coerce.string().nullish(),
   "endDate": zod.coerce.string().nullish(),
-  "allTime": zod.coerce.boolean().nullish(),
+  "allTime": zod.coerce.boolean().nullish()
 })
 
 export const GetDashboardSummaryResponse = zod.object({
@@ -196,7 +199,7 @@ export const GetSpendingByCategoryQueryParams = zod.object({
   "startDate": zod.coerce.string().nullish(),
   "endDate": zod.coerce.string().nullish(),
   "allTime": zod.coerce.boolean().nullish(),
-  "type": zod.enum(["expense", "income"]).nullish(),
+  "type": zod.enum(['expense', 'income']).optional()
 })
 
 export const GetSpendingByCategoryResponseItem = zod.object({
@@ -231,7 +234,7 @@ export const GetTopExpensesQueryParams = zod.object({
   "startDate": zod.coerce.string().nullish(),
   "endDate": zod.coerce.string().nullish(),
   "allTime": zod.coerce.boolean().nullish(),
-  "limit": zod.coerce.number().nullish(),
+  "limit": zod.coerce.number().nullish()
 })
 
 export const GetTopExpensesResponseItem = zod.object({
@@ -244,7 +247,8 @@ export const GetTopExpensesResponseItem = zod.object({
   "categoryName": zod.string(),
   "categoryColor": zod.string(),
   "notes": zod.string().nullish(),
-  "createdAt": zod.string()
+  "createdAt": zod.string(),
+  "linkedBillName": zod.string().nullish().describe('Nombre del Flow (bill) al que esta transacción quedó atada vía auto-save, si corresponde. Null si es una transacción suelta.')
 })
 export const GetTopExpensesResponse = zod.array(GetTopExpensesResponseItem)
 

@@ -17,6 +17,7 @@ export * from './dashboardSummary';
 export * from './exportToExcelParams';
 export * from './getDashboardSummaryParams';
 export * from './getSpendingByCategoryParams';
+export * from './getSpendingByCategoryType';
 export * from './getTopExpensesParams';
 export * from './healthStatus';
 export * from './listTransactionsParams';

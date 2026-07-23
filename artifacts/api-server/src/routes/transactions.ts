@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { transactionsTable, categoriesTable } from "@workspace/db";
-import { eq, and, gte, lte, sql } from "drizzle-orm";
+import { transactionsTable, categoriesTable, billLogsTable, billsTable } from "@workspace/db";
+import { eq, and, gte, lte, sql, inArray } from "drizzle-orm";
 import {
   CreateTransactionBody,
   UpdateTransactionBody,
@@ -41,9 +41,15 @@ router.get("/transactions", async (req, res) => {
       categoryColor: categoriesTable.color,
       notes: transactionsTable.notes,
       createdAt: transactionsTable.createdAt,
+      // Nombre del Flow si esta transacción nació de un auto-save — para poder
+      // avisar antes de borrarla que también va a desmarcar el Flow (ver
+      // DELETE /transactions/:id más abajo).
+      linkedBillName: billsTable.name,
     })
     .from(transactionsTable)
     .innerJoin(categoriesTable, eq(transactionsTable.categoryId, categoriesTable.id))
+    .leftJoin(billLogsTable, eq(billLogsTable.transactionId, transactionsTable.id))
+    .leftJoin(billsTable, eq(billsTable.id, billLogsTable.billId))
     .where(and(...conditions))
     .orderBy(sql`${transactionsTable.date} desc, ${transactionsTable.createdAt} desc`);
 
@@ -51,6 +57,7 @@ router.get("/transactions", async (req, res) => {
     ...r,
     amount: parseFloat(r.amount),
     createdAt: r.createdAt.toISOString(),
+    linkedBillName: r.linkedBillName ?? null,
   })));
 });
 
@@ -156,8 +163,28 @@ router.delete("/transactions/:id", async (req, res) => {
   if (!parsed.success) return res.status(400).json({ error: "Invalid id" });
 
   const userId = (req as any).userId;
-  await db.delete(transactionsTable)
-    .where(and(eq(transactionsTable.id, parsed.data.id), eq(transactionsTable.userId, userId)));
+
+  // Si esta transacción nació de un Flow con auto-save, hay que desmarcarlo
+  // también (dismissed=true, mismo mecanismo que el unmark manual desde
+  // Goals) — si no, el Flow se queda marcado como pagado apuntando a una
+  // transacción que ya no existe.
+  const linkedLogs = await db
+    .select({ id: billLogsTable.id })
+    .from(billLogsTable)
+    .where(eq(billLogsTable.transactionId, parsed.data.id));
+
+  const [deleted] = await db.delete(transactionsTable)
+    .where(and(eq(transactionsTable.id, parsed.data.id), eq(transactionsTable.userId, userId)))
+    .returning();
+
+  if (!deleted) return res.status(404).json({ error: "Not found" });
+
+  if (linkedLogs.length > 0) {
+    await db.update(billLogsTable)
+      .set({ dismissed: true })
+      .where(inArray(billLogsTable.id, linkedLogs.map((l) => l.id)));
+  }
+
   return res.status(204).send();
 });
 

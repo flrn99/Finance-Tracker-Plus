@@ -170,7 +170,11 @@ function TransactionRow({
         }
         icon={Trash2}
         title="Delete transaction?"
-        description={`This will permanently delete "${tx.description}". This can't be undone.`}
+        description={
+          tx.linkedBillName
+            ? `This will permanently delete "${tx.description}" and unmark "${tx.linkedBillName}" as paid (${tx.type === "income" ? "Money In" : "Money Out"}). This can't be undone.`
+            : `This will permanently delete "${tx.description}". This can't be undone.`
+        }
         confirmLabel="Delete"
         onConfirm={() => {
           // Dispara la mutation recién después de que la animación de salida
@@ -406,6 +410,10 @@ export default function Transactions() {
         queryClient.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey({}) });
         queryClient.invalidateQueries({ queryKey: getGetSpendingByCategoryQueryKey({}) });
         queryClient.invalidateQueries({ queryKey: getGetTopExpensesQueryKey({ limit: 3 }) });
+        // Si la transacción estaba atada a un Flow, el backend ya lo desmarcó
+        // (dismissed) — sin esto, Goals seguía mostrando ese Flow como pagado
+        // hasta la próxima vez que se abriera esa página por otro motivo.
+        queryClient.invalidateQueries({ queryKey: ["bills"] });
         queryClient.invalidateQueries({ queryKey: ["insights-anomaly"] });
         queryClient.invalidateQueries({ queryKey: ["insights-fixed-vs-flexible"] });
         queryClient.invalidateQueries({ queryKey: ["insights-income-summary"] });

@@ -221,6 +221,18 @@ paths:
           schema:
             type: ["string", "null"]
           description: "YYYY-MM format, defaults to current month"
+        - name: startDate
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: endDate
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: allTime
+          in: query
+          schema:
+            type: ["boolean", "null"]
       responses:
         "200":
           description: Dashboard summary
@@ -239,6 +251,23 @@ paths:
           in: query
           schema:
             type: ["string", "null"]
+        - name: startDate
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: endDate
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: allTime
+          in: query
+          schema:
+            type: ["boolean", "null"]
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [expense, income]
       responses:
         "200":
           description: Spending by category
@@ -274,6 +303,18 @@ paths:
           in: query
           schema:
             type: ["string", "null"]
+        - name: startDate
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: endDate
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: allTime
+          in: query
+          schema:
+            type: ["boolean", "null"]
         - name: limit
           in: query
           schema:
@@ -346,6 +387,9 @@ components:
           type: ["string", "null"]
         createdAt:
           type: string
+        linkedBillName:
+          type: ["string", "null"]
+          description: Nombre del Flow (bill) al que esta transacción quedó atada vía auto-save, si corresponde. Null si es una transacción suelta.
 
     TransactionInput:
       type: object

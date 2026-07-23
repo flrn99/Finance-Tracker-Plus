@@ -5,10 +5,24 @@
  * Finance Tracker API
  * OpenAPI spec version: 0.1.0
  */
+import type { GetSpendingByCategoryType } from './getSpendingByCategoryType';
 
 export type GetSpendingByCategoryParams = {
 /**
  * @nullable
  */
 month?: string | null;
+/**
+ * @nullable
+ */
+startDate?: string | null;
+/**
+ * @nullable
+ */
+endDate?: string | null;
+/**
+ * @nullable
+ */
+allTime?: boolean | null;
+type?: GetSpendingByCategoryType;
 };

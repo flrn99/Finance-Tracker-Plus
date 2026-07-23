@@ -29,6 +29,11 @@ export interface Transaction {
   /** @nullable */
   notes?: string | null;
   createdAt: string;
+  /**
+     * Nombre del Flow (bill) al que esta transacción quedó atada vía auto-save, si corresponde. Null si es una transacción suelta.
+     * @nullable
+     */
+  linkedBillName?: string | null;
 }
 
 export type TransactionInputType = typeof TransactionInputType[keyof typeof TransactionInputType];
@@ -167,39 +172,73 @@ export const ListTransactionsType = {
 } as const;
 
 export type GetDashboardSummaryParams = {
-/** YYYY-MM format, defaults to current month @nullable */
+/**
+ * YYYY-MM format, defaults to current month
+ * @nullable
+ */
 month?: string | null;
-/** YYYY-MM-DD @nullable */
+/**
+ * @nullable
+ */
 startDate?: string | null;
-/** YYYY-MM-DD @nullable */
+/**
+ * @nullable
+ */
 endDate?: string | null;
-/** When true, return data across all time (ignores month/startDate/endDate) @nullable */
+/**
+ * @nullable
+ */
 allTime?: boolean | null;
 };
 
 export type GetSpendingByCategoryParams = {
-/** @nullable */
+/**
+ * @nullable
+ */
 month?: string | null;
-/** @nullable */
+/**
+ * @nullable
+ */
 startDate?: string | null;
-/** @nullable */
+/**
+ * @nullable
+ */
 endDate?: string | null;
-/** @nullable */
+/**
+ * @nullable
+ */
 allTime?: boolean | null;
-/** @nullable */
-type?: 'expense' | 'income' | null;
+type?: GetSpendingByCategoryType;
 };
 
+export type GetSpendingByCategoryType = typeof GetSpendingByCategoryType[keyof typeof GetSpendingByCategoryType];
+
+
+export const GetSpendingByCategoryType = {
+  expense: 'expense',
+  income: 'income',
+} as const;
+
 export type GetTopExpensesParams = {
-/** @nullable */
+/**
+ * @nullable
+ */
 month?: string | null;
-/** @nullable */
+/**
+ * @nullable
+ */
 startDate?: string | null;
-/** @nullable */
+/**
+ * @nullable
+ */
 endDate?: string | null;
-/** @nullable */
+/**
+ * @nullable
+ */
 allTime?: boolean | null;
-/** @nullable */
+/**
+ * @nullable
+ */
 limit?: number | null;
 };
 
