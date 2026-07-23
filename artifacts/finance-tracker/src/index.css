@@ -152,6 +152,103 @@
   color: #8FCFEF;
 }
 
+/* Ghost icon del hero — celeste bien delicado, un watermark discreto sobre
+   el lavado "Whisper", no un acento que compita con el texto. */
+.insights-hero-ghost {
+  color: rgba(14, 165, 233, 0.12);
+}
+.dark .insights-hero-ghost {
+  color: rgba(125, 211, 252, 0.16);
+}
+
+/* Cards de datos del lens Expense/Income — "Gradient wash": reemplaza el
+   rojo/verde sólido de antes por un degradé suave de 2 tonos, con el color
+   real viviendo en el texto/íconos (mismos tokens income-ink/expense-ink que
+   ya usa el resto de la app) en vez de blanco sobre un bloque saturado. */
+.insights-card-expense {
+  background: linear-gradient(135deg, #FFF5F4 0%, #FFE3E1 100%);
+}
+.dark .insights-card-expense {
+  background: linear-gradient(135deg, rgba(255, 77, 77, 0.14) 0%, rgba(255, 77, 77, 0.06) 100%);
+}
+.insights-card-income {
+  background: linear-gradient(135deg, #F0FBF6 0%, #DFF6EA 100%);
+}
+.dark .insights-card-income {
+  background: linear-gradient(135deg, rgba(0, 168, 112, 0.14) 0%, rgba(0, 168, 112, 0.06) 100%);
+}
+
+.insights-ghost-expense {
+  color: rgba(255, 77, 77, 0.10);
+}
+.dark .insights-ghost-expense {
+  color: rgba(255, 77, 77, 0.18);
+}
+.insights-ghost-income {
+  color: rgba(0, 168, 112, 0.10);
+}
+.dark .insights-ghost-income {
+  color: rgba(0, 168, 112, 0.18);
+}
+
+.insights-ink-expense {
+  color: #7F1D1D;
+}
+.dark .insights-ink-expense {
+  color: #FFA3A3;
+}
+.insights-ink-expense-soft {
+  color: #B0524A;
+}
+.dark .insights-ink-expense-soft {
+  color: #E19893;
+}
+.insights-dot-expense {
+  background: #FF4D4D;
+}
+.insights-dot-expense-soft {
+  background: rgba(255, 77, 77, 0.45);
+}
+.insights-bar-track-expense {
+  background: rgba(255, 77, 77, 0.14);
+}
+.insights-bar-fill-expense {
+  background: #FF4D4D;
+}
+.insights-bar-fill-soft-expense {
+  background: rgba(255, 77, 77, 0.4);
+}
+.insights-border-expense-t {
+  border-top: 1px solid rgba(255, 77, 77, 0.18);
+}
+
+.insights-ink-income {
+  color: #00432C;
+}
+.dark .insights-ink-income {
+  color: #6EE7B7;
+}
+.insights-ink-income-soft {
+  color: #3A8A6C;
+}
+.dark .insights-ink-income-soft {
+  color: #8FD9BB;
+}
+.insights-pill-income {
+  color: #00432C;
+  background: rgba(0, 168, 112, 0.16);
+}
+.dark .insights-pill-income {
+  color: #6EE7B7;
+  background: rgba(0, 168, 112, 0.2);
+}
+.insights-bar-track-income {
+  background: rgba(0, 168, 112, 0.14);
+}
+.insights-bar-fill-income {
+  background: #00A870;
+}
+
 /* Voice capture — Live Ledger reveal (voice-capture.tsx). Fixed light paper
    surface regardless of app theme for now — dark mode variant pendiente. */
 @keyframes ff-dot-breathe {

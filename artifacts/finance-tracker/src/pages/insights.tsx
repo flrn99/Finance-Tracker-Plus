@@ -496,6 +496,7 @@ export default function Insights() {
           index.css) — el celeste sigue siendo el color del hero, pero deja
           de competir en volumen con las 2 cards sólidas rojo/verde de abajo. */}
       <div className="insights-hero relative overflow-hidden rounded-3xl px-4 pt-4 pb-4">
+        <Sparkles className="insights-hero-ghost absolute -right-4 -top-2 h-28 w-28 pointer-events-none" strokeWidth={1.5} />
         {/* Badge */}
         <div className="insights-hero-badge inline-flex items-center gap-1.5 mb-2.5 px-2.5 py-1 rounded-lg">
           <Sparkles className="h-3 w-3" style={{ color: ACCENT }} />
@@ -717,10 +718,9 @@ export default function Insights() {
         return (
           <div
             className={cn(
-              "relative rounded-3xl px-4 py-3.5 overflow-hidden text-white transition-transform",
+              "insights-card-expense relative rounded-3xl px-4 py-3.5 overflow-hidden transition-transform",
               lastAnalysis?.fullText && "active:scale-[0.99] cursor-pointer"
             )}
-            style={{ background: "linear-gradient(135deg, #FF4D4D 0%, #FF4D4DCC 100%)" }}
             onClick={() => { if (lastAnalysis?.fullText) setInsights(lastAnalysis.fullText); }}
             onKeyDown={(e) => {
               if (!lastAnalysis?.fullText) return;
@@ -729,55 +729,54 @@ export default function Insights() {
             role={lastAnalysis?.fullText ? "button" : undefined}
             tabIndex={lastAnalysis?.fullText ? 0 : undefined}
           >
-            <TrendingDown className="absolute -right-3 -top-3 h-24 w-24 opacity-[0.14]" strokeWidth={1.5} />
-            <div className="absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-white/25 to-transparent pointer-events-none" />
+            <TrendingDown className="insights-ghost-expense absolute -right-3 -top-3 h-24 w-24 pointer-events-none" strokeWidth={1.5} />
             <div className="relative">
-              <p className="text-[10px] font-black uppercase tracking-wide mb-2 text-white/80">Category on the move</p>
+              <p className="insights-ink-expense-soft text-[10px] font-black uppercase tracking-wide mb-2">Category on the move</p>
 
               <div className="flex items-baseline gap-2">
-                <span className="h-2.5 w-2.5 rounded-full shrink-0 bg-white" />
-                <span className="text-sm font-bold">{anomaly.categoryName}</span>
+                <span className="insights-dot-expense h-2.5 w-2.5 rounded-full shrink-0" />
+                <span className="insights-ink-expense text-sm font-bold">{anomaly.categoryName}</span>
                 <span
-                  className={cn("font-entry-amount leading-none ml-auto flex items-baseline gap-1", !isNotable && "text-white/70")}
+                  className={cn("insights-ink-expense font-entry-amount leading-none ml-auto flex items-baseline gap-1", !isNotable && "insights-ink-expense-soft")}
                   style={{ fontSize: "1.7rem" }}
                 >
                   {anomaly.multiplier.toFixed(1)}×
-                  <span className="text-[10px] font-bold text-white/70">usual</span>
+                  <span className="insights-ink-expense-soft text-[10px] font-bold">usual</span>
                 </span>
               </div>
 
               <div className="flex items-center gap-3 mt-2.5">
                 <div className="flex-1">
-                  <div className="h-1 rounded-full bg-white/25 overflow-hidden">
-                    <div className="h-full rounded-full bg-white/50" style={{ width: `${Math.min(100, Math.round((anomaly.average / anomaly.thisMonth) * 100))}%` }} />
+                  <div className="insights-bar-track-expense h-1 rounded-full overflow-hidden">
+                    <div className="insights-bar-fill-soft-expense h-full rounded-full" style={{ width: `${Math.min(100, Math.round((anomaly.average / anomaly.thisMonth) * 100))}%` }} />
                   </div>
-                  <span className="text-[10px] text-white/70">usual {formatAmount(anomaly.average)}</span>
+                  <span className="insights-ink-expense-soft text-[10px]">usual {formatAmount(anomaly.average)}</span>
                 </div>
                 <div className="flex-1">
-                  <div className="h-1 rounded-full bg-white/25 overflow-hidden">
-                    <div className="h-full rounded-full" style={{ width: "100%", background: isNotable ? "#fff" : "rgba(255,255,255,0.5)" }} />
+                  <div className="insights-bar-track-expense h-1 rounded-full overflow-hidden">
+                    <div className={cn("h-full rounded-full", isNotable ? "insights-bar-fill-expense" : "insights-bar-fill-soft-expense")} style={{ width: "100%" }} />
                   </div>
-                  <span className="text-[10px] text-white/70">this month {formatAmount(anomaly.thisMonth)}</span>
+                  <span className="insights-ink-expense-soft text-[10px]">this month {formatAmount(anomaly.thisMonth)}</span>
                 </div>
               </div>
 
-              <div className="flex items-start gap-2 mt-2.5 pt-2.5 border-t border-white/20">
-                <Sparkles className="h-3.5 w-3.5 shrink-0 mt-0.5 text-white/90" />
+              <div className="insights-border-expense-t flex items-start gap-2 mt-2.5 pt-2.5">
+                <Sparkles className="insights-ink-expense-soft h-3.5 w-3.5 shrink-0 mt-0.5" />
                 {lastAnalysis?.note ? (
-                  <p className="text-xs leading-snug text-white/90">{lastAnalysis.note}</p>
+                  <p className="insights-ink-expense text-xs leading-snug">{lastAnalysis.note}</p>
                 ) : (
-                  <p className="text-xs italic leading-snug text-white/70">Tap Analyze above for AI context on this</p>
+                  <p className="insights-ink-expense-soft text-xs italic leading-snug">Tap Analyze above for AI context on this</p>
                 )}
               </div>
 
               {lastAnalysis?.fullText && (
-                <div className="flex items-center justify-between mt-2.5 pt-2.5 border-t border-white/20">
-                  <span className="text-xs font-bold text-white">Read full analysis</span>
-                  <ChevronRight className="h-3.5 w-3.5 text-white" />
+                <div className="insights-border-expense-t flex items-center justify-between mt-2.5 pt-2.5">
+                  <span className="insights-ink-expense text-xs font-bold">Read full analysis</span>
+                  <ChevronRight className="insights-ink-expense h-3.5 w-3.5" />
                 </div>
               )}
               {lastAnalysis?.fullText && (
-                <p className="text-[11px] text-white/70 mt-1.5">saved · {lastAnalysis.date} · tap to reopen, no new AI call</p>
+                <p className="insights-ink-expense-soft text-[11px] mt-1.5">saved · {lastAnalysis.date} · tap to reopen, no new AI call</p>
               )}
             </div>
           </div>
@@ -797,43 +796,42 @@ export default function Insights() {
         const { fixedTotal, flexibleTotal, total, biggestFixedFlow } = fixedVsFlexible;
         let caption: React.ReactNode;
         if (fixedTotal === 0) {
-          caption = <>Nothing committed yet — all <span className="font-bold text-white">{formatAmount(flexibleTotal)}</span> was your call.</>;
+          caption = <>Nothing committed yet — all <span className="insights-ink-expense font-bold">{formatAmount(flexibleTotal)}</span> was your call.</>;
         } else if (flexibleTotal === 0) {
           caption = biggestFixedFlow
-            ? <><span className="font-bold text-white">{biggestFixedFlow.name}</span> is your biggest fixed cost ({formatAmount(biggestFixedFlow.amount)}) — nothing flexible this month.</>
-            : <><span className="font-bold text-white">{formatAmount(fixedTotal)}</span> was already committed. Nothing flexible this month.</>;
+            ? <><span className="insights-ink-expense font-bold">{biggestFixedFlow.name}</span> is your biggest fixed cost ({formatAmount(biggestFixedFlow.amount)}) — nothing flexible this month.</>
+            : <><span className="insights-ink-expense font-bold">{formatAmount(fixedTotal)}</span> was already committed. Nothing flexible this month.</>;
         } else if (biggestFixedFlow) {
-          caption = <><span className="font-bold text-white">{biggestFixedFlow.name}</span> is your biggest fixed cost ({formatAmount(biggestFixedFlow.amount)}) — the rest was your call.</>;
+          caption = <><span className="insights-ink-expense font-bold">{biggestFixedFlow.name}</span> is your biggest fixed cost ({formatAmount(biggestFixedFlow.amount)}) — the rest was your call.</>;
         } else {
-          caption = <><span className="font-bold text-white">{formatAmount(fixedTotal)}</span> was already committed — the rest was your call.</>;
+          caption = <><span className="insights-ink-expense font-bold">{formatAmount(fixedTotal)}</span> was already committed — the rest was your call.</>;
         }
         return (
-          <div className="relative rounded-3xl px-4 py-3.5 overflow-hidden text-white" style={{ background: "linear-gradient(135deg, #FF4D4D 0%, #FF4D4DCC 100%)" }}>
-            <TrendingDown className="absolute -right-3 -top-3 h-24 w-24 opacity-[0.14]" strokeWidth={1.5} />
-            <div className="absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-white/25 to-transparent pointer-events-none" />
+          <div className="insights-card-expense relative rounded-3xl px-4 py-3.5 overflow-hidden">
+            <TrendingDown className="insights-ghost-expense absolute -right-3 -top-3 h-24 w-24 pointer-events-none" strokeWidth={1.5} />
             <div className="relative">
-              <p className="text-[10px] font-black uppercase tracking-wide mb-2 text-white/80">Fixed vs flexible</p>
+              <p className="insights-ink-expense-soft text-[10px] font-black uppercase tracking-wide mb-2">Fixed vs flexible</p>
               <div className="flex h-2 rounded-full overflow-hidden">
-                <div className="bg-white" style={{ width: `${Math.max(4, Math.round((fixedTotal / total) * 100))}%` }} />
-                <div className="bg-white/40" style={{ width: `${Math.max(4, Math.round((flexibleTotal / total) * 100))}%` }} />
+                <div className="insights-bar-fill-expense" style={{ width: `${Math.max(4, Math.round((fixedTotal / total) * 100))}%` }} />
+                <div className="insights-bar-fill-soft-expense" style={{ width: `${Math.max(4, Math.round((flexibleTotal / total) * 100))}%` }} />
               </div>
               <div className="flex gap-5 mt-2.5">
                 <div className="flex-1">
-                  <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-white/70 mb-0.5">
-                    <span className="h-2 w-2 rounded-full shrink-0 bg-white" />
+                  <span className="insights-ink-expense-soft flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide mb-0.5">
+                    <span className="insights-dot-expense h-2 w-2 rounded-full shrink-0" />
                     Fixed
                   </span>
-                  <p className="font-entry-amount text-xl leading-none text-white">{formatAmount(fixedTotal)}</p>
+                  <p className="insights-ink-expense font-entry-amount text-xl leading-none">{formatAmount(fixedTotal)}</p>
                 </div>
                 <div className="flex-1">
-                  <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-white/70 mb-0.5">
-                    <span className="h-2 w-2 rounded-full shrink-0 bg-white/40" />
+                  <span className="insights-ink-expense-soft flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide mb-0.5">
+                    <span className="insights-dot-expense-soft h-2 w-2 rounded-full shrink-0" />
                     Flexible
                   </span>
-                  <p className="font-entry-amount text-xl leading-none text-white/80">{formatAmount(flexibleTotal)}</p>
+                  <p className="insights-ink-expense-soft font-entry-amount text-xl leading-none">{formatAmount(flexibleTotal)}</p>
                 </div>
               </div>
-              <p className="text-xs mt-2.5 leading-snug text-white/90">{caption}</p>
+              <p className="insights-ink-expense-soft text-xs mt-2.5 leading-snug">{caption}</p>
             </div>
           </div>
         );
@@ -845,24 +843,23 @@ export default function Insights() {
       {/* Income consistency — mismo criterio que "biggest mover": promedio solo
           sobre meses con ingreso real, se muestra siempre que haya historial. */}
       {activeLens === "income" && incomeConsistency && (
-        <div className="relative rounded-3xl px-4 py-3.5 overflow-hidden text-white" style={{ background: "linear-gradient(135deg, #00A870 0%, #00A870CC 100%)" }}>
-          <TrendingUp className="absolute -right-3 -top-3 h-24 w-24 opacity-[0.14]" strokeWidth={1.5} />
-          <div className="absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-white/25 to-transparent pointer-events-none" />
+        <div className="insights-card-income relative rounded-3xl px-4 py-3.5 overflow-hidden">
+          <TrendingUp className="insights-ghost-income absolute -right-3 -top-3 h-24 w-24 pointer-events-none" strokeWidth={1.5} />
           <div className="relative">
-            <p className="text-[10px] font-black uppercase tracking-wide mb-2 text-white/80">Income consistency</p>
+            <p className="insights-ink-income-soft text-[10px] font-black uppercase tracking-wide mb-2">Income consistency</p>
             <div className="flex items-baseline gap-2">
-              <span className="font-entry-amount leading-none" style={{ fontSize: "1.7rem" }}>
+              <span className="insights-ink-income font-entry-amount leading-none" style={{ fontSize: "1.7rem" }}>
                 {formatAmount(incomeConsistency.thisMonth)}
               </span>
               {incomeConsistency.hasHistory && (
-                <span className="text-xs font-bold px-2 py-0.5 rounded-full ml-auto bg-white/25 text-white">
+                <span className="insights-pill-income text-xs font-bold px-2 py-0.5 rounded-full ml-auto">
                   {incomeConsistency.delta >= 0 ? "+" : ""}{incomeConsistency.delta.toFixed(0)}%
                 </span>
               )}
             </div>
-            <p className="text-xs mt-2.5 leading-snug text-white/90">
+            <p className="insights-ink-income-soft text-xs mt-2.5 leading-snug">
               {incomeConsistency.hasHistory
-                ? <>Averaging <span className="font-bold text-white">{formatAmount(incomeConsistency.average)}</span> lately — {
+                ? <>Averaging <span className="insights-ink-income font-bold">{formatAmount(incomeConsistency.average)}</span> lately — {
                     Math.abs(incomeConsistency.delta) < 10
                       ? "steady, nothing to flag."
                       : incomeConsistency.delta > 0
@@ -879,19 +876,18 @@ export default function Insights() {
           "Fixed" configurado de Flows), así que puede diferir un poco de lo
           que se ve en el lente de Expense si hay Flows sin pagar todavía. */}
       {activeLens === "income" && savingsRate && (
-        <div className="relative rounded-3xl px-4 py-3.5 overflow-hidden text-white" style={{ background: "linear-gradient(135deg, #00A870 0%, #00A870CC 100%)" }}>
-          <TrendingUp className="absolute -right-3 -top-3 h-24 w-24 opacity-[0.14]" strokeWidth={1.5} />
-          <div className="absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-white/25 to-transparent pointer-events-none" />
+        <div className="insights-card-income relative rounded-3xl px-4 py-3.5 overflow-hidden">
+          <TrendingUp className="insights-ghost-income absolute -right-3 -top-3 h-24 w-24 pointer-events-none" strokeWidth={1.5} />
           <div className="relative">
-            <p className="text-[10px] font-black uppercase tracking-wide mb-2 text-white/80">Savings rate</p>
-            <p className="font-entry-amount leading-none" style={{ fontSize: "1.7rem" }}>
+            <p className="insights-ink-income-soft text-[10px] font-black uppercase tracking-wide mb-2">Savings rate</p>
+            <p className="insights-ink-income font-entry-amount leading-none" style={{ fontSize: "1.7rem" }}>
               {savingsRate.rate.toFixed(0)}%
             </p>
-            <div className="h-1.5 rounded-full bg-white/25 overflow-hidden mt-2.5">
-              <div className="h-full rounded-full bg-white" style={{ width: `${Math.max(0, Math.min(100, savingsRate.rate))}%` }} />
+            <div className="insights-bar-track-income h-1.5 rounded-full overflow-hidden mt-2.5">
+              <div className="insights-bar-fill-income h-full rounded-full" style={{ width: `${Math.max(0, Math.min(100, savingsRate.rate))}%` }} />
             </div>
-            <p className="text-xs mt-2.5 leading-snug text-white/90">
-              <span className="font-bold text-white">{formatAmount(savingsRate.saved)}</span> kept of {formatAmount(savingsRate.income)} earned ({formatAmount(savingsRate.expense)} spent).
+            <p className="insights-ink-income-soft text-xs mt-2.5 leading-snug">
+              <span className="insights-ink-income font-bold">{formatAmount(savingsRate.saved)}</span> kept of {formatAmount(savingsRate.income)} earned ({formatAmount(savingsRate.expense)} spent).
             </p>
           </div>
         </div>
