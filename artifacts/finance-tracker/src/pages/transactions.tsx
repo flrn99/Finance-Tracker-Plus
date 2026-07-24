@@ -51,6 +51,7 @@ const triggerHaptic = () => {
 
 function TransactionRow({
   tx,
+  index,
   isOpen,
   onOpenChange,
   onSelect,
@@ -58,12 +59,23 @@ function TransactionRow({
   formatAmount,
 }: {
   tx: any;
+  index: number;
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   onSelect: (tx: any) => void;
   onDelete: (tx: any) => void;
   formatAmount: (n: number) => string;
 }) {
+  // Entrada con stagger corto al montar (tope en 8 filas — pasado eso el delay
+  // deja de sumar, para que una sección de 30 items no tarde 750ms en asentar).
+  const [entered, setEntered] = useState(false);
+  useEffect(() => {
+    let raf2 = 0;
+    const raf1 = requestAnimationFrame(() => { raf2 = requestAnimationFrame(() => setEntered(true)); });
+    return () => { cancelAnimationFrame(raf1); cancelAnimationFrame(raf2); };
+  }, []);
+  const enterDelay = Math.min(index, 8) * 25;
+
   const startPos = useRef<{ x: number; y: number } | null>(null);
   const dragging = useRef(false);
   const firedByPointer = useRef(false);
@@ -163,7 +175,16 @@ function TransactionRow({
       style={{ gridTemplateRows: isExiting ? "0fr" : "1fr" }}
     >
     <div className="overflow-hidden">
-    <div className="relative overflow-hidden rounded-2xl transition-opacity duration-200" style={{ opacity: isExiting ? 0 : 1 }}>
+    <div
+      className="relative overflow-hidden rounded-2xl"
+      style={{
+        opacity: isExiting ? 0 : entered ? 1 : 0,
+        transform: entered ? "translateY(0)" : "translateY(6px)",
+        transition: isExiting
+          ? "opacity 200ms ease"
+          : `opacity 320ms cubic-bezier(0.34,1.56,0.64,1) ${enterDelay}ms, transform 320ms cubic-bezier(0.34,1.56,0.64,1) ${enterDelay}ms`,
+      }}
+    >
       <ConfirmDialog
         open={confirmDeleteOpen}
         onOpenChange={setConfirmDeleteOpen}
@@ -403,10 +424,11 @@ function TransactionList({ filteredTransactions, isLoading, formatAmount, onSele
               <div className="overflow-hidden">
               {everOpened.has(monthKey) && (
               <div className="mt-1 space-y-2">
-                {txs.map((tx) => (
+                {txs.map((tx, i) => (
                   <TransactionRow
                     key={tx.id}
                     tx={tx}
+                    index={i}
                     isOpen={openSwipeId === tx.id}
                     onOpenChange={(o) => setOpenSwipeId(o ? tx.id : null)}
                     onSelect={onSelect}

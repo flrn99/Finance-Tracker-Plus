@@ -174,10 +174,11 @@ export default function Categories() {
                 </div>
 
                 <div className="space-y-1.5">
-                  {filtered.map((cat) => (
+                  {filtered.map((cat, i) => (
                     <CategoryRow
                       key={cat.id}
                       cat={cat}
+                      index={i}
                       onEdit={() => openEdit(cat)}
                       onDelete={() => handleDelete(cat.id)}
                     />
@@ -197,14 +198,25 @@ export default function Categories() {
 // achica (grid-rows a 0fr + fade) apenas se confirma, y recién ahí dispara el
 // delete real.
 function CategoryRow({
-  cat, onEdit, onDelete,
+  cat, index, onEdit, onDelete,
 }: {
   cat: { id: number; name: string; icon: string | null; color: string };
+  index: number;
   onEdit: () => void;
   onDelete: () => void;
 }) {
   const [isExiting, setIsExiting] = useState(false);
   const Icon = CATEGORY_ICONS[cat.icon ?? "tag"] ?? CATEGORY_ICONS.tag;
+
+  // Entrada con stagger corto al montar — mismo tope que en Transactions, para
+  // que una sección con muchas categorías no tarde demasiado en asentar.
+  const [entered, setEntered] = useState(false);
+  useEffect(() => {
+    let raf2 = 0;
+    const raf1 = requestAnimationFrame(() => { raf2 = requestAnimationFrame(() => setEntered(true)); });
+    return () => { cancelAnimationFrame(raf1); cancelAnimationFrame(raf2); };
+  }, []);
+  const enterDelay = Math.min(index, 8) * 25;
 
   return (
     <div
@@ -213,8 +225,19 @@ function CategoryRow({
     >
       <div className="overflow-hidden">
         <div
-          className="rounded-2xl px-3.5 py-3 flex items-center gap-2.5 transition-opacity duration-200"
-          style={{ background: `${cat.color}14`, opacity: isExiting ? 0 : 1 }}
+          className="rounded-2xl px-3.5 py-3 flex items-center gap-2.5"
+          style={{
+            // background-color en la transition (no solo opacity): la migración
+            // silenciosa de paleta vieja→nueva (ver hasMigratedColors en Categories)
+            // cambia cat.color por debajo sin que el usuario haga nada — sin esto
+            // el swatch "saltaba" de color de un frame al otro.
+            background: `${cat.color}14`,
+            opacity: isExiting ? 0 : entered ? 1 : 0,
+            transform: entered ? "translateY(0)" : "translateY(6px)",
+            transition: isExiting
+              ? "opacity 200ms ease"
+              : `background-color 300ms ease, opacity 320ms cubic-bezier(0.34,1.56,0.64,1) ${enterDelay}ms, transform 320ms cubic-bezier(0.34,1.56,0.64,1) ${enterDelay}ms`,
+          }}
         >
           <button
             onClick={onEdit}
@@ -222,9 +245,9 @@ function CategoryRow({
           >
             <div
               className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-              style={{ backgroundColor: `${cat.color}25` }}
+              style={{ backgroundColor: `${cat.color}25`, transition: "background-color 300ms ease" }}
             >
-              <Icon className="h-4.5 w-4.5" style={{ color: cat.color }} />
+              <Icon className="h-4.5 w-4.5" style={{ color: cat.color, transition: "color 300ms ease" }} />
             </div>
             <p className="text-sm font-bold text-foreground truncate">{cat.name}</p>
           </button>

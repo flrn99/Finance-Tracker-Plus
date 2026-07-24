@@ -124,7 +124,7 @@ export function SpendingBreakdown({
     // El label es "+N more", nunca "Other": si el usuario ya tiene una categoría
     // real llamada así, un nombre igual acá se pisaba con la de la leyenda y
     // parecía una categoría duplicada/mezclada.
-    let display: (SpendingEntry & { isOther?: boolean })[] = sorted;
+    let display: (SpendingEntry & { isOther?: boolean; otherIds?: number[] })[] = sorted;
     if (sorted.length > MAX_TILES) {
       const head = sorted.slice(0, MAX_TILES - 1);
       const tail = sorted.slice(MAX_TILES - 1);
@@ -137,6 +137,10 @@ export function SpendingBreakdown({
           total: tail.reduce((s, d) => s + d.total, 0),
           percentage: tail.reduce((s, d) => s + d.percentage, 0),
           isOther: true,
+          // Categorías reales agrupadas en el tile "+N more" — permite que el
+          // highlight cruzado sepa qué filas de la leyenda (cada una con su
+          // propia categoría real) le corresponden a este único tile agregado.
+          otherIds: tail.map((d) => d.categoryId),
         },
       ];
     }
@@ -168,6 +172,18 @@ export function SpendingBreakdown({
     });
   }, [data, total]);
 
+  // Mapea cada categoryId real (incluso los agrupados en "+N more") al id del
+  // tile que lo representa visualmente — así tocar una fila de la leyenda de
+  // una categoría chica (bucketeada) resalta el tile "+N more", no nada.
+  const bucketMap = useMemo(() => {
+    const m = new Map<number, number>();
+    for (const t of tiles) {
+      if (t.isOther && t.otherIds) t.otherIds.forEach((id) => m.set(id, t.categoryId));
+      else m.set(t.categoryId, t.categoryId);
+    }
+    return m;
+  }, [tiles]);
+
   const reducedMotion = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 
   // Retrigger el grow-in cada vez que cambia el dataset (toggle de tipo o fetch nuevo).
@@ -180,9 +196,30 @@ export function SpendingBreakdown({
   const [leaving, setLeaving] = useState(false);
   const prevTypeRef = useRef(type);
 
+  // Tile o fila de leyenda tocada — resalta la contraparte y atenúa el resto.
+  // Guarda un categoryId "de bucket" (ver bucketMap): el id real, o -1 si cae
+  // dentro del tile agregado "+N more".
+  const [activeId, setActiveId] = useState<number | null>(null);
+  const toggleActive = (id: number) => setActiveId((cur) => (cur === id ? null : id));
+
+  // El grow-in de entrada reusa opacity/transform con un delay escalonado por
+  // tile (i * 40ms) — si el highlight cruzado usara la misma transition string
+  // en estado estable, cada toque quedaría con ese mismo delay pegado (el tile
+  // del rank más alto tardaría más en reaccionar al tap). "settled" separa las
+  // dos fases: mientras crecen usan la transition con stagger, una vez asentadas
+  // pasan a una transition corta sin delay para hover/tap.
+  const [settled, setSettled] = useState(false);
+  useEffect(() => {
+    if (!grown) { setSettled(false); return; }
+    const maxDelay = Math.max(0, displayTiles.length - 1) * 40;
+    const t = setTimeout(() => setSettled(true), 450 + maxDelay + 50);
+    return () => clearTimeout(t);
+  }, [grown, displayTiles.length]);
+
   useEffect(() => {
     const typeChanged = prevTypeRef.current !== type;
     prevTypeRef.current = type;
+    if (typeChanged) setActiveId(null);
 
     const startGrowth = () => {
       setGrown(false);
@@ -310,6 +347,11 @@ export function SpendingBreakdown({
                 // reales, sin variantes intermedias.
                 const tileTextColor = readableTextColor(t.categoryColor);
                 const tileTextShadow = tileTextColor === "#f9f8f8" ? WHITE_TEXT_SHADOW : undefined;
+                // displayTiles ya viene ordenado por magnitud (sorted desc en el useMemo
+                // de arriba) — el rank 0 es siempre el tile dominante, sin recalcular nada acá.
+                const isDominant = i === 0;
+                const isActive = activeId !== null && activeId === t.categoryId;
+                const isDimmed = activeId !== null && !isActive;
                 return (
                   <div
                     key={t.categoryId}
@@ -322,18 +364,22 @@ export function SpendingBreakdown({
                     }}
                   >
                     <div
-                      className="absolute flex flex-col justify-between overflow-hidden"
+                      onClick={() => toggleActive(t.categoryId)}
+                      className="absolute flex flex-col justify-between overflow-hidden cursor-pointer"
                       style={{
                         inset: 2,
                         borderRadius: 14,
                         background: t.categoryColor,
                         color: tileTextColor,
                         padding,
-                        opacity: grown ? 1 : 0,
-                        transform: grown ? "scale(1)" : "scale(0.85)",
+                        opacity: grown ? (isDimmed ? 0.35 : 1) : 0,
+                        transform: grown ? (isActive ? "scale(1.02)" : "scale(1)") : "scale(0.85)",
+                        boxShadow: isDominant ? "0 10px 24px -10px rgba(0,0,0,.5)" : "none",
                         transition: reducedMotion
                           ? "none"
-                          : `opacity 450ms ${SPRING_EASE} ${i * 40}ms, transform 450ms ${SPRING_EASE} ${i * 40}ms`,
+                          : settled
+                            ? `opacity 200ms ease, transform 200ms ${SPRING_EASE}, box-shadow 250ms ease`
+                            : `opacity 450ms ${SPRING_EASE} ${i * 40}ms, transform 450ms ${SPRING_EASE} ${i * 40}ms, box-shadow 250ms ease ${i * 40}ms`,
                       }}
                     >
                       {!tooSmall && (
@@ -358,14 +404,28 @@ export function SpendingBreakdown({
               })}
             </div>
 
-            <div className="mt-6 w-full space-y-2.5">
-              {data.map((entry) => (
-                <div key={entry.categoryId} className="flex items-center text-sm font-semibold text-foreground">
-                  <span className="mr-2.5 h-[7px] w-[7px] shrink-0 rounded-full" style={{ background: entry.categoryColor }} />
-                  <span className="truncate">{entry.categoryName}</span>
-                  <span className="ml-auto shrink-0 tabular-nums font-bold text-muted-foreground">{formatAmount(entry.total)}</span>
-                </div>
-              ))}
+            <div className="mt-6 w-full space-y-1">
+              {data.map((entry) => {
+                const bucket = bucketMap.get(entry.categoryId) ?? entry.categoryId;
+                const isActive = activeId !== null && bucket === activeId;
+                const isDimmed = activeId !== null && !isActive;
+                return (
+                  <div
+                    key={entry.categoryId}
+                    onClick={() => toggleActive(bucket)}
+                    className="flex items-center rounded-lg px-1.5 py-1 -mx-1.5 text-sm font-semibold text-foreground cursor-pointer"
+                    style={{
+                      background: isActive ? `${entry.categoryColor}26` : "transparent",
+                      opacity: isDimmed ? 0.45 : 1,
+                      transition: reducedMotion ? "none" : "background 200ms ease, opacity 200ms ease",
+                    }}
+                  >
+                    <span className="mr-2.5 h-[7px] w-[7px] shrink-0 rounded-full" style={{ background: entry.categoryColor }} />
+                    <span className="truncate">{entry.categoryName}</span>
+                    <span className="ml-auto shrink-0 tabular-nums font-bold text-muted-foreground">{formatAmount(entry.total)}</span>
+                  </div>
+                );
+              })}
             </div>
           </div>
         ) : (

@@ -80,7 +80,7 @@ estructurales de verdad, no ajustes cosméticos.**
 - Motion, transiciones, micro-interacciones (hoy son básicas — hay mucho margen).
 - Los "detalles de la casa" (mesh gradient + sheen + ícono fantasma) se repiten en todas las
   cards y **puede que ya estén cansados**: si hay un recurso visual mejor, proponerlo.
-- El tipo de visualización de datos (el chart heredado del dashboard es el peor punto de la app).
+- El tipo de visualización de datos — hoy es un treemap squarify propio (ver "Páginas ya rediseñadas"), pero sigue abierto a un reemplazo radical si surge una propuesta mejor; lo que se descartó por ahora (jul 2026) fue pulirlo en vez de reemplazarlo.
 
 ### Cómo proponer
 Cuando audites: nombrá los problemas reales sin diplomacia (jerarquía plana, ruido, falta de
@@ -93,17 +93,18 @@ Rediseño del dashboard recién portado desde un prototipo v0/Next.js a Vite:
 - `src/pages/dashboard.tsx` + `src/components/dashboard/`: `balance-hero.tsx`, `stat-tiles.tsx`, `range-switch.tsx`, `entry-launcher.tsx`, `entry-sheet.tsx`
 - El EntrySheet reemplazó al viejo QuickEntry (form fullscreen con teclado numérico, picker de categorías reales, mutación real `useCreateTransaction`)
 - Voice-to-transaction: `src/components/voice-capture.tsx` (overlay inmersivo con waveform canvas reactivo al mic) → `POST /api/voice/parse` → pre-llena el EntrySheet. Auto-stop tras 2.5s de silencio DESPUÉS de detectar voz. En Android requiere el `onPermissionRequest` del WebChromeClient en `MainActivity.java` (ya aplicado) + permisos RECORD_AUDIO/MODIFY_AUDIO_SETTINGS en el manifest.
-- El chart de spending del dashboard quedó del diseño anterior (el usuario dijo que las gráficas quedan pendientes de rediseño).
 - Fix reciente: constante `MEDALS` faltaba en dashboard.tsx (crasheaba All Time).
+- El chart de spending (`spending-breakdown.tsx`) ya no es el heredado — es un treemap squarify propio, ver detalle en "Páginas ya rediseñadas".
 
 ## Páginas ya rediseñadas (no revertir sin pedir)
 
 - **Lock screen**: aurora mesh (4 blobs animados) + card flotante angosta + logo `/logo.png` abajo (fallback a texto).
 - **Insights**: hero "Whisper" (lavado celeste casi blanco, sin el gradiente pastel de 3 tonos de antes, + ghost icon de Sparkles tenue) con score gauge segmentado, análisis server-side. Cards del lens Expense/Income en "Gradient wash" (degradé suave rojo/verde con el color en el texto vía tokens ink, no un fondo sólido) — antes eran `bg-card` plano sin identidad, después pasaron brevemente por fondo sólido, y se asentaron acá tras iterar con el usuario.
-- **Goals**: switcher de 3 pestañas, orden **Flows, Savings, Habits** (Flows es la default al abrir la página — no hay `?tab=` en la URL). Savings: strip resumen (Total saved verde + Active streaks ámbar), cards tintadas por color, heatmaps estilo HabitKit. Queries prefetcheadas desde `layout.tsx` (`goalsQueryOptions`/`habitsQueryOptions` exportadas de `goals.tsx`).
+- **Goals**: switcher de 3 pestañas, orden **Flows, Savings, Habits** (Flows es la default al abrir la página — no hay `?tab=` en la URL). El contenido de cada tab entra con slide+fade en la dirección hacia la que se mueve el pill (no un fade plano). Savings: cards tintadas por color (NO hay strip resumen "Total saved/Active streaks" — no confundir con lo que dice `DESIGN.md`/versiones viejas de este archivo, no llegó a implementarse); montos con count-up (`CountUpAmount`) al cambiar, tanto en la lista como en "Still needed" del detalle. Habits: heatmap del detalle hace reveal por columna al abrirse, tocar un día dispara un ring de confirmación (`pulsingKey` en `HabitDetail`). Queries prefetcheadas desde `layout.tsx` (`goalsQueryOptions`/`habitsQueryOptions` exportadas de `goals.tsx`).
   - **Flows** (ex-"Bills", internamente el código sigue usando `bill`/`bills` — solo el label de UI cambió): pagos recurrentes con `type` (expense/income) y `day` (1-31, el mes se autodetecta). Lista dividida en secciones "Money Out"/"Money In", cada una ordenada por día, cards con tinte de color propio + heatmap mensual (el ícono de cada card se reemplazó por el número de día). Modal de creación: nombre escrito sobre el color → toggle Expense/Income → monto → día como **stepper** con flechas ‹ › + swipe horizontal (no una grilla de 31 casilleros, se sacó por ocupar mucho espacio) → categoría (filtrada por el type elegido) → auto-save → color (popup dropdown `ColorSelect`, paleta de 10 + "Flow! Red" `#FF4D4D` / "Flow! Green" `#00A870` como default según el type). Auto-save real: si el Flow tiene monto cargado y ya llegó/pasó el día elegido este mes sin marcarse pagado, se marca solo y crea la transacción al abrir la app (sin cron en el backend — se pone al día la próxima vez que la app esté abierta, no a medianoche exacta). El widget "Money Out" del dashboard (antes "Monthly bills") filtra solo Flows de type expense.
-- **Categories**: grid 2-col de swatches Pantone (bloque de color arriba h-9 con acciones glass encima, base solo nombre), modal con preview en vivo (nombre se escribe EN el preview) y picker de pills tintados. El modal de creación (`CreateCategoryModal` en `src/components/category-form-modal.tsx`) es compartido con el picker de categorías del EntrySheet — crear una categoría desde "New Entry" no navega afuera ni pierde el monto ya tipeado, y si el type de la categoría nueva no coincide con el type del entry abierto, el entry cambia de type solo.
-- **Transactions**: cards con swipe-to-delete (no un ícono de flecha direccional — cada fila tiene una barra de color de categoría a la izquierda, descripción bold, "Categoría · fecha", monto con prefijo +/− en verde/rojo), secciones por mes colapsables con chip de net. NO está en el nav — se entra por botón "All transactions" del dashboard.
+- **Categories**: rediseñada (commit `16a41ed`) de grid de swatches a filas tintadas — misma DNA que las cards de Goals/Savings (tinte 8% del color de fondo + ícono en cuadrado con tinte 15%), no un grid 2-col. Stagger de entrada al montar + crossfade de color cuando la migración silenciosa de paleta vieja (`hasMigratedColors` en `categories.tsx`) cambia un color por debajo. Modal con preview en vivo (nombre se escribe EN el preview) y picker de pills tintados. El modal de creación (`CreateCategoryModal` en `src/components/category-form-modal.tsx`) es compartido con el picker de categorías del EntrySheet — crear una categoría desde "New Entry" no navega afuera ni pierde el monto ya tipeado, y si el type de la categoría nueva no coincide con el type del entry abierto, el entry cambia de type solo.
+- **Transactions**: cards con swipe-to-delete (no un ícono de flecha direccional — cada fila tiene una barra de color de categoría a la izquierda, descripción bold, "Categoría · fecha", monto con prefijo +/− en verde/rojo), secciones por mes colapsables con chip de net. Colapso real al borrar (grid-rows a 0fr + fade) antes de disparar la mutation, y stagger de entrada por fila al montar (25ms, tope 8). NO está en el nav — se entra por botón "All transactions" del dashboard.
+- **Dashboard — Spending Breakdown**: treemap squarify propio (`spending-breakdown.tsx`, no un chart de librería) con número de % hero por tile, growth-in con spring escalonado por magnitud (ya sale ordenado del mayor al menor, no hace falta reordenar). Highlight cruzado: tocar una tile o una fila de la leyenda resalta la contraparte y atenúa el resto (`activeId`/`bucketMap`, contempla el tile agregado "+N more"); shadow sutil en la tile dominante (rank 0).
 - **Nav**: 5 items, orden **Dashboard, Goals, Insights, Categories, Settings**. El avatar de perfil ya NO flota arriba de las páginas (ese `ProfileAvatar` se eliminó) — ahora vive únicamente dentro del ítem "Settings" del nav (`AvatarGlyph` en `layout.tsx`), con foto/inicial real en vez de un ícono de gear genérico, sin el pill de fondo compartido con los demás ítems y más grande (34px vs 26px).
 
 ## Seguridad (auditada — no romper)
@@ -123,9 +124,11 @@ Rediseño del dashboard recién portado desde un prototipo v0/Next.js a Vite:
 - **Suscripción** — se evaluó reemplazar one-time payment por subscripción; pausado hasta
   decidir distribución (Play Store → obliga a Google Play Billing; directa/personal → Stripe
   es más simple). Sin implementar.
-- **Motion fuera de las páginas rediseñadas** — Login, Settings, Onboarding, Voice Capture y
-  ahora Flows (toggle, stepper, swipe) tienen motion real; Transactions, Categories y las
-  pestañas Savings/Habits de Goals se quedaron con las transiciones básicas de siempre.
+- **Motion** — ya cubre toda la app: Login, Settings, Onboarding, Voice Capture, Flows
+  (toggle, stepper, swipe), y desde jul 2026 también Transactions, Categories, Goals
+  (Savings/Habits) y el treemap del dashboard (ver detalle en "Páginas ya rediseñadas").
+  No queda una página "básica" pendiente de este pase — si aparece una nueva, tratarla caso
+  a caso, no asumir que sigue habiendo un bloque grande sin tocar.
 - **Fix del delete de Transactions sin confirmar en device** — el botón de delete revelado
   por swipe y la fila que se corre al costado no tenían z-index explícito; se hizo
   condicional a `dragX < 0` (ver `transactions.tsx`) para que el delete gane el toque solo

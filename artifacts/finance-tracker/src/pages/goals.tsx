@@ -224,6 +224,33 @@ function fmtMoney(n: number): string {
   return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+/** Cuenta desde el valor anterior al nuevo en vez de saltar directo — mismo
+ * patrón que el score de Insights (raf + duration 400-500ms). Solo anima
+ * cuando `value` cambia después del primer render (ej. al confirmar un "Add
+ * Money" en un goal), no en el montaje inicial de la fila. */
+function CountUpAmount({ value }: { value: number }) {
+  const [display, setDisplay] = useState(value);
+  const prevRef = useRef(value);
+  useEffect(() => {
+    const from = prevRef.current;
+    if (from === value) return;
+    prevRef.current = value;
+    const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    if (reduceMotion) { setDisplay(value); return; }
+    const duration = 400;
+    const start = performance.now();
+    let raf: number;
+    const tick = (now: number) => {
+      const t = Math.min((now - start) / duration, 1);
+      setDisplay(from + (value - from) * t);
+      if (t < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [value]);
+  return <>{fmtMoney(display)}</>;
+}
+
 /** "1,234,567.89" -> "1.23M" — solo para números que ya no entrarían cómodos
  * en la caja en reposo; en foco siempre se edita el valor completo. */
 function fmtAbbrev(n: number): string {
@@ -1064,11 +1091,25 @@ function BillForm({
 /* ------------------------------------------------------------------ */
 
 function Heatmap({
-  weeks, logged, color, cellRadius = 2, compact = false,
+  weeks, logged, color, cellRadius = 2, compact = false, animateEntrance = false,
 }: {
-  weeks: string[][]; logged: Set<string>; color: string; cellRadius?: number; compact?: boolean;
+  weeks: string[][]; logged: Set<string>; color: string; cellRadius?: number; compact?: boolean; animateEntrance?: boolean;
 }) {
   const today = todayKey();
+
+  // Reveal por columna (una semana = una columna) al abrir el detalle del
+  // hábito — 182 celdas (26 semanas) es demasiado para animar una por una, así
+  // que el delay corre por columna, no por celda: se lee como un wipe
+  // izquierda→derecha en vez de 182 transitions individuales. Off por default
+  // (el preview compacto de la lista no debe re-animar en cada render).
+  const [grown, setGrown] = useState(!animateEntrance);
+  useEffect(() => {
+    if (!animateEntrance) return;
+    let raf2 = 0;
+    const raf1 = requestAnimationFrame(() => { raf2 = requestAnimationFrame(() => setGrown(true)); });
+    return () => { cancelAnimationFrame(raf1); cancelAnimationFrame(raf2); };
+  }, [animateEntrance]);
+
   return (
     <div
       className="w-full"
@@ -1094,6 +1135,10 @@ function Heatmap({
                 gridRow: di + 1,
                 borderRadius: `${cellRadius}px`,
                 backgroundColor: isFuture ? "transparent" : isDone ? color : `${color}26`,
+                opacity: animateEntrance ? (grown ? 1 : 0) : 1,
+                transition: animateEntrance
+                  ? `opacity 260ms ease ${wi * 3}ms, background-color 200ms ease`
+                  : "background-color 200ms ease",
               }}
             />
           );
@@ -1192,6 +1237,16 @@ function HabitDetail({
   const prevMonth = () => setMonth((p) => (p.m === 0 ? { y: p.y - 1, m: 11 } : { y: p.y, m: p.m - 1 }));
   const nextMonth = () => setMonth((p) => (p.m === 11 ? { y: p.y + 1, m: 0 } : { y: p.y, m: p.m + 1 }));
 
+  // Pulso de confirmación al loguear/deslogear un día — un ring que aparece
+  // en el toque y se desvanece hacia afuera. Va en boxShadow (no en transform,
+  // que ya lo usa el active:scale-90 de presión) para no pisarle el gesto.
+  const [pulsingKey, setPulsingKey] = useState<string | null>(null);
+  useEffect(() => {
+    if (!pulsingKey) return;
+    const t = setTimeout(() => setPulsingKey(null), 30);
+    return () => clearTimeout(t);
+  }, [pulsingKey]);
+
   return (
     <FloatingModal open onClose={onClose} title="">
       <div className="-mt-8 space-y-3">
@@ -1202,7 +1257,7 @@ function HabitDetail({
           <p className="font-bold text-base leading-tight uppercase tracking-wide truncate">{habit.name}</p>
         </div>
 
-        <Heatmap weeks={weeks} logged={logged} color={color} cellRadius={2} />
+        <Heatmap weeks={weeks} logged={logged} color={color} cellRadius={2} animateEntrance />
 
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-muted">
@@ -1246,16 +1301,20 @@ function HabitDetail({
                 <button
                   key={cell.key}
                   disabled={isFuture}
-                  onClick={() => onToggleDay(cell.key)}
+                  onClick={() => { onToggleDay(cell.key); setPulsingKey(cell.key); }}
                   className={cn(
-                    "aspect-square rounded-lg text-xs font-semibold flex items-center justify-center transition-all active:scale-90",
+                    "aspect-square rounded-lg text-xs font-semibold flex items-center justify-center active:scale-90",
                     !cell.inMonth && "opacity-30",
                     isFuture && "opacity-20"
                   )}
                   style={{
                     backgroundColor: isDone ? color : "hsl(var(--muted) / 0.5)",
                     color: isDone ? "#000" : undefined,
-                    boxShadow: isToday ? `0 0 0 2px ${color}` : undefined,
+                    boxShadow: pulsingKey === cell.key
+                      ? `0 0 0 6px ${color}55`
+                      : isToday ? `0 0 0 2px ${color}` : undefined,
+                    transition:
+                      "transform 150ms cubic-bezier(0.4,0,0.2,1), background-color 200ms ease, color 200ms ease, box-shadow 420ms cubic-bezier(0.16,1,0.3,1)",
                   }}
                 >
                   {cell.day}
@@ -1495,9 +1554,9 @@ function GoalDetail({
         {/* Reencuadre: lo que falta, no lo que ya se ve en la lista */}
         <div>
           <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Still needed</p>
-          <p className="font-number text-3xl leading-tight" style={{ color }}>{symbol} {fmtMoney(remaining)}</p>
+          <p className="font-number text-3xl leading-tight" style={{ color }}>{symbol} <CountUpAmount value={remaining} /></p>
           <p className="text-xs text-muted-foreground mt-0.5">
-            {symbol} {fmtMoney(goal.currentAmount)} saved of {symbol} {fmtMoney(goal.targetAmount)} · {Math.round(pct)}%
+            {symbol} <CountUpAmount value={goal.currentAmount} /> saved of {symbol} {fmtMoney(goal.targetAmount)} · {Math.round(pct)}%
           </p>
           <div className="h-2 rounded-full overflow-hidden mt-2" style={{ background: `${color}22` }}>
             <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: color }} />
@@ -1561,6 +1620,19 @@ export default function Goals() {
     const t = new URLSearchParams(window.location.search).get("tab");
     return t === "savings" || t === "habits" ? t : "bills";
   });
+  // El contenido de cada tab entra desde el mismo lado hacia el que se movió el
+  // pill del switcher (Flows, Savings, Habits, en ese orden) — antes solo hacía
+  // fade plano, sin relación visual con la dirección del gesto/tap.
+  const TAB_ORDER = ["bills", "savings", "habits"] as const;
+  const prevTabIndexRef = useRef(TAB_ORDER.indexOf(activeTab));
+  const [tabDirection, setTabDirection] = useState<1 | -1>(1);
+  useEffect(() => {
+    const newIndex = TAB_ORDER.indexOf(activeTab);
+    const prevIndex = prevTabIndexRef.current;
+    if (newIndex !== prevIndex) setTabDirection(newIndex > prevIndex ? 1 : -1);
+    prevTabIndexRef.current = newIndex;
+  }, [activeTab]);
+  const tabEnterClass = cn("mt-2 animate-in fade-in duration-200", tabDirection === 1 ? "slide-in-from-right-2" : "slide-in-from-left-2");
   const [payBill, setPayBill] = useState<Bill | null>(null);
   const [payMonth, setPayMonth] = useState<string | null>(null);
   const [payAmount, setPayAmount] = useState("");
@@ -2227,7 +2299,7 @@ export default function Goals() {
         <>
           {/* ------------------ SAVINGS ------------------ */}
           {activeTab === "savings" && (
-          <div className="animate-in fade-in duration-200 mt-2">
+          <div className={tabEnterClass}>
             <div className="flex items-center justify-between mb-3 px-1">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-[#CAFA01]" />
@@ -2274,7 +2346,7 @@ export default function Goals() {
                                   {isPending && <span className="text-[10px] font-semibold text-muted-foreground shrink-0">Saving…</span>}
                                 </div>
                                 <p className="text-[11px] text-muted-foreground leading-tight">
-                                  {symbol} {fmtMoney(g.currentAmount)} <span className="opacity-60">/ {symbol} {fmtMoney(g.targetAmount)}</span>
+                                  {symbol} <CountUpAmount value={g.currentAmount} /> <span className="opacity-60">/ {symbol} {fmtMoney(g.targetAmount)}</span>
                                 </p>
                               </div>
                             </button>
@@ -2306,7 +2378,7 @@ export default function Goals() {
 
           {/* ------------------ HABITS ------------------ */}
           {activeTab === "habits" && (
-          <div className="animate-in fade-in duration-200 mt-2">
+          <div className={tabEnterClass}>
             <div className="flex items-center justify-between mb-3 px-1">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-[#CAFA01]" />
@@ -2382,7 +2454,7 @@ export default function Goals() {
 
           {/* ------------------ FLOWS ------------------ */}
           {activeTab === "bills" && (
-          <div className="animate-in fade-in duration-200 mt-2">
+          <div className={tabEnterClass}>
             <div className="flex items-center justify-between mb-3 px-1">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-[#CAFA01]" />
