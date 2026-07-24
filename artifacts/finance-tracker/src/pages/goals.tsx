@@ -975,8 +975,13 @@ function BillForm({
                     if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
                   }}
                 >
-                  <span className="font-entry-amount text-4xl leading-none">{field.value}</span>
-                  <span className="text-sm font-bold text-muted-foreground align-super ml-0.5">{ordinalSuffix(field.value)}</span>
+                  {/* key=field.value fuerza un remount por cada paso — antes el número
+                      cambiaba de un salto seco, sin ninguna transición, ya sea tocando
+                      las flechas o arrastrando. */}
+                  <span key={field.value} className="inline-flex items-baseline animate-in fade-in zoom-in-90 duration-150">
+                    <span className="font-entry-amount text-4xl leading-none">{field.value}</span>
+                    <span className="text-sm font-bold text-muted-foreground align-super ml-0.5">{ordinalSuffix(field.value)}</span>
+                  </span>
                 </div>
                 <button
                   type="button"
@@ -1204,9 +1209,10 @@ const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "
 const DOW = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 function HabitDetail({
-  habit, onClose, onToggleDay, onEdit, onDelete,
+  habit, open, onClose, onToggleDay, onEdit, onDelete,
 }: {
-  habit: Habit;
+  habit: Habit | null;
+  open: boolean;
   onClose: () => void;
   onToggleDay: (date: string) => void;
   onEdit: () => void;
@@ -1214,9 +1220,13 @@ function HabitDetail({
 }) {
   const now = new Date();
   const [month, setMonth] = useState({ y: now.getFullYear(), m: now.getMonth() });
-  const color = habit.color ?? "#CAFA01";
+  const color = habit?.color ?? "#CAFA01";
   const { theme } = useTheme();
-  const logged = useMemo(() => new Set(habit.logs), [habit.logs]);
+  // habit puede ser null mientras el modal está montado sin haberse abierto
+  // nunca (antes de la primera selección) — este componente ahora vive montado
+  // siempre (ver comentario en FloatingModal más abajo), así que los hooks no
+  // pueden depender de que habit exista.
+  const logged = useMemo(() => new Set(habit?.logs ?? []), [habit]);
   const weeks = useMemo(() => buildWeeks(26), []);
   const today = todayKey();
 
@@ -1248,7 +1258,13 @@ function HabitDetail({
   }, [pulsingKey]);
 
   return (
-    <FloatingModal open onClose={onClose} title="">
+    // open ahora viene del padre en vez de hardcodeado en `true` — antes esto
+    // se montaba/desmontaba entero con {detailHabit && <HabitDetail/>}, así
+    // que el desmonte del padre le ganaba de mano a la animación de salida de
+    // FloatingModal (nunca llegaba a jugar). Ahora el componente vive montado
+    // siempre y es FloatingModal el que decide cuándo desaparecer de verdad.
+    <FloatingModal open={open} onClose={onClose} title="">
+      {habit && (
       <div className="-mt-8 space-y-3">
         <div className="flex items-center gap-2.5">
           <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${color}25` }}>
@@ -1335,6 +1351,7 @@ function HabitDetail({
           </div>
         </div>
       </div>
+      )}
     </FloatingModal>
   );
 }
@@ -1414,9 +1431,10 @@ function DeleteBillDialog({
 /* ------------------------------------------------------------------ */
 
 function BillDetail({
-  bill, onClose, onToggleMonth, onEdit, onDelete, category, symbol,
+  bill, open, onClose, onToggleMonth, onEdit, onDelete, category, symbol,
 }: {
-  bill: Bill;
+  bill: Bill | null;
+  open: boolean;
   onClose: () => void;
   onToggleMonth: (month: string) => void;
   onEdit: () => void;
@@ -1425,19 +1443,23 @@ function BillDetail({
   symbol: string;
 }) {
   const [year, setYear] = useState(new Date().getFullYear());
-  const color = bill.color ?? "#CAFA01";
+  const color = bill?.color ?? "#CAFA01";
   const { theme } = useTheme();
-  const logged = useMemo(() => new Set(bill.logs), [bill.logs]);
+  // bill puede ser null antes de la primera selección — este componente vive
+  // montado siempre (ver comentario en HabitDetail), los hooks no pueden
+  // depender de que exista.
+  const logged = useMemo(() => new Set(bill?.logs ?? []), [bill]);
   const months = useMemo(() => monthsOfYear(year), [year]);
   const overviewMonths = useMemo(() => monthsOfYear(new Date().getFullYear()), []);
   const current = currentMonthKey();
-  const paidThisYear = bill.logs.filter((m) => m.startsWith(String(year))).length;
+  const paidThisYear = bill?.logs.filter((m) => m.startsWith(String(year))).length ?? 0;
 
   const prevYear = () => setYear((y) => y - 1);
   const nextYear = () => setYear((y) => y + 1);
 
   return (
-    <FloatingModal open onClose={onClose} title="">
+    <FloatingModal open={open} onClose={onClose} title="">
+      {bill && (
       <div className="-mt-8 space-y-3">
         <div className="flex items-center gap-2.5">
           <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${color}25` }}>
@@ -1516,6 +1538,7 @@ function BillDetail({
           </div>
         </div>
       </div>
+      )}
     </FloatingModal>
   );
 }
@@ -1527,22 +1550,26 @@ function BillDetail({
 /* ------------------------------------------------------------------ */
 
 function GoalDetail({
-  goal, onClose, onAddMoney, onEdit, onDelete, symbol,
+  goal, open, onClose, onAddMoney, onEdit, onDelete, symbol,
 }: {
-  goal: Goal;
+  goal: Goal | null;
+  open: boolean;
   onClose: () => void;
   onAddMoney: () => void;
   onEdit: () => void;
   onDelete: () => void;
   symbol: string;
 }) {
-  const color = goal.color ?? "#CAFA01";
+  const color = goal?.color ?? "#CAFA01";
   const { theme } = useTheme();
-  const pct = goal.targetAmount > 0 ? Math.min(100, (goal.currentAmount / goal.targetAmount) * 100) : 0;
-  const remaining = Math.max(0, goal.targetAmount - goal.currentAmount);
+  // goal puede ser null antes de la primera selección — este componente vive
+  // montado siempre (ver comentario en HabitDetail).
+  const pct = goal && goal.targetAmount > 0 ? Math.min(100, (goal.currentAmount / goal.targetAmount) * 100) : 0;
+  const remaining = goal ? Math.max(0, goal.targetAmount - goal.currentAmount) : 0;
 
   return (
-    <FloatingModal open onClose={onClose} title="">
+    <FloatingModal open={open} onClose={onClose} title="">
+      {goal && (
       <div className="-mt-8 space-y-3">
         <div className="flex items-center gap-2.5">
           <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${color}25` }}>
@@ -1588,6 +1615,7 @@ function GoalDetail({
           />
         </div>
       </div>
+      )}
     </FloatingModal>
   );
 }
@@ -2218,6 +2246,24 @@ export default function Goals() {
   const detailHabit = detailId !== null ? habits.find((h) => h.id === detailId) ?? null : null;
   const detailBill = billDetailId !== null ? bills.find((b) => b.id === billDetailId) ?? null : null;
   const detailGoal = goalDetailId !== null ? goals.find((g) => g.id === goalDetailId) ?? null : null;
+  // HabitDetail/BillDetail/GoalDetail viven montados siempre — retienen el
+  // último valor no-nulo (seteado en render, no en un efecto, para que esté
+  // listo en el mismo pase que abre el modal) así el contenido sigue visible
+  // mientras FloatingModal juega su animación de salida. Antes se montaban
+  // condicionalmente ({detailX && <XDetail/>}), lo que desmontaba todo el
+  // árbol de un golpe al cerrar y la salida nunca llegaba a animar.
+  const retainedHabitRef = useRef<Habit | null>(null);
+  if (detailHabit) retainedHabitRef.current = detailHabit;
+  const retainedBillRef = useRef<Bill | null>(null);
+  if (detailBill) retainedBillRef.current = detailBill;
+  const retainedGoalRef = useRef<Goal | null>(null);
+  if (detailGoal) retainedGoalRef.current = detailGoal;
+  // Mismo problema, versión más chica: el wrapper de Add Money ya estaba
+  // siempre montado con `open` real, pero su contenido colgaba de
+  // {addMoneyGoal && (...)} — apenas se confirmaba/cerraba, el texto
+  // desaparecía a mitad de la animación de salida del sheet.
+  const retainedAddMoneyGoalRef = useRef<Goal | null>(null);
+  if (addMoneyGoal) retainedAddMoneyGoalRef.current = addMoneyGoal;
   const isLoading = goalsQuery.isLoading || habitsQuery.isLoading || billsQuery.isLoading;
 
   // Auto-save real: si el Flow tiene auto-save + monto cargado y el día elegido ya
@@ -2560,9 +2606,9 @@ export default function Goals() {
       <FloatingModal
         open={addMoneyGoal !== null}
         onClose={() => setAddMoneyGoal(null)}
-        title={addMoneyGoal ? `Add to ${addMoneyGoal.name}` : ""}
+        title={retainedAddMoneyGoalRef.current ? `Add to ${retainedAddMoneyGoalRef.current.name}` : ""}
       >
-        {addMoneyGoal && (
+        {retainedAddMoneyGoalRef.current && (
           <div className="space-y-3">
             <div className="relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-bold text-muted-foreground">{symbol}</span>
@@ -2588,7 +2634,7 @@ export default function Goals() {
               ))}
             </div>
             <p className="text-xs text-muted-foreground text-center">
-              {symbol} {fmtMoney(addMoneyGoal.currentAmount)} → {symbol} {fmtMoney(addMoneyGoal.currentAmount + parseAmountInput(addAmount))}
+              {symbol} {fmtMoney(retainedAddMoneyGoalRef.current!.currentAmount)} → {symbol} {fmtMoney(retainedAddMoneyGoalRef.current!.currentAmount + parseAmountInput(addAmount))}
             </p>
             <Button
               onClick={handleAddMoneySubmit}
@@ -2689,53 +2735,61 @@ export default function Goals() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {detailHabit && (
-        <HabitDetail
-          habit={detailHabit}
-          onClose={() => setDetailId(null)}
-          onToggleDay={(date) => handleToggleHabitDay(detailHabit.id, date)}
-          onEdit={() => { setDetailId(null); openEditHabit(detailHabit); }}
-          onDelete={() => {
-            const id = detailHabit.id;
-            setDetailId(null);
-            setExitingHabitIds((prev) => new Set(prev).add(id));
-            setTimeout(() => deleteHabit.mutate(id), 240);
-          }}
-        />
-      )}
+      {/* Montadas siempre (no {detailX && <XDetail/>}) — ver comentario junto a
+          retainedHabitRef más arriba. `open` es lo único que controla la
+          visibilidad real; el contenido usa el valor retenido, no detailX
+          directo, para seguir mostrando algo coherente mientras cierra. */}
+      <HabitDetail
+        habit={retainedHabitRef.current}
+        open={detailId !== null}
+        onClose={() => setDetailId(null)}
+        onToggleDay={(date) => { const h = retainedHabitRef.current; if (h) handleToggleHabitDay(h.id, date); }}
+        onEdit={() => { const h = retainedHabitRef.current; setDetailId(null); if (h) openEditHabit(h); }}
+        onDelete={() => {
+          const h = retainedHabitRef.current;
+          if (!h) return;
+          setDetailId(null);
+          setExitingHabitIds((prev) => new Set(prev).add(h.id));
+          setTimeout(() => deleteHabit.mutate(h.id), 240);
+        }}
+      />
 
-      {detailBill && (
-        <BillDetail
-          bill={detailBill}
-          category={(detailBill.type === "income" ? incomeCategories : expenseCategories).find((c: any) => c.id === detailBill.categoryId)}
-          symbol={symbol}
-          onClose={() => setBillDetailId(null)}
-          onToggleMonth={(month) => handleToggleBillMonth(detailBill, month)}
-          onEdit={() => { setBillDetailId(null); openEditBill(detailBill); }}
-          onDelete={(deleteTransactions) => {
-            const id = detailBill.id;
-            setBillDetailId(null);
-            setExitingBillIds((prev) => new Set(prev).add(id));
-            setTimeout(() => deleteBill.mutate({ id, deleteTransactions }), 240);
-          }}
-        />
-      )}
+      <BillDetail
+        bill={retainedBillRef.current}
+        open={billDetailId !== null}
+        category={
+          retainedBillRef.current
+            ? (retainedBillRef.current.type === "income" ? incomeCategories : expenseCategories).find((c: any) => c.id === retainedBillRef.current!.categoryId)
+            : undefined
+        }
+        symbol={symbol}
+        onClose={() => setBillDetailId(null)}
+        onToggleMonth={(month) => { const b = retainedBillRef.current; if (b) handleToggleBillMonth(b, month); }}
+        onEdit={() => { const b = retainedBillRef.current; setBillDetailId(null); if (b) openEditBill(b); }}
+        onDelete={(deleteTransactions) => {
+          const b = retainedBillRef.current;
+          if (!b) return;
+          setBillDetailId(null);
+          setExitingBillIds((prev) => new Set(prev).add(b.id));
+          setTimeout(() => deleteBill.mutate({ id: b.id, deleteTransactions }), 240);
+        }}
+      />
 
-      {detailGoal && (
-        <GoalDetail
-          goal={detailGoal}
-          symbol={symbol}
-          onClose={() => setGoalDetailId(null)}
-          onAddMoney={() => { setGoalDetailId(null); setAddMoneyGoal(detailGoal); setAddAmount(""); }}
-          onEdit={() => { setGoalDetailId(null); openEditGoal(detailGoal); }}
-          onDelete={() => {
-            const id = detailGoal.id;
-            setGoalDetailId(null);
-            setExitingGoalIds((prev) => new Set(prev).add(id));
-            setTimeout(() => deleteGoal.mutate(id), 240);
-          }}
-        />
-      )}
+      <GoalDetail
+        goal={retainedGoalRef.current}
+        open={goalDetailId !== null}
+        symbol={symbol}
+        onClose={() => setGoalDetailId(null)}
+        onAddMoney={() => { const g = retainedGoalRef.current; setGoalDetailId(null); if (g) { setAddMoneyGoal(g); setAddAmount(""); } }}
+        onEdit={() => { const g = retainedGoalRef.current; setGoalDetailId(null); if (g) openEditGoal(g); }}
+        onDelete={() => {
+          const g = retainedGoalRef.current;
+          if (!g) return;
+          setGoalDetailId(null);
+          setExitingGoalIds((prev) => new Set(prev).add(g.id));
+          setTimeout(() => deleteGoal.mutate(g.id), 240);
+        }}
+      />
     </div>
   );
 }
