@@ -584,12 +584,12 @@ export default function Insights() {
           <button
             onClick={analyzeFinances}
             disabled={isAnalyzing}
-            className="insights-hero-btn-primary flex-[1.4] min-h-11 rounded-2xl py-2.5 px-3 flex items-center justify-center gap-1.5 text-[13px] font-bold active:scale-[0.97] transition-transform disabled:opacity-70 border-0 min-w-0 whitespace-nowrap"
+            className="insights-hero-btn-primary flex-1 min-h-11 rounded-2xl py-2.5 px-3 flex items-center justify-center gap-1.5 text-[13px] font-bold active:scale-[0.97] transition-transform disabled:opacity-70 border-0 min-w-0 whitespace-nowrap"
           >
             {isAnalyzing ? (
               <><Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" /><span className="truncate text-xs">{analyzePhase}</span></>
             ) : (
-              <><Sparkles className="h-3.5 w-3.5 shrink-0" /><span>{lastAnalysis ? "Refresh analysis" : "Analyze"}</span></>
+              <><Sparkles className="h-3.5 w-3.5 shrink-0" /><span className="truncate">{lastAnalysis ? "Refresh analysis" : "Analyze"}</span></>
             )}
           </button>
           <button
