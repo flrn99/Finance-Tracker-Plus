@@ -13,6 +13,7 @@ import { Sparkles, Upload, Loader2, AlertCircle, X, ChevronRight, ChevronDown, L
 import { useAuth } from "@/lib/auth-context";
 import { useCurrency } from "@/lib/currency-context";
 import { getApiUrl } from "@/lib/api-config";
+import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
 import ImportReview from "@/components/import-review";
@@ -71,6 +72,64 @@ interface SavingsRate {
   income: number;
   expense: number;
   saved: number;
+}
+
+const INSIGHTS_STALE_TIME = 5 * 60 * 1000;
+
+function getCurrentMonthKey(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+}
+
+// Resuelve el token en el momento del fetch (no depende del `session` reactivo
+// de un componente) — así estas queryOptions sirven tanto para el useQuery de
+// Insights como para el prefetch en segundo plano desde el layout compartido,
+// igual que ya hace goalsQueryOptions/habitsQueryOptions en goals.tsx.
+async function insightsAuthedFetch(path: string): Promise<Response> {
+  const { data: { session } } = await supabase.auth.getSession();
+  return fetch(getApiUrl(path), { headers: { Authorization: `Bearer ${session?.access_token}` } });
+}
+
+// Exportadas para prefetch desde el layout — Insights carga en segundo plano
+// al abrir la app, mismo patrón que Goals/Habits (ver components/layout.tsx).
+export function insightsFixedVsFlexibleQueryOptions(userId: string | undefined) {
+  const thisMonth = getCurrentMonthKey();
+  return {
+    queryKey: ["insights-fixed-vs-flexible", thisMonth, userId] as const,
+    queryFn: async (): Promise<FixedVsFlexible | null> => {
+      const r = await insightsAuthedFetch(`/api/insights/fixed-vs-flexible?month=${thisMonth}`);
+      if (!r.ok) throw new Error(`HTTP ${r.status}${r.status === 404 ? " — backend deploy pendiente" : ""}`);
+      const d = await r.json();
+      return d && d.total > 0 ? d : null;
+    },
+    staleTime: INSIGHTS_STALE_TIME,
+  };
+}
+
+export function insightsAnomalyQueryOptions(userId: string | undefined) {
+  const thisMonth = getCurrentMonthKey();
+  return {
+    queryKey: ["insights-anomaly", thisMonth, userId] as const,
+    queryFn: async (): Promise<{ mover: Anomaly | null }> => {
+      const r = await insightsAuthedFetch(`/api/insights/anomaly?month=${thisMonth}`);
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return r.json();
+    },
+    staleTime: INSIGHTS_STALE_TIME,
+  };
+}
+
+export function insightsIncomeSummaryQueryOptions(userId: string | undefined) {
+  const thisMonth = getCurrentMonthKey();
+  return {
+    queryKey: ["insights-income-summary", thisMonth, userId] as const,
+    queryFn: async (): Promise<{ income: IncomeConsistency | null; savingsRate: SavingsRate | null }> => {
+      const r = await insightsAuthedFetch(`/api/insights/income-summary?month=${thisMonth}`);
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return r.json();
+    },
+    staleTime: INSIGHTS_STALE_TIME,
+  };
 }
 
 function InsightsModal({ open, insights, onClose }: { open: boolean; insights: string | null; onClose: () => void }) {
@@ -231,12 +290,6 @@ export default function Insights() {
   const [error, setError] = useState<string | null>(null);
   const [activeLens, setActiveLens] = useState<"expense" | "income">("expense");
 
-  const now = new Date();
-  const monthKey = (offset: number) => {
-    const d = new Date(now.getFullYear(), now.getMonth() + offset, 1);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-  };
-  const thisMonth = monthKey(0);
   const token = session?.access_token;
 
   // Re-sincroniza si cambia el usuario logueado sin que el componente se
@@ -255,7 +308,7 @@ export default function Insights() {
   // React Query (ya usado en el resto de la app) cachea esto entre
   // navegaciones — se ve lo último que había al instante, y solo refresca en
   // segundo plano si pasaron más de 5 minutos.
-  const STALE_TIME = 5 * 60 * 1000;
+  const STALE_TIME = INSIGHTS_STALE_TIME;
 
   const { data: categories = [] } = useQuery({
     queryKey: ["insights-categories", session?.user?.id],
@@ -268,16 +321,12 @@ export default function Insights() {
     staleTime: STALE_TIME,
   });
 
+  // Las 3 queries de abajo comparten queryOptions con el prefetch que dispara
+  // el layout apenas se abre la app (ver components/layout.tsx) — si ya
+  // resolvieron para cuando el usuario navega acá, esto pega directo al cache.
   const { data: fixedVsFlexible, error: fixedVsFlexibleQueryError, isLoading: fixedVsFlexibleLoading } = useQuery({
-    queryKey: ["insights-fixed-vs-flexible", thisMonth, session?.user?.id],
-    queryFn: async (): Promise<FixedVsFlexible | null> => {
-      const r = await fetch(getApiUrl(`/api/insights/fixed-vs-flexible?month=${thisMonth}`), { headers: { Authorization: `Bearer ${token}` } });
-      if (!r.ok) throw new Error(`HTTP ${r.status}${r.status === 404 ? " — backend deploy pendiente" : ""}`);
-      const d = await r.json();
-      return d && d.total > 0 ? d : null;
-    },
+    ...insightsFixedVsFlexibleQueryOptions(session?.user?.id),
     enabled: !!session,
-    staleTime: STALE_TIME,
   });
   // El diagnóstico visible del fetch — el usuario no usa ADB, así que un
   // console.error no le sirve para nada en el teléfono real.
@@ -289,28 +338,16 @@ export default function Insights() {
   // fallaba y siempre caía al fallback). Ahora es un solo round-trip al backend,
   // que devuelve las dos señales juntas porque comparten la misma consulta base.
   const { data: anomalyData, isLoading: anomalyLoading } = useQuery({
-    queryKey: ["insights-anomaly", thisMonth, session?.user?.id],
-    queryFn: async (): Promise<{ mover: Anomaly | null }> => {
-      const r = await fetch(getApiUrl(`/api/insights/anomaly?month=${thisMonth}`), { headers: { Authorization: `Bearer ${token}` } });
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      return r.json();
-    },
+    ...insightsAnomalyQueryOptions(session?.user?.id),
     enabled: !!session,
-    staleTime: STALE_TIME,
   });
   const anomaly = anomalyData?.mover ?? null;
 
   // Income consistency + savings rate — mismo patrón de un solo round-trip
   // que "biggest mover", para el lado de Income del lens toggle.
   const { data: incomeSummary, isLoading: incomeSummaryLoading } = useQuery({
-    queryKey: ["insights-income-summary", thisMonth, session?.user?.id],
-    queryFn: async (): Promise<{ income: IncomeConsistency | null; savingsRate: SavingsRate | null }> => {
-      const r = await fetch(getApiUrl(`/api/insights/income-summary?month=${thisMonth}`), { headers: { Authorization: `Bearer ${token}` } });
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      return r.json();
-    },
+    ...insightsIncomeSummaryQueryOptions(session?.user?.id),
     enabled: !!session,
-    staleTime: STALE_TIME,
   });
   const incomeConsistency = incomeSummary?.income ?? null;
   const savingsRate = incomeSummary?.savingsRate ?? null;

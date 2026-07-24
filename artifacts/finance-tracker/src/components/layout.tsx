@@ -14,6 +14,11 @@ import { useAuth } from "@/lib/auth-context";
 import { Capacitor } from "@capacitor/core";
 import { useQueryClient } from "@tanstack/react-query";
 import { goalsQueryOptions, habitsQueryOptions } from "@/pages/goals";
+import {
+  insightsFixedVsFlexibleQueryOptions,
+  insightsAnomalyQueryOptions,
+  insightsIncomeSummaryQueryOptions,
+} from "@/pages/insights";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -85,11 +90,14 @@ export default function Layout({ children }: LayoutProps) {
   // sí tiene su propio ícono, así que ya puede quedar activo ahí.
   const hideBottomNav = location.startsWith("/transactions");
 
-  // Prefetch de Goals — cuando el usuario llegue a la pestaña, ya cargo
+  // Prefetch de Goals e Insights — cuando el usuario llegue a la pestaña, ya cargo
   useEffect(() => {
     queryClient.prefetchQuery(goalsQueryOptions).catch(() => {});
     queryClient.prefetchQuery(habitsQueryOptions).catch(() => {});
-  }, [queryClient]);
+    queryClient.prefetchQuery(insightsFixedVsFlexibleQueryOptions(user?.id)).catch(() => {});
+    queryClient.prefetchQuery(insightsAnomalyQueryOptions(user?.id)).catch(() => {});
+    queryClient.prefetchQuery(insightsIncomeSummaryQueryOptions(user?.id)).catch(() => {});
+  }, [queryClient, user?.id]);
   const navRef = useRef<HTMLElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [scrolled, setScrolled] = useState(false);
