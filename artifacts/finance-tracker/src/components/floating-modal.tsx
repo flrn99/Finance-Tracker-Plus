@@ -61,7 +61,13 @@ export function FloatingModal({
       onClick={onClose}
     >
       <div
-        className={cn("bg-black/80 duration-180", closing ? "animate-out fade-out" : "animate-in fade-in")}
+        className={cn(
+          "bg-black/80",
+          // Mismo largo que la card en la entrada para que backdrop+sheet lleguen
+          // juntos — antes el backdrop (180ms) terminaba bastante antes que la
+          // card, que ahora tarda más en asentarse.
+          closing ? "animate-out fade-out duration-180" : "animate-in fade-in duration-[280ms]"
+        )}
         style={{
           position: "fixed",
           top: "-10vh", left: "-10vw", right: "-10vw", bottom: "-10vh",
@@ -71,9 +77,17 @@ export function FloatingModal({
       />
       <div
         className={cn(
-          "relative w-full bg-card rounded-[36px] shadow-2xl duration-180 max-h-full overflow-y-auto",
+          "relative w-full bg-card rounded-[36px] shadow-2xl max-h-full overflow-y-auto",
           maxWidth,
-          closing ? "animate-out fade-out slide-out-to-bottom-4" : "animate-in fade-in slide-in-from-bottom-4"
+          // Salida: rápida y simétrica como antes (180ms, easing default) — un
+          // modal que se va no necesita desacelerar. Entrada: más lenta (280ms)
+          // con easing decelerate real (sin rebote — un overshoot grande en una
+          // hoja de este tamaño se siente gimmick, no premium) + más recorrido
+          // de slide (-8 en vez de -4) + un scale-in sutil, para que se lea
+          // como una hoja que sube y se asienta, no como un pop instantáneo.
+          closing
+            ? "animate-out fade-out zoom-out-95 slide-out-to-bottom-4 duration-180"
+            : "animate-in fade-in zoom-in-95 slide-in-from-bottom-8 duration-[280ms] ease-[cubic-bezier(0.16,1,0.3,1)]"
         )}
         style={{
           willChange: "transform, opacity",
