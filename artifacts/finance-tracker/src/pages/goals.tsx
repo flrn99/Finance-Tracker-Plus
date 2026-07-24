@@ -2742,6 +2742,7 @@ export default function Goals() {
       <FloatingModal
         open={detailId !== null}
         onClose={() => { setDetailId(null); setDetailEditing(false); }}
+        onBackButton={() => { if (detailEditing) setDetailEditing(false); else setDetailId(null); }}
         title={detailEditing ? "Edit Habit" : ""}
       >
         {retainedHabitRef.current && (
@@ -2770,6 +2771,7 @@ export default function Goals() {
       <FloatingModal
         open={billDetailId !== null}
         onClose={() => { setBillDetailId(null); setBillDetailEditing(false); }}
+        onBackButton={() => { if (billDetailEditing) setBillDetailEditing(false); else setBillDetailId(null); }}
         title={billDetailEditing ? "Edit Flow" : ""}
       >
         {retainedBillRef.current && (
@@ -2811,6 +2813,7 @@ export default function Goals() {
       <FloatingModal
         open={goalDetailId !== null}
         onClose={() => { setGoalDetailId(null); setGoalDetailEditing(false); }}
+        onBackButton={() => { if (goalDetailEditing) setGoalDetailEditing(false); else setGoalDetailId(null); }}
         title={goalDetailEditing ? "Edit Goal" : ""}
       >
         {retainedGoalRef.current && (

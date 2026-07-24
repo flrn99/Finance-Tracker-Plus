@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
+import { App } from "@capacitor/app";
 import { cn } from "@/lib/utils";
 
 /** Modal flotante compartido — antes había dos copias casi idénticas (una acá,
@@ -9,10 +10,17 @@ import { cn } from "@/lib/utils";
  * mismo tamaño (category-form-modal era max-w-xs/pt-4, goals era max-w-sm/pt-5)
  * — unificar el componente no debía cambiar el tamaño visual de ninguno de los dos. */
 export function FloatingModal({
-  open, onClose, title, children, maxWidth = "max-w-sm", headerPaddingTop = "pt-5",
+  open, onClose, onBackButton, title, children, maxWidth = "max-w-sm", headerPaddingTop = "pt-5",
 }: {
   open: boolean;
   onClose: () => void;
+  /** Qué hace el back nativo de Android — por default es igual a onClose (cierra
+   * directo, para los modales sin nada "atrás"). Los que sí tienen una vista
+   * previa dentro del mismo sheet (ej. detalle → editar en Goals) pasan esto
+   * para que el primer back vuelva a esa vista y recién el segundo cierre. El
+   * X y el tap afuera siempre cierran directo, sin pasar por esta escala —
+   * son "quiero salir ya", no "un paso atrás".*/
+  onBackButton?: () => void;
   title: string;
   children: React.ReactNode;
   maxWidth?: string;
@@ -46,6 +54,16 @@ export function FloatingModal({
     document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = prev; };
   }, [mounted]);
+
+  // Back nativo de Android: por default cierra el modal (mismo patrón que ya
+  // usan entry-sheet.tsx y login.tsx), pero si el caller pasó onBackButton
+  // (hay una vista "atrás" dentro del mismo sheet) usa eso en su lugar — así
+  // el primer back retrocede un paso y recién un segundo back cierra de verdad.
+  useEffect(() => {
+    if (!open) return;
+    const handler = App.addListener("backButton", () => (onBackButton ?? onClose)());
+    return () => { handler.then((h) => h.remove()); };
+  }, [open, onBackButton, onClose]);
 
   if (!mounted) return null;
   return (
