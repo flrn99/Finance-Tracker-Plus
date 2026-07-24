@@ -16,6 +16,8 @@ interface EditableTx {
   type: "income" | "expense";
   categoryId: number | null;
   selected: boolean;
+  isDuplicate?: boolean;
+  duplicateOf?: { id: number; date: string; amount: number; description: string };
 }
 
 interface ImportReviewProps {
@@ -23,6 +25,10 @@ interface ImportReviewProps {
   categories: any[];
   onDone: () => void;
   onCancel: () => void;
+  // Default: loop de POST /transactions uno por uno (comportamiento original,
+  // usado por el import de PDF). El import de Excel pasa su propia
+  // implementación que pega a /transactions/bulk.
+  onSave?: (selected: EditableTx[]) => Promise<{ success: number }>;
 }
 
 function ConfirmModal({ message, onConfirm, onClose }: { message: string; onConfirm: () => void; onClose: () => void }) {
@@ -45,7 +51,7 @@ function ConfirmModal({ message, onConfirm, onClose }: { message: string; onConf
   );
 }
 
-export default function ImportReview({ transactions: initial, categories, onDone, onCancel }: ImportReviewProps) {
+export default function ImportReview({ transactions: initial, categories, onDone, onCancel, onSave }: ImportReviewProps) {
   const { session } = useAuth();
   const { toast } = useToast();
   const { formatAmount } = useCurrency();
@@ -70,13 +76,18 @@ export default function ImportReview({ transactions: initial, categories, onDone
     setIsSaving(true);
     try {
       let success = 0;
-      for (const tx of toImport) {
-        const res = await fetch(getApiUrl("/api/transactions"), {
-          method: "POST",
-          headers: { Authorization: `Bearer ${session?.access_token}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ type: tx.type, amount: tx.amount, description: tx.description, date: tx.date, categoryId: tx.categoryId, notes: "Imported from bank statement" }),
-        });
-        if (res.ok) success++;
+      if (onSave) {
+        const result = await onSave(toImport);
+        success = result.success;
+      } else {
+        for (const tx of toImport) {
+          const res = await fetch(getApiUrl("/api/transactions"), {
+            method: "POST",
+            headers: { Authorization: `Bearer ${session?.access_token}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ type: tx.type, amount: tx.amount, description: tx.description, date: tx.date, categoryId: tx.categoryId, notes: "Imported from bank statement" }),
+          });
+          if (res.ok) success++;
+        }
       }
       toast({
         title: `${success} transaction${success !== 1 ? "s" : ""} imported`,
@@ -184,6 +195,16 @@ export default function ImportReview({ transactions: initial, categories, onDone
                   </button>
                 </div>
               </div>
+
+              {tx.isDuplicate && (
+                <div className="mt-1.5 pl-7 flex items-start gap-1.5 text-[11px] text-amber-600 dark:text-amber-400">
+                  <AlertTriangle className="h-3 w-3 shrink-0 mt-0.5" />
+                  <span>
+                    Possible duplicate
+                    {tx.duplicateOf && ` of "${tx.duplicateOf.description}" on ${tx.duplicateOf.date}`}
+                  </span>
+                </div>
+              )}
 
               {/* Fila inferior: categoría */}
               <div className="mt-2 pl-7">

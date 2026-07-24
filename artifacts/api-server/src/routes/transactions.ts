@@ -91,6 +91,57 @@ router.post("/transactions", async (req, res) => {
   });
 });
 
+const MAX_BULK_TRANSACTIONS = 3000;
+
+// Uso único (import de Excel en Onboarding): crea muchas transacciones en un
+// solo insert, para no hacer N POSTs sueltos contra el free tier de Render.
+router.post("/transactions/bulk", async (req, res) => {
+  const userId = (req as any).userId;
+  const incoming = req.body?.transactions;
+  if (!Array.isArray(incoming) || incoming.length === 0) {
+    return res.status(400).json({ error: "No transactions provided" });
+  }
+  if (incoming.length > MAX_BULK_TRANSACTIONS) {
+    return res.status(400).json({ error: `Too many transactions (max ${MAX_BULK_TRANSACTIONS})` });
+  }
+
+  const valid = incoming.filter((t: any) =>
+    (t.type === "expense" || t.type === "income")
+    && typeof t.amount === "number" && !Number.isNaN(t.amount)
+    && typeof t.description === "string" && t.description.trim().length > 0
+    && typeof t.date === "string" && t.date.trim().length > 0
+    && typeof t.categoryId === "number",
+  );
+
+  const categoryIds = [...new Set(valid.map((t: any) => t.categoryId as number))];
+  const ownedCategories = categoryIds.length > 0
+    ? await db.select({ id: categoriesTable.id }).from(categoriesTable)
+        .where(and(inArray(categoriesTable.id, categoryIds), eq(categoriesTable.userId, userId)))
+    : [];
+  const ownedIds = new Set(ownedCategories.map((c) => c.id));
+
+  const toInsert = valid.filter((t: any) => ownedIds.has(t.categoryId));
+  const failed = incoming.length - toInsert.length;
+
+  if (toInsert.length === 0) {
+    return res.json({ created: 0, failed, createdIds: [] });
+  }
+
+  const rows = await db.insert(transactionsTable)
+    .values(toInsert.map((t: any) => ({
+      type: t.type,
+      amount: String(t.amount),
+      description: t.description,
+      date: t.date,
+      categoryId: t.categoryId,
+      notes: t.notes ?? null,
+      userId,
+    })))
+    .returning({ id: transactionsTable.id });
+
+  return res.status(201).json({ created: rows.length, failed, createdIds: rows.map((r) => r.id) });
+});
+
 router.get("/transactions/:id", async (req, res) => {
   const parsed = GetTransactionParams.safeParse({ id: Number(req.params.id) });
   if (!parsed.success) return res.status(400).json({ error: "Invalid id" });

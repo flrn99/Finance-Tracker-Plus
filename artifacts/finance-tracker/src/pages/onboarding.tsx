@@ -1,10 +1,12 @@
-import { Sun, Moon, Monitor, DollarSign, Fingerprint, ShieldCheck } from "lucide-react";
+import { useState } from "react";
+import { Sun, Moon, Monitor, DollarSign, Fingerprint, ShieldCheck, FileSpreadsheet, ChevronRight } from "lucide-react";
 import { useTheme, type Theme } from "@/lib/theme-context";
 import { useCurrency, type Currency, CURRENCY_INFO } from "@/lib/currency-context";
 import { useBiometricPinFlow, BiometricPinModal } from "@/components/biometric-pin-modal";
 import { BiometricToggle } from "@/pages/settings";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { LogoMark } from "@/components/logo-mark";
+import ExcelImportFlow from "@/components/excel-import-flow";
 import { cn } from "@/lib/utils";
 
 const THEME_OPTIONS: { value: Theme; label: string; icon: any }[] = [
@@ -23,6 +25,7 @@ export default function Onboarding({ onDone }: { onDone: () => void }) {
   const { currency, setCurrency } = useCurrency();
   const bio = useBiometricPinFlow();
   const themeIndex = THEME_OPTIONS.findIndex((o) => o.value === theme);
+  const [importOpen, setImportOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-background flex flex-col" style={{ paddingTop: "env(safe-area-inset-top)" }}>
@@ -93,7 +96,7 @@ export default function Onboarding({ onDone }: { onDone: () => void }) {
 
           {/* Biometric lock — solo tiene sentido ofrecerlo si el device lo soporta */}
           {bio.isSupported && (
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 pb-5 border-b border-border">
               <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center shrink-0", bio.isEnabled ? "bg-[#00A870]/15" : "bg-muted")}>
                 {bio.isEnabled
                   ? <ShieldCheck className="h-4 w-4 text-[#00593C] dark:text-[#6EE7B7]" />
@@ -108,6 +111,24 @@ export default function Onboarding({ onDone }: { onDone: () => void }) {
               <BiometricToggle on={bio.isEnabled} onToggle={bio.startToggle} />
             </div>
           )}
+
+          {/* Import — uso único, pensado para el día 1 (traer historial viejo).
+              No vive en Settings ni en el nav: si el usuario lo salta acá, no
+              hay otro lugar para volver a hacerlo. */}
+          <button
+            type="button"
+            onClick={() => setImportOpen(true)}
+            className="w-full flex items-center gap-3 text-left"
+          >
+            <div className="w-9 h-9 rounded-xl bg-muted flex items-center justify-center shrink-0">
+              <FileSpreadsheet className="h-4 w-4 text-foreground" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-foreground">Import old transactions</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Bring your history from a spreadsheet</p>
+            </div>
+            <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+          </button>
         </div>
 
         <button
@@ -126,6 +147,7 @@ export default function Onboarding({ onDone }: { onDone: () => void }) {
       </div>
 
       <BiometricPinModal flow={bio} />
+      {importOpen && <ExcelImportFlow onClose={() => setImportOpen(false)} />}
     </div>
   );
 }
