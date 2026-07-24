@@ -2744,7 +2744,15 @@ export default function Goals() {
         open={detailId !== null}
         onClose={() => setDetailId(null)}
         onToggleDay={(date) => { const h = retainedHabitRef.current; if (h) handleToggleHabitDay(h.id, date); }}
-        onEdit={() => { const h = retainedHabitRef.current; setDetailId(null); if (h) openEditHabit(h); }}
+        onEdit={() => {
+          // Espera a que termine la animación de salida (180ms, igual que
+          // FloatingModal) antes de abrir el form de edición — si arrancan
+          // juntas, las dos modales (cada una a pantalla completa, con su
+          // propio backdrop) se cruzan superpuestas en el mismo lugar.
+          const h = retainedHabitRef.current;
+          setDetailId(null);
+          if (h) setTimeout(() => openEditHabit(h), 180);
+        }}
         onDelete={() => {
           const h = retainedHabitRef.current;
           if (!h) return;
@@ -2765,7 +2773,11 @@ export default function Goals() {
         symbol={symbol}
         onClose={() => setBillDetailId(null)}
         onToggleMonth={(month) => { const b = retainedBillRef.current; if (b) handleToggleBillMonth(b, month); }}
-        onEdit={() => { const b = retainedBillRef.current; setBillDetailId(null); if (b) openEditBill(b); }}
+        onEdit={() => {
+          const b = retainedBillRef.current;
+          setBillDetailId(null);
+          if (b) setTimeout(() => openEditBill(b), 180);
+        }}
         onDelete={(deleteTransactions) => {
           const b = retainedBillRef.current;
           if (!b) return;
@@ -2780,8 +2792,16 @@ export default function Goals() {
         open={goalDetailId !== null}
         symbol={symbol}
         onClose={() => setGoalDetailId(null)}
-        onAddMoney={() => { const g = retainedGoalRef.current; setGoalDetailId(null); if (g) { setAddMoneyGoal(g); setAddAmount(""); } }}
-        onEdit={() => { const g = retainedGoalRef.current; setGoalDetailId(null); if (g) openEditGoal(g); }}
+        onAddMoney={() => {
+          const g = retainedGoalRef.current;
+          setGoalDetailId(null);
+          if (g) setTimeout(() => { setAddMoneyGoal(g); setAddAmount(""); }, 180);
+        }}
+        onEdit={() => {
+          const g = retainedGoalRef.current;
+          setGoalDetailId(null);
+          if (g) setTimeout(() => openEditGoal(g), 180);
+        }}
         onDelete={() => {
           const g = retainedGoalRef.current;
           if (!g) return;
