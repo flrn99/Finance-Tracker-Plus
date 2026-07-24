@@ -30,6 +30,14 @@ function SectionTitle({ title }: { title: string }) {
  * que las filas navegables tengan foco de teclado; asStatic=true solo cuando
  * la fila ya contiene su propio control interactivo adentro (el toggle), para
  * no anidar un <button> dentro de otro. */
+// income = verde de Excel (import/export); balance = morado del hero de
+// Balance, reservado para Biometric Lock — antes ambos compartían el mismo
+// verde y se confundían visualmente en la misma página.
+const TINT_STYLES = {
+  income: { bg: "bg-[#00A870]/15", text: "text-[#00593C] dark:text-[#6EE7B7]" },
+  balance: { bg: "bg-[#B026FF]/15", text: "text-[#8A1ECC] dark:text-[#D9A3FF]" },
+} as const;
+
 function SettingRow({
   icon: Icon,
   label,
@@ -47,7 +55,7 @@ function SettingRow({
   right?: React.ReactNode;
   onClick?: () => void;
   destructive?: boolean;
-  tinted?: boolean;
+  tinted?: keyof typeof TINT_STYLES;
   bordered?: boolean;
   asStatic?: boolean;
 }) {
@@ -64,11 +72,11 @@ function SettingRow({
     >
       <div className={cn(
         "w-9 h-9 rounded-xl flex items-center justify-center shrink-0",
-        destructive ? "bg-destructive/10" : tinted ? "bg-[#00A870]/15" : "bg-muted"
+        destructive ? "bg-destructive/10" : tinted ? TINT_STYLES[tinted].bg : "bg-muted"
       )}>
         <Icon className={cn(
           "h-4 w-4",
-          destructive ? "text-destructive" : tinted ? "text-[#00593C] dark:text-[#6EE7B7]" : "text-foreground"
+          destructive ? "text-destructive" : tinted ? TINT_STYLES[tinted].text : "text-foreground"
         )} />
       </div>
       <div className="flex-1 min-w-0">
@@ -338,7 +346,7 @@ export default function Settings() {
             icon={bio.isEnabled ? ShieldCheck : Fingerprint}
             label="Biometric Lock"
             description={bio.isEnabled ? "App is protected · Tap to disable" : "Require Face ID or fingerprint to open"}
-            tinted={bio.isEnabled}
+            tinted={bio.isEnabled ? "balance" : undefined}
             right={<BiometricToggle on={bio.isEnabled} onToggle={bio.startToggle} />}
           />
         </div>
@@ -353,7 +361,7 @@ export default function Settings() {
               label="Excel"
               description="Import or export your transactions"
               onClick={() => navigate("/export")}
-              tinted
+              tinted="income"
               right={<ChevronRight className="h-4 w-4 text-muted-foreground" />}
             />
             <ConfirmDialog

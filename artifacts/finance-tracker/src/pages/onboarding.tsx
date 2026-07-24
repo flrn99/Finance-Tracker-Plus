@@ -97,9 +97,9 @@ export default function Onboarding({ onDone }: { onDone: () => void }) {
           {/* Biometric lock — solo tiene sentido ofrecerlo si el device lo soporta */}
           {bio.isSupported && (
             <div className="flex items-center gap-4 pb-5 border-b border-border">
-              <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center shrink-0", bio.isEnabled ? "bg-[#00A870]/15" : "bg-muted")}>
+              <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center shrink-0", bio.isEnabled ? "bg-[#B026FF]/15" : "bg-muted")}>
                 {bio.isEnabled
-                  ? <ShieldCheck className="h-4 w-4 text-[#00593C] dark:text-[#6EE7B7]" />
+                  ? <ShieldCheck className="h-4 w-4 text-[#8A1ECC] dark:text-[#D9A3FF]" />
                   : <Fingerprint className="h-4 w-4 text-foreground" />}
               </div>
               <div className="flex-1 min-w-0">
