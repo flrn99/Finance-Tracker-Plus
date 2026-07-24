@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 import { App } from "@capacitor/app";
 import { cn } from "@/lib/utils";
@@ -55,15 +55,59 @@ export function FloatingModal({
     return () => { document.body.style.overflow = prev; };
   }, [mounted]);
 
+  // onClose/onBackButton son closures nuevas en cada render del caller (ej. el
+  // sheet unificado de Goals arma onBackButton leyendo `detailEditing` actual).
+  // Si el efecto de abajo las tomara como dependencia directa, el listener
+  // nativo se sacaría y volvería a poner en CADA render mientras el modal está
+  // abierto (cada tecla tipeada en un form, por ejemplo) — con refs, el efecto
+  // que arma/desarma el listener corre solo cuando `open` cambia, pero al
+  // dispararse siempre lee la versión más reciente.
+  const onCloseRef = useRef(onClose);
+  const onBackButtonRef = useRef(onBackButton);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+    onBackButtonRef.current = onBackButton;
+  });
+
   // Back nativo de Android: por default cierra el modal (mismo patrón que ya
   // usan entry-sheet.tsx y login.tsx), pero si el caller pasó onBackButton
   // (hay una vista "atrás" dentro del mismo sheet) usa eso en su lugar — así
   // el primer back retrocede un paso y recién un segundo back cierra de verdad.
   useEffect(() => {
     if (!open) return;
-    const handler = App.addListener("backButton", () => (onBackButton ?? onClose)());
+    const handler = App.addListener("backButton", () => (onBackButtonRef.current ?? onCloseRef.current)());
     return () => { handler.then((h) => h.remove()); };
-  }, [open, onBackButton, onClose]);
+  }, [open]);
+
+  // Swipe-back de iOS: a diferencia del backButton de Android, esto NO es un
+  // evento de Capacitor — es el gesto nativo de WKWebView (allowsBackForward
+  // NavigationGestures en BridgeViewController.swift) navegando el MISMO
+  // historial que usa wouter para las rutas. Sin esto, abrir un modal no deja
+  // ningún rastro en ese historial, así que un swipe-back navegaba la página
+  // de ATRÁS (ej. Goals → Dashboard) con el modal todavía flotando encima, en
+  // vez de cerrarlo. El truco estándar: empujar una entrada "dummy" (misma URL,
+  // no cambia la ruta) al abrir, y escuchar popstate — el swipe la consume y
+  // dispara popstate en vez de navegar de verdad. Se vuelve a empujar una nueva
+  // dummy en cada popstate (no solo al abrir) porque un back "parcial" (ej.
+  // volver de editar a detalle dentro del mismo sheet) deja el modal abierto
+  // pero sin protección para el próximo swipe si no se re-arma.
+  useEffect(() => {
+    if (!open) return;
+    history.pushState({ floatingModal: true }, "", location.href);
+    const onPopState = () => {
+      (onBackButtonRef.current ?? onCloseRef.current)();
+      history.pushState({ floatingModal: true }, "", location.href);
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => {
+      window.removeEventListener("popstate", onPopState);
+      // Cierre programático (X, backdrop, back de Android) — nunca se consumió
+      // la dummy vía un popstate real, hay que sacarla para que el próximo
+      // swipe-back del usuario navegue de verdad en vez de "gastarse" en una
+      // entrada idéntica a la actual.
+      history.back();
+    };
+  }, [open]);
 
   if (!mounted) return null;
   return (
