@@ -29,10 +29,10 @@ const AuthContext = createContext<AuthContextType>({
 // (EXPENSE_COLORS/INCOME_COLORS en category-form-modal.tsx) para que una
 // cuenta nueva no dispare la migración de "color viejo" en el primer render.
 const DEFAULT_CATEGORIES = [
-  { name: "Food & Dining", type: "expense", color: "#f43f5e", icon: "utensils" },
-  { name: "Transport", type: "expense", color: "#8b5cf6", icon: "car" },
+  { name: "Food", type: "expense", color: "#f43f5e", icon: "utensils" },
   { name: "Shopping", type: "expense", color: "#ec4899", icon: "shoppingbag" },
-  { name: "Bills & Utilities", type: "expense", color: "#ef4444", icon: "zap" },
+  { name: "Gas", type: "expense", color: "#8b5cf6", icon: "car" },
+  { name: "Other", type: "expense", color: "#ef4444", icon: "tag" },
   { name: "Salary", type: "income", color: "#22c55e", icon: "briefcase" },
   { name: "Freelance", type: "income", color: "#0ea5e9", icon: "laptop" },
 ];
