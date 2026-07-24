@@ -120,8 +120,8 @@ export default function Onboarding({ onDone }: { onDone: () => void }) {
             onClick={() => setImportOpen(true)}
             className="w-full flex items-center gap-3 text-left"
           >
-            <div className="w-9 h-9 rounded-xl bg-muted flex items-center justify-center shrink-0">
-              <FileSpreadsheet className="h-4 w-4 text-foreground" />
+            <div className="w-9 h-9 rounded-xl bg-[#00A870]/15 flex items-center justify-center shrink-0">
+              <FileSpreadsheet className="h-4 w-4 text-[#00593C] dark:text-[#6EE7B7]" />
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-foreground">Import old transactions</p>

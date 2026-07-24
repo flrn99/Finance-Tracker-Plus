@@ -353,6 +353,7 @@ export default function Settings() {
               label="Excel"
               description="Import or export your transactions"
               onClick={() => navigate("/export")}
+              tinted
               right={<ChevronRight className="h-4 w-4 text-muted-foreground" />}
             />
             <ConfirmDialog

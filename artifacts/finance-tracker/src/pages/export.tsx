@@ -84,7 +84,7 @@ export function ExportPanel({ onDone }: { onDone?: () => void }) {
   return (
     <div className="bg-card rounded-2xl shadow-sm overflow-hidden">
       <div className="px-5 pt-5 pb-4 flex items-center gap-2">
-        <FileSpreadsheet className="h-5 w-5 text-primary shrink-0" />
+        <FileSpreadsheet className="h-5 w-5 text-[#00593C] dark:text-[#6EE7B7] shrink-0" />
         <div>
           <p className="text-sm font-bold text-foreground">Excel Export</p>
           <p className="text-xs text-muted-foreground mt-0.5">Filter by date range or download everything</p>
@@ -156,7 +156,7 @@ export default function Export() {
           usuario no tenía el archivo a mano el día que se registró. */}
       <div className="bg-card rounded-2xl shadow-sm overflow-hidden">
         <div className="px-5 pt-5 pb-4 flex items-center gap-2">
-          <FileSpreadsheet className="h-5 w-5 text-primary shrink-0" />
+          <FileSpreadsheet className="h-5 w-5 text-[#00593C] dark:text-[#6EE7B7] shrink-0" />
           <div>
             <p className="text-sm font-bold text-foreground">Excel Import</p>
             <p className="text-xs text-muted-foreground mt-0.5">Bring transactions from a spreadsheet</p>

@@ -316,8 +316,8 @@ export default function ExcelImportFlow({ onClose }: { onClose: () => void }) {
 
         {step === "upload" && (
           <div className="flex flex-col items-center text-center py-10">
-            <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center mb-4">
-              <FileSpreadsheet className="h-7 w-7 text-foreground" />
+            <div className="w-16 h-16 rounded-2xl bg-[#00A870]/15 flex items-center justify-center mb-4">
+              <FileSpreadsheet className="h-7 w-7 text-[#00593C] dark:text-[#6EE7B7]" />
             </div>
             <p className="text-sm text-muted-foreground mb-6 max-w-[240px]">
               Bring in transactions from a spreadsheet (.xlsx, .xls or .csv) so you don't lose your history.
