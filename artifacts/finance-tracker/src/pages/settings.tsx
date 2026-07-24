@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Sun, Moon, Monitor, Trash2, LogOut, UserX, Download, FileSpreadsheet, ChevronRight, ChevronLeft, DollarSign, User, Plus, Fingerprint, ShieldCheck, AlertTriangle } from "lucide-react";
+import { Sun, Moon, Monitor, Trash2, LogOut, UserX, FileSpreadsheet, ChevronRight, ChevronLeft, DollarSign, User, Plus, Fingerprint, ShieldCheck, AlertTriangle } from "lucide-react";
 import { useLocation } from "wouter";
 import { useTheme, type Theme } from "@/lib/theme-context";
 import { useCurrency, type Currency, CURRENCY_INFO } from "@/lib/currency-context";
@@ -12,7 +12,6 @@ import { useBiometricPinFlow, BiometricPinModal } from "@/components/biometric-p
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { getApiUrl } from "@/lib/api-config";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import ExcelImportFlow from "@/components/excel-import-flow";
 
 const THEME_OPTIONS: { value: Theme; label: string; icon: any }[] = [
   { value: "light", label: "Light", icon: Sun },
@@ -123,7 +122,6 @@ export default function Settings() {
     try { return localStorage.getItem("ff-avatar") as "male" | "female" | null; } catch { return null; }
   });
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
-  const [importOpen, setImportOpen] = useState(false);
   // Entraba/salía de golpe, sin ninguna animación — mismo fix que el resto de
   // los modales de esta sesión: mounted/closing dan la entrada+salida
   // simétrica que ya usa FloatingModal en el resto de la app.
@@ -352,15 +350,8 @@ export default function Settings() {
           <div>
             <SettingRow
               icon={FileSpreadsheet}
-              label="Import from Excel"
-              description="Bring transactions from a spreadsheet"
-              onClick={() => setImportOpen(true)}
-              right={<ChevronRight className="h-4 w-4 text-muted-foreground" />}
-            />
-            <SettingRow
-              icon={Download}
-              label="Export to Excel"
-              description="Download all your transactions"
+              label="Excel"
+              description="Import or export your transactions"
               onClick={() => navigate("/export")}
               right={<ChevronRight className="h-4 w-4 text-muted-foreground" />}
             />
@@ -439,7 +430,6 @@ export default function Settings() {
       </div>
 
       <BiometricPinModal flow={bio} />
-      {importOpen && <ExcelImportFlow onClose={() => setImportOpen(false)} />}
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Download, FileSpreadsheet, DatabaseZap, ChevronLeft } from "lucide-react";
+import { Download, Upload, FileSpreadsheet, DatabaseZap, ChevronLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import MonthSelect from "@/components/month-select";
@@ -9,6 +9,7 @@ import { getApiUrl } from "@/lib/api-config";
 import { Filesystem, Directory } from "@capacitor/filesystem";
 import { Capacitor } from "@capacitor/core";
 import { supabase } from "@/lib/supabase";
+import ExcelImportFlow from "@/components/excel-import-flow";
 
 function lastDayOfMonth(ym: string): string {
   const [y, m] = ym.split("-").map(Number);
@@ -133,6 +134,7 @@ export function ExportPanel({ onDone }: { onDone?: () => void }) {
 
 export default function Export() {
   const [, navigate] = useLocation();
+  const [importOpen, setImportOpen] = useState(false);
 
   return (
     <div className="max-w-2xl mx-auto space-y-4 animate-in fade-in duration-500">
@@ -145,9 +147,37 @@ export default function Export() {
         Settings
       </button>
 
-      <h2 className="text-3xl font-bold tracking-tight">Export Data</h2>
+      <h2 className="text-3xl font-bold tracking-tight">Excel</h2>
 
       <ExportPanel />
+
+      {/* Import — mismo flujo fullscreen (upload → mapeo → preview) que ya
+          se ofrece en Onboarding, ahora también accesible acá para cuando el
+          usuario no tenía el archivo a mano el día que se registró. */}
+      <div className="bg-card rounded-2xl shadow-sm overflow-hidden">
+        <div className="px-5 pt-5 pb-4 flex items-center gap-2">
+          <FileSpreadsheet className="h-5 w-5 text-primary shrink-0" />
+          <div>
+            <p className="text-sm font-bold text-foreground">Excel Import</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Bring transactions from a spreadsheet</p>
+          </div>
+        </div>
+        <div className="border-t border-border px-5 py-4">
+          <Button
+            onClick={() => setImportOpen(true)}
+            className="gap-2 w-full text-black border-0 font-bold"
+            style={{
+              background: "linear-gradient(135deg, #CAFA01 0%, #7CB518 100%)",
+              boxShadow: "inset 0 1px 1px rgba(255,255,255,0.55), 0 4px 10px -2px rgba(124,181,24,0.45)",
+            }}
+          >
+            <Upload className="h-4 w-4" />
+            Choose File
+          </Button>
+        </div>
+      </div>
+
+      {importOpen && <ExcelImportFlow onClose={() => setImportOpen(false)} />}
     </div>
   );
 }
