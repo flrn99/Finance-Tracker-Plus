@@ -1208,25 +1208,23 @@ function MonthHeatmap({ months, logged, color }: { months: string[]; logged: Set
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const DOW = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
+// Componente de solo contenido — el FloatingModal que lo envuelve vive en el
+// padre (ver "Sheet unificado" más abajo), compartido con HabitForm cuando se
+// edita in-place, así que acá `habit` es no-nulo (el padre lo condiciona al
+// renderizar) y no hay `open`/wrapper propio.
 function HabitDetail({
-  habit, open, onClose, onToggleDay, onEdit, onDelete,
+  habit, onToggleDay, onEdit, onDelete,
 }: {
-  habit: Habit | null;
-  open: boolean;
-  onClose: () => void;
+  habit: Habit;
   onToggleDay: (date: string) => void;
   onEdit: () => void;
   onDelete: () => void;
 }) {
   const now = new Date();
   const [month, setMonth] = useState({ y: now.getFullYear(), m: now.getMonth() });
-  const color = habit?.color ?? "#CAFA01";
+  const color = habit.color ?? "#CAFA01";
   const { theme } = useTheme();
-  // habit puede ser null mientras el modal está montado sin haberse abierto
-  // nunca (antes de la primera selección) — este componente ahora vive montado
-  // siempre (ver comentario en FloatingModal más abajo), así que los hooks no
-  // pueden depender de que habit exista.
-  const logged = useMemo(() => new Set(habit?.logs ?? []), [habit]);
+  const logged = useMemo(() => new Set(habit.logs), [habit.logs]);
   const weeks = useMemo(() => buildWeeks(26), []);
   const today = todayKey();
 
@@ -1258,14 +1256,7 @@ function HabitDetail({
   }, [pulsingKey]);
 
   return (
-    // open ahora viene del padre en vez de hardcodeado en `true` — antes esto
-    // se montaba/desmontaba entero con {detailHabit && <HabitDetail/>}, así
-    // que el desmonte del padre le ganaba de mano a la animación de salida de
-    // FloatingModal (nunca llegaba a jugar). Ahora el componente vive montado
-    // siempre y es FloatingModal el que decide cuándo desaparecer de verdad.
-    <FloatingModal open={open} onClose={onClose} title="">
-      {habit && (
-      <div className="-mt-8 space-y-3">
+    <div className="-mt-8 space-y-3">
         <div className="flex items-center gap-2.5">
           <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${color}25` }}>
             <HabitIcon icon={habit.icon} className="h-4 w-4" style={{ color: chipTextColor(color, theme) }} />
@@ -1350,9 +1341,7 @@ function HabitDetail({
             </div>
           </div>
         </div>
-      </div>
-      )}
-    </FloatingModal>
+    </div>
   );
 }
 
@@ -1430,12 +1419,11 @@ function DeleteBillDialog({
 /* con nav de mes.                                                     */
 /* ------------------------------------------------------------------ */
 
+// Solo contenido, mismo motivo que HabitDetail — el FloatingModal vive en el padre.
 function BillDetail({
-  bill, open, onClose, onToggleMonth, onEdit, onDelete, category, symbol,
+  bill, onToggleMonth, onEdit, onDelete, category, symbol,
 }: {
-  bill: Bill | null;
-  open: boolean;
-  onClose: () => void;
+  bill: Bill;
   onToggleMonth: (month: string) => void;
   onEdit: () => void;
   onDelete: (deleteTransactions: boolean) => void;
@@ -1443,24 +1431,19 @@ function BillDetail({
   symbol: string;
 }) {
   const [year, setYear] = useState(new Date().getFullYear());
-  const color = bill?.color ?? "#CAFA01";
+  const color = bill.color ?? "#CAFA01";
   const { theme } = useTheme();
-  // bill puede ser null antes de la primera selección — este componente vive
-  // montado siempre (ver comentario en HabitDetail), los hooks no pueden
-  // depender de que exista.
-  const logged = useMemo(() => new Set(bill?.logs ?? []), [bill]);
+  const logged = useMemo(() => new Set(bill.logs), [bill.logs]);
   const months = useMemo(() => monthsOfYear(year), [year]);
   const overviewMonths = useMemo(() => monthsOfYear(new Date().getFullYear()), []);
   const current = currentMonthKey();
-  const paidThisYear = bill?.logs.filter((m) => m.startsWith(String(year))).length ?? 0;
+  const paidThisYear = bill.logs.filter((m) => m.startsWith(String(year))).length;
 
   const prevYear = () => setYear((y) => y - 1);
   const nextYear = () => setYear((y) => y + 1);
 
   return (
-    <FloatingModal open={open} onClose={onClose} title="">
-      {bill && (
-      <div className="-mt-8 space-y-3">
+    <div className="-mt-8 space-y-3">
         <div className="flex items-center gap-2.5">
           <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${color}25` }}>
             <span className="text-sm font-black leading-none" style={{ color: chipTextColor(color, theme) }}>{bill.day}</span>
@@ -1537,9 +1520,7 @@ function BillDetail({
             </div>
           </div>
         </div>
-      </div>
-      )}
-    </FloatingModal>
+    </div>
   );
 }
 
@@ -1549,28 +1530,23 @@ function BillDetail({
 /* resumen + edit/delete. No hay grid interactivo porque no aplica.       */
 /* ------------------------------------------------------------------ */
 
+// Solo contenido, mismo motivo que HabitDetail — el FloatingModal vive en el padre.
 function GoalDetail({
-  goal, open, onClose, onAddMoney, onEdit, onDelete, symbol,
+  goal, onAddMoney, onEdit, onDelete, symbol,
 }: {
-  goal: Goal | null;
-  open: boolean;
-  onClose: () => void;
+  goal: Goal;
   onAddMoney: () => void;
   onEdit: () => void;
   onDelete: () => void;
   symbol: string;
 }) {
-  const color = goal?.color ?? "#CAFA01";
+  const color = goal.color ?? "#CAFA01";
   const { theme } = useTheme();
-  // goal puede ser null antes de la primera selección — este componente vive
-  // montado siempre (ver comentario en HabitDetail).
-  const pct = goal && goal.targetAmount > 0 ? Math.min(100, (goal.currentAmount / goal.targetAmount) * 100) : 0;
-  const remaining = goal ? Math.max(0, goal.targetAmount - goal.currentAmount) : 0;
+  const pct = goal.targetAmount > 0 ? Math.min(100, (goal.currentAmount / goal.targetAmount) * 100) : 0;
+  const remaining = Math.max(0, goal.targetAmount - goal.currentAmount);
 
   return (
-    <FloatingModal open={open} onClose={onClose} title="">
-      {goal && (
-      <div className="-mt-8 space-y-3">
+    <div className="-mt-8 space-y-3">
         <div className="flex items-center gap-2.5">
           <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${color}25` }}>
             <HabitIcon icon={goal.icon} className="h-4 w-4" style={{ color: chipTextColor(color, theme) }} />
@@ -1614,9 +1590,7 @@ function GoalDetail({
             onConfirm={onDelete}
           />
         </div>
-      </div>
-      )}
-    </FloatingModal>
+    </div>
   );
 }
 
@@ -1628,12 +1602,18 @@ export default function Goals() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const [goalModal, setGoalModal] = useState<"create" | number | null>(null);
-  const [habitModal, setHabitModal] = useState<"create" | number | null>(null);
-  const [billModal, setBillModal] = useState<"create" | number | null>(null);
+  const [goalModal, setGoalModal] = useState<"create" | null>(null);
+  const [habitModal, setHabitModal] = useState<"create" | null>(null);
+  const [billModal, setBillModal] = useState<"create" | null>(null);
   const [detailId, setDetailId] = useState<number | null>(null);
   const [billDetailId, setBillDetailId] = useState<number | null>(null);
   const [goalDetailId, setGoalDetailId] = useState<number | null>(null);
+  // Editar desde el detalle ya NO cierra el sheet de detalle y abre uno nuevo
+  // (eso era lo que se pisaba/saltaba) — el mismo FloatingModal que ya está
+  // abierto cambia de contenido (crossfade) hacia el form, sin cerrar/reabrir.
+  const [detailEditing, setDetailEditing] = useState(false);
+  const [billDetailEditing, setBillDetailEditing] = useState(false);
+  const [goalDetailEditing, setGoalDetailEditing] = useState(false);
   const [addMoneyGoal, setAddMoneyGoal] = useState<Goal | null>(null);
   const [addAmount, setAddAmount] = useState("");
   // Colapso real al borrar (mismo patrón que transactions.tsx/CategoryRow): la
@@ -1746,7 +1726,12 @@ export default function Goals() {
       api(`/goals/${id}`, { method: "PATCH", body: goalPayload(data) }),
     // ⚡ Optimista: cambios visibles al instante
     onMutate: async ({ id, data }) => {
+      // Cierra cualquiera de las dos vías que pueden disparar un update: el
+      // modal standalone (no debería quedar ninguno vivo, pero es inocuo) o el
+      // sheet de detalle editando in-place.
       setGoalModal(null);
+      setGoalDetailId(null);
+      setGoalDetailEditing(false);
       await queryClient.cancelQueries({ queryKey: ["goals"] });
       const prev = queryClient.getQueryData<Goal[]>(["goals"]);
       queryClient.setQueryData<Goal[]>(["goals"], (old) =>
@@ -1833,6 +1818,8 @@ export default function Goals() {
     // ⚡ Optimista
     onMutate: async ({ id, data }) => {
       setHabitModal(null);
+      setDetailId(null);
+      setDetailEditing(false);
       await queryClient.cancelQueries({ queryKey: ["habits"] });
       const prev = queryClient.getQueryData<Habit[]>(["habits"]);
       queryClient.setQueryData<Habit[]>(["habits"], (old) =>
@@ -1947,6 +1934,8 @@ export default function Goals() {
       api(`/bills/${id}`, { method: "PATCH", body: billPayload(data) }),
     onMutate: async ({ id, data }) => {
       setBillModal(null);
+      setBillDetailId(null);
+      setBillDetailEditing(false);
       await queryClient.cancelQueries({ queryKey: ["bills"] });
       const prev = queryClient.getQueryData<Bill[]>(["bills"]);
       queryClient.setQueryData<Bill[]>(["bills"], (old) =>
@@ -2069,12 +2058,14 @@ export default function Goals() {
     setGoalModal("create");
   };
 
-  const openEditGoal = (g: Goal) => {
+  // Edit-desde-detalle: mismo sheet ya abierto (goalDetailId no se toca), solo
+  // cambia de vista hacia el form — no hay un segundo modal que abrir.
+  const openEditGoalInPlace = (g: Goal) => {
     goalForm.reset({
       name: g.name, targetAmount: g.targetAmount, currentAmount: g.currentAmount,
       icon: g.icon ?? "piggybank", color: g.color ?? "#CAFA01",
     });
-    setGoalModal(g.id);
+    setGoalDetailEditing(true);
   };
 
   const openCreateHabit = () => {
@@ -2082,19 +2073,23 @@ export default function Goals() {
     setHabitModal("create");
   };
 
-  const openEditHabit = (h: Habit) => {
+  const openEditHabitInPlace = (h: Habit) => {
     habitForm.reset({ name: h.name, icon: h.icon ?? "ban", color: h.color ?? "#CAFA01" });
-    setHabitModal(h.id);
+    setDetailEditing(true);
   };
 
   const onGoalSubmit = (data: GoalFormValues) => {
     if (goalModal === "create") createGoal.mutate(data);
-    else if (typeof goalModal === "number") updateGoal.mutate({ id: goalModal, data });
+  };
+  const onGoalEditSubmit = (data: GoalFormValues) => {
+    if (goalDetailId != null) updateGoal.mutate({ id: goalDetailId, data });
   };
 
   const onHabitSubmit = (data: HabitFormValues) => {
     if (habitModal === "create") createHabit.mutate(data);
-    else if (typeof habitModal === "number") updateHabit.mutate({ id: habitModal, data });
+  };
+  const onHabitEditSubmit = (data: HabitFormValues) => {
+    if (detailId != null) updateHabit.mutate({ id: detailId, data });
   };
 
   const billForm = useForm<BillFormValues>({
@@ -2107,18 +2102,20 @@ export default function Goals() {
     setBillModal("create");
   };
 
-  const openEditBill = (b: Bill) => {
+  const openEditBillInPlace = (b: Bill) => {
     billForm.reset({
       name: b.name, icon: b.icon ?? "creditcard", color: b.color ?? "#CAFA01",
       type: b.type, day: b.day,
       amount: b.amount ?? undefined, categoryId: b.categoryId ?? undefined, autoSave: b.autoSave,
     });
-    setBillModal(b.id);
+    setBillDetailEditing(true);
   };
 
   const onBillSubmit = (data: BillFormValues) => {
     if (billModal === "create") createBill.mutate(data);
-    else if (typeof billModal === "number") updateBill.mutate({ id: billModal, data });
+  };
+  const onBillEditSubmit = (data: BillFormValues) => {
+    if (billDetailId != null) updateBill.mutate({ id: billDetailId, data });
   };
 
   // Al desmarcar un mes que tiene una transacción real vinculada (se marcó con
@@ -2735,81 +2732,117 @@ export default function Goals() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Montadas siempre (no {detailX && <XDetail/>}) — ver comentario junto a
-          retainedHabitRef más arriba. `open` es lo único que controla la
-          visibilidad real; el contenido usa el valor retenido, no detailX
-          directo, para seguir mostrando algo coherente mientras cierra. */}
-      <HabitDetail
-        habit={retainedHabitRef.current}
+      {/* Sheet unificado detalle+edición — un solo FloatingModal por entidad
+          (ver comentario junto a retainedHabitRef más arriba, sigue vivo
+          siempre, retiene el último valor no-nulo). Antes "Edit" cerraba este
+          sheet y abría uno nuevo — dos overlays a pantalla completa
+          cruzándose. Ahora el mismo sheet cambia de contenido (cut+fade-in,
+          150ms) sin cerrar/reabrir nada: nunca hay dos backdrops ni un hueco
+          de pantalla vacía entre medio. */}
+      <FloatingModal
         open={detailId !== null}
-        onClose={() => setDetailId(null)}
-        onToggleDay={(date) => { const h = retainedHabitRef.current; if (h) handleToggleHabitDay(h.id, date); }}
-        onEdit={() => {
-          // Espera a que termine la animación de salida (180ms, igual que
-          // FloatingModal) antes de abrir el form de edición — si arrancan
-          // juntas, las dos modales (cada una a pantalla completa, con su
-          // propio backdrop) se cruzan superpuestas en el mismo lugar.
-          const h = retainedHabitRef.current;
-          setDetailId(null);
-          if (h) setTimeout(() => openEditHabit(h), 180);
-        }}
-        onDelete={() => {
-          const h = retainedHabitRef.current;
-          if (!h) return;
-          setDetailId(null);
-          setExitingHabitIds((prev) => new Set(prev).add(h.id));
-          setTimeout(() => deleteHabit.mutate(h.id), 240);
-        }}
-      />
+        onClose={() => { setDetailId(null); setDetailEditing(false); }}
+        title={detailEditing ? "Edit Habit" : ""}
+      >
+        {retainedHabitRef.current && (
+          detailEditing ? (
+            <div key="edit" className="animate-in fade-in duration-150">
+              <HabitForm form={habitForm} onSubmit={onHabitEditSubmit} isPending={updateHabit.isPending} submitLabel="Save" />
+            </div>
+          ) : (
+            <div key="detail" className="animate-in fade-in duration-150">
+              <HabitDetail
+                habit={retainedHabitRef.current}
+                onToggleDay={(date) => handleToggleHabitDay(retainedHabitRef.current!.id, date)}
+                onEdit={() => openEditHabitInPlace(retainedHabitRef.current!)}
+                onDelete={() => {
+                  const h = retainedHabitRef.current!;
+                  setDetailId(null);
+                  setExitingHabitIds((prev) => new Set(prev).add(h.id));
+                  setTimeout(() => deleteHabit.mutate(h.id), 240);
+                }}
+              />
+            </div>
+          )
+        )}
+      </FloatingModal>
 
-      <BillDetail
-        bill={retainedBillRef.current}
+      <FloatingModal
         open={billDetailId !== null}
-        category={
-          retainedBillRef.current
-            ? (retainedBillRef.current.type === "income" ? incomeCategories : expenseCategories).find((c: any) => c.id === retainedBillRef.current!.categoryId)
-            : undefined
-        }
-        symbol={symbol}
-        onClose={() => setBillDetailId(null)}
-        onToggleMonth={(month) => { const b = retainedBillRef.current; if (b) handleToggleBillMonth(b, month); }}
-        onEdit={() => {
-          const b = retainedBillRef.current;
-          setBillDetailId(null);
-          if (b) setTimeout(() => openEditBill(b), 180);
-        }}
-        onDelete={(deleteTransactions) => {
-          const b = retainedBillRef.current;
-          if (!b) return;
-          setBillDetailId(null);
-          setExitingBillIds((prev) => new Set(prev).add(b.id));
-          setTimeout(() => deleteBill.mutate({ id: b.id, deleteTransactions }), 240);
-        }}
-      />
+        onClose={() => { setBillDetailId(null); setBillDetailEditing(false); }}
+        title={billDetailEditing ? "Edit Flow" : ""}
+      >
+        {retainedBillRef.current && (
+          billDetailEditing ? (
+            <div key="edit" className="animate-in fade-in duration-150">
+              <BillForm
+                form={billForm}
+                onSubmit={onBillEditSubmit}
+                isPending={updateBill.isPending}
+                submitLabel="Save"
+                symbol={symbol}
+                expenseCategories={expenseCategories}
+                incomeCategories={incomeCategories}
+              />
+            </div>
+          ) : (
+            <div key="detail" className="animate-in fade-in duration-150">
+              <BillDetail
+                bill={retainedBillRef.current}
+                category={
+                  (retainedBillRef.current.type === "income" ? incomeCategories : expenseCategories)
+                    .find((c: any) => c.id === retainedBillRef.current!.categoryId)
+                }
+                symbol={symbol}
+                onToggleMonth={(month) => handleToggleBillMonth(retainedBillRef.current!, month)}
+                onEdit={() => openEditBillInPlace(retainedBillRef.current!)}
+                onDelete={(deleteTransactions) => {
+                  const b = retainedBillRef.current!;
+                  setBillDetailId(null);
+                  setExitingBillIds((prev) => new Set(prev).add(b.id));
+                  setTimeout(() => deleteBill.mutate({ id: b.id, deleteTransactions }), 240);
+                }}
+              />
+            </div>
+          )
+        )}
+      </FloatingModal>
 
-      <GoalDetail
-        goal={retainedGoalRef.current}
+      <FloatingModal
         open={goalDetailId !== null}
-        symbol={symbol}
-        onClose={() => setGoalDetailId(null)}
-        onAddMoney={() => {
-          const g = retainedGoalRef.current;
-          setGoalDetailId(null);
-          if (g) setTimeout(() => { setAddMoneyGoal(g); setAddAmount(""); }, 180);
-        }}
-        onEdit={() => {
-          const g = retainedGoalRef.current;
-          setGoalDetailId(null);
-          if (g) setTimeout(() => openEditGoal(g), 180);
-        }}
-        onDelete={() => {
-          const g = retainedGoalRef.current;
-          if (!g) return;
-          setGoalDetailId(null);
-          setExitingGoalIds((prev) => new Set(prev).add(g.id));
-          setTimeout(() => deleteGoal.mutate(g.id), 240);
-        }}
-      />
+        onClose={() => { setGoalDetailId(null); setGoalDetailEditing(false); }}
+        title={goalDetailEditing ? "Edit Goal" : ""}
+      >
+        {retainedGoalRef.current && (
+          goalDetailEditing ? (
+            <div key="edit" className="animate-in fade-in duration-150">
+              <GoalForm form={goalForm} onSubmit={onGoalEditSubmit} isPending={updateGoal.isPending} submitLabel="Save" symbol={symbol} />
+            </div>
+          ) : (
+            <div key="detail" className="animate-in fade-in duration-150">
+              <GoalDetail
+                goal={retainedGoalRef.current}
+                symbol={symbol}
+                onAddMoney={() => {
+                  // Add Money sigue siendo un modal aparte (no se unificó en
+                  // este sheet) — mantiene el delay de 180ms para no pisarse
+                  // con la salida de este, mismo criterio que antes.
+                  const g = retainedGoalRef.current!;
+                  setGoalDetailId(null);
+                  setTimeout(() => { setAddMoneyGoal(g); setAddAmount(""); }, 180);
+                }}
+                onEdit={() => openEditGoalInPlace(retainedGoalRef.current!)}
+                onDelete={() => {
+                  const g = retainedGoalRef.current!;
+                  setGoalDetailId(null);
+                  setExitingGoalIds((prev) => new Set(prev).add(g.id));
+                  setTimeout(() => deleteGoal.mutate(g.id), 240);
+                }}
+              />
+            </div>
+          )
+        )}
+      </FloatingModal>
     </div>
   );
 }
